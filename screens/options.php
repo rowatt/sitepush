@@ -251,7 +251,8 @@ function mra_wpp_field_plugin_management()
 function mra_get_wpp_input_text( $field, $description='', $class='regular-text' )
 {
 	global $mra_wpp_options;
-	$output = "<input id='mra_wpp_field_{$field}' name='mra_wp_push_options[{$field}]' type='text' value='{$mra_wpp_options[$field]}' class='{$class}' />";
+	$value = empty( $mra_wpp_options[$field] ) ? '' : $mra_wpp_options[$field];
+	$output = "<input id='mra_wpp_field_{$field}' name='mra_wp_push_options[{$field}]' type='text' value='{$value}' class='{$class}' />";
 	if( $description )
 		$output .= "<span class='description' style='display:block;'>{$description}</span>";
 	return $output;
@@ -290,23 +291,23 @@ function mra_wpp_validate_options( $options )
 		return $options;
 	}
 	
-	$options['sites_conf'] = trim( $options['sites_conf'] );
+	if( array_key_exists('sites_conf', $options) ) $options['sites_conf'] = trim( $options['sites_conf'] );
 	if( empty( $options['sites_conf'] ) || !file_exists( $options['sites_conf'] ) )
 		$notices['Path not valid - sites config file not found.'] = 'error';
 		
-	$options['dbs_conf'] = trim( $options['dbs_conf'] );
+	if( array_key_exists('dbs_conf', $options) ) $options['dbs_conf'] = trim( $options['dbs_conf'] );
 	if( empty( $options['dbs_conf'] ) ||  !file_exists( $options['dbs_conf'] ) )
 		$notices['Path not valid - DB config file not found.'] = 'error';
 	
-	if( $options['dbs_conf'] == $options['sites_conf'] )
+	if( array_key_exists('sites_conf', $options) && array_key_exists('dbs_conf', $options) && $options['dbs_conf'] == $options['sites_conf'] )
 		$notices['Sites and DBs config files cannot be the same file!'] = 'error';
 
-	$options['backup_path'] = trim( $options['backup_path'] );
+	if( array_key_exists('backup_path', $options) ) $options['backup_path'] = trim( $options['backup_path'] );
 	if( !empty($options['backup_path']) && !file_exists( $options['backup_path'] ) )
 		$notices['Path not valid - backup directory not found.'] = 'error';
 
 	
-	if( $options['timezone'] )
+	if( !empty( $options['timezone'] ) )
 	{
 		@$tz=timezone_open( $options['timezone'] );
 		if( FALSE===$tz )

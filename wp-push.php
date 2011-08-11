@@ -486,6 +486,8 @@ function mra_wpp_settings_notices()
 	
 	if( empty( $mra_wpp_options['notices'] ) ) return FALSE; //nothing to display
 	
+	$output = '';
+	
 	foreach( $mra_wpp_options['notices'] as $notice=>$type )
 	{
 		$class = 'error'==$type ? 'error settings-error' : 'updated settings-error';
