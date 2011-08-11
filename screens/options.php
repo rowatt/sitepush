@@ -212,7 +212,7 @@ function mra_wpp_field_backup_path()
 
 function mra_wpp_field_timezone()
 {
-	echo mra_get_wpp_input_text('timezone','Enter your timezone here to make sure that logs and reporting are in your correct local time. See <a href="http://php.net/manual/en/timezones.php" target="_blank">list of supported timezones</a> for valid values.');
+	echo mra_get_wpp_input_text('timezone','Your default timezone is  <i>' . date_default_timezone_get() . '</i>. If that is not correct, enter your timezone here to make sure that logs and reporting are in your correct local time. See <a href="http://php.net/manual/en/timezones.php" target="_blank">list of supported timezones</a> for valid values.');
 }
 
 function mra_wpp_field_capability()
