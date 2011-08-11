@@ -406,7 +406,7 @@ function mra_wpp_plugin_admin_override( $links, $file )
 	global $mra_wpp_options;
 
 	//check if settings OK
-	if( !$mra_wpp_options['ok'] ) return FALSE;
+	if( !$mra_wpp_options['ok'] ) return $links;
 	
 	foreach( array_merge( $mra_wpp_options['plugins']['activate'], $mra_wpp_options['plugins']['deactivate'] ) as $plugin )
 	{
@@ -416,10 +416,11 @@ function mra_wpp_plugin_admin_override( $links, $file )
 				$links['activate'] = "Deactivated by WP Push";
 			elseif( array_key_exists('deactivate', $links) )
 				$links['deactivate'] = "Activated by WP Push";
+
 			return $links;
 		}
 	}
-	
+
 	return $links;
 }
 
