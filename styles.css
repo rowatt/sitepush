@@ -1,0 +1,17 @@
+.wrap ul {
+	list-style: disc;
+	margin: 0 40px;
+}
+.wrap li {
+	margin: 0;
+}
+
+#mra-wpp-push-results {
+	white-space: pre-wrap;
+	margin: 20px 0;
+	padding: 5px;
+	border: 1px solid grey;
+	height:  200px;
+	overflow: scroll;
+	overflow-x: hidden;
+}
