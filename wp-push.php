@@ -3,7 +3,7 @@
 Plugin Name: WordPress Push
 Plugin URI: http://rowatt.com/wp_push
 Description: Easy separation of live and development versions of your site
-Version: 0.1.1alpha
+Version: 0.1.2alpha
 Author: Mark Rowatt Anderson
 Author URI: http://rowatt.com
 License: GPL2
