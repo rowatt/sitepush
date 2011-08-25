@@ -41,7 +41,7 @@ function mra_wp_push_html()
 
 	set_time_limit( 6000 );
 
-	$my_wp_push = new wp_push( $mra_wpp_options['sites_conf'] );
+	$my_wp_push = new SitePush( $mra_wpp_options['sites_conf'] );
 
 ?>
 	<div class="wrap">

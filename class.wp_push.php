@@ -9,7 +9,7 @@
  *
  * @version 0.9 2011-07
  */
-class wp_push
+class SitePush
 {
 	//main parameters
 	public $source;
