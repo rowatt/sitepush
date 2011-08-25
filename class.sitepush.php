@@ -1,13 +1,7 @@
 <?php
 /**
- * sitepush class.
+ * SitePush class
  * 
- * sitepush commands
- * Pushes files/db from dev to live etc
- * Backs everything up
- * Easy undo
- *
- * @version 0.9 2011-07
  */
 class SitePush
 {
