@@ -507,7 +507,7 @@ class SitePush
 		$this->set_all_params();
 		$result = '';
 
-		$url = "{$this->trailing_slashit($this->dest_params['domain'])}?mra_wpp_cmd=clear_{$type}&mra_wpp_key={$this->cache_key}";
+		$url = "{$this->trailing_slashit($this->dest_params['domain'])}?mra_sitepush_cmd=clear_{$type}&mra_sitepush_key={$this->cache_key}";
 		
 		$cc_result = $this->callResource($url, 'GET', $data = null);
 		if( $cc_result['code']==200 )
