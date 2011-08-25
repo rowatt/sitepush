@@ -1,7 +1,7 @@
 <?php
 
 //display the admin options/WP Push page
-function mra_wp_push_html()
+function mra_sitepush_html()
 {
 	global $mra_wpp_options;
 	
@@ -41,7 +41,7 @@ function mra_wp_push_html()
 
 	set_time_limit( 6000 );
 
-	$my_wp_push = new SitePush( $mra_wpp_options['sites_conf'] );
+	$my_sitepush = new SitePush( $mra_wpp_options['sites_conf'] );
 
 ?>
 	<div class="wrap">
@@ -56,7 +56,7 @@ function mra_wp_push_html()
 			echo "<p style='color:red; font-weight:bold;'>Dry run only, nothing pushed</p>";
 		
 		echo "<pre id='mra-wpp-push-results'>";
-		$push_result = mra_wpp_do_the_push( $my_wp_push, $push_options );
+		$push_result = mra_wpp_do_the_push( $my_sitepush, $push_options );
 		echo "</pre>";
 
 		if( ! $push_result )
@@ -64,13 +64,13 @@ function mra_wp_push_html()
 	}
 	else
 	{
-		$last_push_result_file = $my_wp_push->get_last_undo_file();
+		$last_push_result_file = $my_sitepush->get_last_undo_file();
 		$last_push_results = $last_push_result_file ? file( $last_push_result_file ) : '';
 		
 		if( $last_push_results )
 		{
 			echo "<pre style='white-space: pre-wrap; margin: 20px 0; padding: 5px; border: 1px solid grey;'>";
-			echo "Last push at ".date( 'D j F, Y \a\t H:i:s e O T',$my_wp_push->get_last_undo_time() )."\n";
+			echo "Last push at ".date( 'D j F, Y \a\t H:i:s e O T',$my_sitepush->get_last_undo_time() )."\n";
 			
 			//show more detail if administator
 			if( mra_wpp_can_admin() )
@@ -92,7 +92,7 @@ function mra_wp_push_html()
 ?>
 
 		<form method="post" action="">
-			<?php wp_nonce_field('wp_push','mra_wp_push'); ?>
+			<?php wp_nonce_field('sitepush','mra_sitepush'); ?>
 			<table class="form-table">
 				<tr valign="top">
 					<th scope="row">Source</th>
@@ -166,7 +166,7 @@ function mra_wp_push_html()
 				</tr>				
 				
 						<?php /* No undo till we get it working properly!
-						<br /><label title="undo"><input type="radio" name="push_type" value="undo"<?php echo $push_type=='undo'?' checked="checked"':'';?> /> Undo the last push (<?php echo date( "D j F, Y \a\t H:i:s e O T",$my_wp_push->get_last_undo_time() );?>)</label>
+						<br /><label title="undo"><input type="radio" name="push_type" value="undo"<?php echo $push_type=='undo'?' checked="checked"':'';?> /> Undo the last push (<?php echo date( "D j F, Y \a\t H:i:s e O T",$my_sitepush->get_last_undo_time() );?>)</label>
 						*/ ?>
 
 			<?php if( ! mra_wpp_can_admin() ) : ?>

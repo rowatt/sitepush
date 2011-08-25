@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: WordPress Push
-Plugin URI: http://rowatt.com/wp_push
+Plugin URI: http://rowatt.com/sitepush
 Description: Easy separation of live and development versions of your site
 Version: 0.1.2alpha
 Author: Mark Rowatt Anderson
@@ -9,7 +9,7 @@ Author URI: http://rowatt.com
 License: GPL2
 */
 
-/*  Copyright 2009-2011  Mark Rowatt Anderson  (wp_push -at- mark.anderson.vg)
+/*  Copyright 2009-2011  Mark Rowatt Anderson  (sitepush -at- mark.anderson.vg)
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License, version 2, as 
@@ -35,9 +35,9 @@ define( 'MRA_WPP_BASE_CAPABILITY', 'delete_plugins' );
 add_action('init','mra_wpp_activate_plugins_for_site');
 add_action('init','mra_wpp_clear_cache');
 add_action('admin_init','mra_wpp_admin_init');
-add_action('admin_menu','mra_wp_push_register_settings');
+add_action('admin_menu','mra_sitepush_register_settings');
 add_action('admin_menu','mra_wpp_options_init');
-add_action('admin_menu','mra_wp_push_menu');
+add_action('admin_menu','mra_sitepush_menu');
 
 //uninstall
 register_uninstall_hook(__FILE__, 'mra_wpp_uninstall');
@@ -49,12 +49,12 @@ add_filter( 'plugin_action_links', 'mra_wpp_plugin_admin_override', 10, 2 );
 //include required files
 require_once('screens/options.php');
 require_once('screens/push.php');
-require_once('class.wp_push.php');
+require_once('class.sitepush.php');
 
 //delete options entry when plugin is deleted
 function mra_wpp_uninstall()
 {
-	delete_option('mra_wp_push_options');
+	delete_option('mra_sitepush_options');
 }
 
 //add settings to plugin listing page
@@ -77,7 +77,7 @@ function mra_wpp_options_init()
 	global $mra_wpp_options;
 
 	//get options from DB
-	$mra_wpp_options = get_option( 'mra_wp_push_options' );
+	$mra_wpp_options = get_option( 'mra_sitepush_options' );
 
 	//make sure various option defaults are set
 	if( empty($mra_wpp_options['cache']) )
@@ -123,7 +123,7 @@ function mra_wpp_options_init()
 
 //set up the WP admin menu
 //called by admin_menu action
-function mra_wp_push_menu()
+function mra_sitepush_menu()
 {
 	global $mra_wpp_options;
 
@@ -134,8 +134,8 @@ function mra_wp_push_menu()
 	$page_title = 'WP Push';
 	$menu_title = 'WP Push';
 	$capability = $mra_wpp_options['capability'];
-	$menu_slug = $mra_wpp_options['ok'] ? 'mra_wp_push' : 'mra_wpp_options';
-	$function = $mra_wpp_options['ok'] ? 'mra_wp_push_html' : 'mra_wpp_options_html';
+	$menu_slug = $mra_wpp_options['ok'] ? 'mra_sitepush' : 'mra_wpp_options';
+	$function = $mra_wpp_options['ok'] ? 'mra_sitepush_html' : 'mra_wpp_options_html';
 	$icon_url = '';
 	$position = 3;
 	add_menu_page( $page_title, $menu_title, $capability, $menu_slug, $function, $icon_url, $position );
@@ -193,7 +193,7 @@ function mra_wpp_do_the_push( $my_push, $push_options )
 	global $mra_wpp_options;
 	
 	//if we are going to do a push, check that we were referred from options page as expected
-	check_admin_referer('wp_push','mra_wp_push'); //@todo check this is correct
+	check_admin_referer('sitepush','mra_sitepush'); //@todo check this is correct
 	
 	$my_push->sites_conf_path = $mra_wpp_options['sites_conf'];
 	$my_push->dbs_conf_path = $mra_wpp_options['dbs_conf'];
@@ -320,7 +320,7 @@ function mra_wpp_clear_cache()
 	$key = isset($_GET['mra_wpp_key']) ? $_GET['mra_wpp_key'] : FALSE;
 
 	//do nothing if the secret key isn't correct
-	$options = get_option('mra_wp_push_options');
+	$options = get_option('mra_sitepush_options');
 	if( ! $key == urlencode( $options['cache_key'] ) ) return;
 
 	switch( $cmd )
@@ -400,7 +400,7 @@ function mra_wpp_activate_plugins_for_site()
 	
 }
 
-//removes activate/deactivate links for plugins controlled by WP_Push
+//removes activate/deactivate links for plugins controlled by sitepush
 function mra_wpp_plugin_admin_override( $links, $file )
 {
 	global $mra_wpp_options;

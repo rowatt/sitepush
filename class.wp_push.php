@@ -1,8 +1,8 @@
 <?php
 /**
- * wp_push class.
+ * sitepush class.
  * 
- * WP_Push commands
+ * sitepush commands
  * Pushes files/db from dev to live etc
  * Backs everything up
  * Easy undo

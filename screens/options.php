@@ -3,23 +3,23 @@
 /* -------------------------------------------------------------- *//* !WP PUSH OPTIONS PAGE *//* -------------------------------------------------------------- */
 
 //register all the settings
-function mra_wp_push_register_settings()
+function mra_sitepush_register_settings()
 {
-	register_setting('mra_wp_push_options', 'mra_wp_push_options', 'mra_wpp_validate_options');
+	register_setting('mra_sitepush_options', 'mra_sitepush_options', 'mra_wpp_validate_options');
 
 	/* General settings fields */
 	add_settings_section(
 		'mra_wpp_section_config',
 		'General Configuration',
 		'mra_wpp_section_config_text',
-		'wp_push_options'	
+		'sitepush_options'	
 	);
 	
 	add_settings_field(
 		'mra_wpp_field_sites_conf',
 		'Full path to sites.conf file',
 		'mra_wpp_field_sites_conf',
-		'wp_push_options',
+		'sitepush_options',
 		'mra_wpp_section_config'
 	);
 	
@@ -27,7 +27,7 @@ function mra_wp_push_register_settings()
 		'mra_wpp_field_dbs_conf',
 		'Full path to dbs.conf file',
 		'mra_wpp_field_dbs_conf',
-		'wp_push_options',
+		'sitepush_options',
 		'mra_wpp_section_config'
 	);	
 
@@ -35,7 +35,7 @@ function mra_wp_push_register_settings()
 		'mra_wpp_field_backup_path',
 		'Path to backups directory',
 		'mra_wpp_field_backup_path',
-		'wp_push_options',
+		'sitepush_options',
 		'mra_wpp_section_config'
 	);	
 
@@ -43,7 +43,7 @@ function mra_wp_push_register_settings()
 		'mra_wpp_field_timezone',
 		'Timezone',
 		'mra_wpp_field_timezone',
-		'wp_push_options',
+		'sitepush_options',
 		'mra_wpp_section_config'
 	);	
 
@@ -52,14 +52,14 @@ function mra_wp_push_register_settings()
 		'mra_wpp_section_capabilities',
 		'WP Push Capabilities',
 		'mra_wpp_section_capabilities_text',
-		'wp_push_options'	
+		'sitepush_options'	
 	);
 
 	add_settings_field(
 		'mra_wpp_field_capability',
 		'WP Push capability',
 		'mra_wpp_field_capability',
-		'wp_push_options',
+		'sitepush_options',
 		'mra_wpp_section_capabilities'
 	);
 	
@@ -67,7 +67,7 @@ function mra_wp_push_register_settings()
 		'mra_wpp_field_admin_capability',
 		'WP Push admin capability',
 		'mra_wpp_field_admin_capability',
-		'wp_push_options',
+		'sitepush_options',
 		'mra_wpp_section_capabilities'
 	);
 
@@ -76,20 +76,20 @@ function mra_wp_push_register_settings()
 		'mra_wpp_section_cache',
 		'Cache management',
 		'mra_wpp_section_cache_text',
-		'wp_push_options'	
+		'sitepush_options'	
 	);
 	add_settings_field(
 		'mra_wpp_field_cache',
 		'Cache plugin',
 		'mra_wpp_field_cache',
-		'wp_push_options',
+		'sitepush_options',
 		'mra_wpp_section_cache'
 	);
 	add_settings_field(
 		'mra_wpp_field_cache_key',
 		'Cache secret key',
 		'mra_wpp_field_cache_key',
-		'wp_push_options',
+		'sitepush_options',
 		'mra_wpp_section_cache'
 	);
 
@@ -99,14 +99,14 @@ function mra_wp_push_register_settings()
 		'mra_wpp_section_plugins',
 		'Plugin management',
 		'mra_wpp_section_plugins_text',
-		'wp_push_options'	
+		'sitepush_options'	
 	);
 
 	add_settings_field(
 		'mra_wpp_field_plugin_management',
 		'Plugin management',
 		'mra_wpp_field_plugin_management',
-		'wp_push_options',
+		'sitepush_options',
 		'mra_wpp_section_plugins'
 	);
 
@@ -127,12 +127,12 @@ function mra_wpp_options_html()
 		
 		<form action='options.php' method='post'>
 		<?php
-			settings_fields('mra_wp_push_options');
+			settings_fields('mra_sitepush_options');
 			do_settings_sections('mra_wpp_section_config');
 			do_settings_sections('mra_wpp_section_capabilities');
 			do_settings_sections('mra_wpp_section_cache');	
 			do_settings_sections('mra_wpp_section_plugins');	
-			do_settings_sections('wp_push_options');	
+			do_settings_sections('sitepush_options');	
 		?>
 		<input name="Submit" type='submit' value='Save Changes' class='button-primary' />
 		</form>
@@ -252,7 +252,7 @@ function mra_get_wpp_input_text( $field, $description='', $class='regular-text' 
 {
 	global $mra_wpp_options;
 	$value = empty( $mra_wpp_options[$field] ) ? '' : $mra_wpp_options[$field];
-	$output = "<input id='mra_wpp_field_{$field}' name='mra_wp_push_options[{$field}]' type='text' value='{$value}' class='{$class}' />";
+	$output = "<input id='mra_wpp_field_{$field}' name='mra_sitepush_options[{$field}]' type='text' value='{$value}' class='{$class}' />";
 	if( $description )
 		$output .= "<span class='description' style='display:block;'>{$description}</span>";
 	return $output;
@@ -266,7 +266,7 @@ function mra_get_wpp_input_radio( $field, $radio_options, $description='' )
 	
 	foreach( $radio_options as $radio_option=>$label )
 	{
-		$output .= "<label><input name='mra_wp_push_options[{$field}]' type='radio' value='{$radio_option}'" . checked($radio_option, $mra_wpp_options[$field], FALSE) . " /> {$label}</label><br />\n";
+		$output .= "<label><input name='mra_sitepush_options[{$field}]' type='radio' value='{$radio_option}'" . checked($radio_option, $mra_wpp_options[$field], FALSE) . " /> {$label}</label><br />\n";
 	}
 		
 	if( $description )
