@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: WordPress Push
+Plugin Name: SitePush
 Plugin URI: http://rowatt.com/sitepush
 Description: Easy separation of live and development versions of your site
 Version: 0.1.2alpha
@@ -111,7 +111,7 @@ function mra_sitepush_options_init()
 	{
 		$mra_sitepush_options['sites'][ $site ]['label'] = empty( $params['label'] ) ? $site : $params['label'];
 		$mra_sitepush_options['sites'][ $site ]['default'] = empty( $mra_sitepush_options['default_push'] ) ? $params['default'] : $mra_sitepush_options['default_push'];
-		$mra_sitepush_options['sites'][ $site ]['admin_only'] =  empty( $params['wpp_admin_only'] ) ? FALSE : $params['wpp_admin_only'];
+		$mra_sitepush_options['sites'][ $site ]['admin_only'] =  empty( $params['sitepush_admin_only'] ) ? FALSE : $params['sitepush_admin_only'];
 		$mra_sitepush_options['sites'][ $site ]['name'] =  $site;
 	}
 
@@ -165,13 +165,13 @@ function mra_sitepush_menu()
 
 function mra_sitepush_admin_init()
 {
-	wp_register_style( 'mra-wpp-styles', plugins_url( 'styles.css', __FILE__ ) );
+	wp_register_style( 'mra-sitepush-styles', plugins_url( 'styles.css', __FILE__ ) );
 }
 
 // load css
 function mra_sitepush_admin_styles()
 {
-  wp_enqueue_style( 'mra-wpp-styles' );
+  wp_enqueue_style( 'mra-sitepush-styles' );
 }
 
 /* -------------------------------------------------------------- *//* !WP PUSH FUNCTIONS *//* -------------------------------------------------------------- */

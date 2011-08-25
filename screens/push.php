@@ -55,7 +55,7 @@ function mra_sitepush_html()
 		if( $push_options['dry_run'] )
 			echo "<p style='color:red; font-weight:bold;'>Dry run only, nothing pushed</p>";
 		
-		echo "<pre id='mra-wpp-push-results'>";
+		echo "<pre id='mra-sitepush-results'>";
 		$push_result = mra_sitepush_do_the_push( $my_sitepush, $push_options );
 		echo "</pre>";
 
