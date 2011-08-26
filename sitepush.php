@@ -46,6 +46,9 @@ register_uninstall_hook(__FILE__, 'mra_sitepush_uninstall');
 add_filter( 'plugin_action_links', 'mra_sitepush_plugin_links', 10, 2 );
 add_filter( 'plugin_action_links', 'mra_sitepush_plugin_admin_override', 10, 2 );
 
+//content filters
+add_filter('the_content','mra_sitepush_relative_urls');
+
 //include required files
 require_once('screens/options.php');
 require_once('screens/push.php');
@@ -173,6 +176,33 @@ function mra_sitepush_admin_styles()
 {
   wp_enqueue_style( 'mra-sitepush-styles' );
 }
+
+/* -------------------------------------------------------------- *//* !CONTENT FILTERS *//* -------------------------------------------------------------- */
+
+/**
+ * mra_sitepush_relative_urls
+ * 
+ * Removes domain names from URLs on site to make them relative, so that links still work across versions of a site
+ * Domains to remove is defined in SitePush options
+ *
+ * Called by the_content filter
+ */
+function mra_sitepush_relative_urls( $content='' )
+{
+	global $mra_sitepush_options;
+	if( empty($mra_sitepush_options['make_relative_urls']) ) return $content;
+	
+	$make_relative_urls = explode( ',', $mra_sitepush_options['make_relative_urls'] );
+	
+	foreach( $make_relative_urls as $domain )
+	{
+		$search = array( "http://{$domain}", "https://{$domain}" );
+		$content = str_ireplace( $search, '', $content );	
+	}
+	
+	return $content;
+}
+
 
 /* -------------------------------------------------------------- *//* !WP PUSH FUNCTIONS *//* -------------------------------------------------------------- */
 
