@@ -1,6 +1,6 @@
 <?php
 
-//display the admin options/WP Push page
+//display the admin options/SitePush page
 function mra_sitepush_html()
 {
 	global $mra_sitepush_options;
@@ -45,7 +45,7 @@ function mra_sitepush_html()
 
 ?>
 	<div class="wrap">
-		<h2>WordPress Push</h2>	
+		<h2>SitePush</h2>	
 <?php
 
 	if( $push_options['dest'] )

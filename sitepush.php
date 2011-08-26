@@ -134,8 +134,8 @@ function mra_sitepush_menu()
 	//if( ! mra_sitepush_can_admin() && ! $mra_sitepush_options['ok'] ) return;
 
 	//add menu(s) - only options page is shown if not configured properly
-	$page_title = 'WP Push';
-	$menu_title = 'WP Push';
+	$page_title = 'SitePush';
+	$menu_title = 'SitePush';
 	$capability = $mra_sitepush_options['capability'];
 	$menu_slug = $mra_sitepush_options['ok'] ? 'mra_sitepush' : 'mra_sitepush_options';
 	$function = $mra_sitepush_options['ok'] ? 'mra_sitepush_html' : 'mra_sitepush_options_html';
@@ -155,7 +155,7 @@ function mra_sitepush_menu()
 	if( mra_sitepush_can_admin() )
 	{
 		//add options page if we have admin capability
-		$page_title = 'WP Push Options';
+		$page_title = 'SitePush Options';
 		$menu_title = 'Options';
 		$menu_slug = 'mra_sitepush_options';
 		$function = 'mra_sitepush_options_html';

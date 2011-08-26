@@ -1,6 +1,6 @@
 <?php
 
-/* -------------------------------------------------------------- *//* !WP PUSH OPTIONS PAGE *//* -------------------------------------------------------------- */
+/* -------------------------------------------------------------- *//* !SITEPUSH OPTIONS PAGE *//* -------------------------------------------------------------- */
 
 //register all the settings
 function mra_sitepush_register_settings()
@@ -50,14 +50,14 @@ function mra_sitepush_register_settings()
 	/*Capability fields */
 	add_settings_section(
 		'mra_sitepush_section_capabilities',
-		'WP Push Capabilities',
+		'SitePush Capabilities',
 		'mra_sitepush_section_capabilities_text',
 		'sitepush_options'	
 	);
 
 	add_settings_field(
 		'mra_sitepush_field_capability',
-		'WP Push capability',
+		'SitePush capability',
 		'mra_sitepush_field_capability',
 		'sitepush_options',
 		'mra_sitepush_section_capabilities'
@@ -65,7 +65,7 @@ function mra_sitepush_register_settings()
 	
 	add_settings_field(
 		'mra_sitepush_field_admin_capability',
-		'WP Push admin capability',
+		'SitePush admin capability',
 		'mra_sitepush_field_admin_capability',
 		'sitepush_options',
 		'mra_sitepush_section_capabilities'
@@ -112,14 +112,14 @@ function mra_sitepush_register_settings()
 
 }
 
-// output HTML for the WP Push options screen
+// output HTML for the SitePush options screen
 function mra_sitepush_options_html()
 {
 	global $mra_sitepush_options;
 	?>
 	<div class='wrap'>
 		<?php screen_icon( 'options-general' ); ?>
-		<h2>WP Push Options</h2>
+		<h2>SitePush Options</h2>
 		
 		<?php if( !empty($mra_sitepush_options['notices']) ) echo mra_sitepush_settings_notices(); ?>
 		
@@ -150,12 +150,12 @@ function mra_sitepush_section_config_text()
 
 function mra_sitepush_section_capabilities_text()
 {
-	echo '<p class="description">Define which capabilities are required for normal admins to use WP Push, and for master admins to configure. Anyone with the <i>delete_users</i> capability will always be able to use and configure WP Push.</p>';
+	echo '<p class="description">Define which capabilities are required for normal admins to use SitePush, and for master admins to configure. Anyone with the <i>delete_users</i> capability will always be able to use and configure SitePush.</p>';
 }
 
 function mra_sitepush_section_cache_text()
 {
-	echo '<p class="description">With certain cache plugins, WP Push can can clear the cache immediately after a push.</p>';
+	echo '<p class="description">With certain cache plugins, SitePush can can clear the cache immediately after a push.</p>';
 }
 
 function mra_sitepush_section_plugins_text()
@@ -177,7 +177,7 @@ function mra_sitepush_section_plugins_text()
 	}
 
 	$output = <<<EOD
- <div class="description"><p>WP Push can force certain plugins to be on or off on different versions of the site. This is useful, for example to ensure that a cache plugin is only active on your live site, or to ensure that a Google Analytics plugin is never turned on for a development site. Currently managed plugins which are hard wired, in the future they will be user definable.</p>
+ <div class="description"><p>SitePush can force certain plugins to be on or off on different versions of the site. This is useful, for example to ensure that a cache plugin is only active on your live site, or to ensure that a Google Analytics plugin is never turned on for a development site. Currently managed plugins which are hard wired, in the future they will be user definable.</p>
 <p>The following plugins are automatically activated for any site which is classed as live:</p>
 <ul>
 {$activates}
@@ -276,9 +276,9 @@ function mra_get_sitepush_input_radio( $field, $radio_options, $description='' )
 }
 
 
-/* -------------------------------------------------------------- *//* WP Push options field validation */
+/* -------------------------------------------------------------- *//* SitePush options field validation */
 
-//@todo fix duplicated errors/errors not showing when options in WP Push menu
+//@todo fix duplicated errors/errors not showing when options in SitePush menu
 function mra_sitepush_validate_options( $options )
 {
 	$notices = array();
@@ -287,7 +287,7 @@ function mra_sitepush_validate_options( $options )
 	{
 		//no options have been set, so this is a fresh config
 		$options['ok'] = FALSE;
-		$options['notices']['<b>Please configure WP Push</b>'] = 'error';
+		$options['notices']['<b>Please configure SitePush</b>'] = 'error';
 		return $options;
 	}
 	
