@@ -29,7 +29,7 @@ License: GPL2
 /* -------------------------------------------------------------- *//* !SETUP HOOKS *//* -------------------------------------------------------------- */
 
 //set default constants
-define( 'MRA_sitepush_BASE_CAPABILITY', 'delete_plugins' );
+define( 'MRA_SITEPUSH_BASE_CAPABILITY', 'delete_plugins' );
 
 //initialisation
 add_action('init','mra_sitepush_activate_plugins_for_site');
@@ -209,13 +209,13 @@ function mra_sitepush_relative_urls( $content='' )
 function mra_sitepush_can_admin()
 {
 	global $mra_sitepush_options;
-	return current_user_can( $mra_sitepush_options['admin_capability'] ) || current_user_can( MRA_sitepush_BASE_CAPABILITY );
+	return current_user_can( $mra_sitepush_options['admin_capability'] ) || current_user_can( MRA_SITEPUSH_BASE_CAPABILITY );
 }
 
 function mra_sitepush_can_use()
 {
 	global $mra_sitepush_options;
-	return current_user_can( $mra_sitepush_options['capability'] ) || current_user_can( MRA_sitepush_BASE_CAPABILITY );
+	return current_user_can( $mra_sitepush_options['capability'] ) || current_user_can( MRA_SITEPUSH_BASE_CAPABILITY );
 }
 
 function mra_sitepush_do_the_push( $my_push, $push_options )

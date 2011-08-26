@@ -318,10 +318,10 @@ function mra_sitepush_validate_options( $options )
 
 
 	if( empty($options['capability']) )
-		$options['capability'] = MRA_sitepush_BASE_CAPABILITY;
+		$options['capability'] = MRA_SITEPUSH_BASE_CAPABILITY;
 
 	if( empty($options['admin_capability']) )
-		$options['admin_capability'] = MRA_sitepush_BASE_CAPABILITY;
+		$options['admin_capability'] = MRA_SITEPUSH_BASE_CAPABILITY;
 
 
 	if( empty($options['cache']) )
