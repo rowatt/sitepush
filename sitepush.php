@@ -1,8 +1,8 @@
 <?php
 /*
 Plugin Name: SitePush
-Plugin URI: http://rowatt.com/sitepush
-Description: Easy separation of live and development versions of your site
+Plugin URI: http://sitepush.rowatt.com
+Description: Easily move code and content between versions of a site
 Version: 0.1.2alpha
 Author: Mark Rowatt Anderson
 Author URI: http://rowatt.com
