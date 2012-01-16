@@ -101,7 +101,7 @@ function mra_sitepush_options_init()
 	$mra_sitepush_options = mra_sitepush_validate_options( $mra_sitepush_options );
 	if( !empty( $mra_sitepush_options['notices'] ) )
 	{
-		//one or more options not OK, so stop here and leave WP Push inactive
+		//one or more options not OK, so stop here and leave SitePush inactive
 		$mra_sitepush_options['ok'] = FALSE;
 		return FALSE;
 	}
@@ -130,7 +130,7 @@ function mra_sitepush_menu()
 {
 	global $mra_sitepush_options;
 
-	//if options aren't OK and user doesn't have admin capability don't add WP Push menus
+	//if options aren't OK and user doesn't have admin capability don't add SitePush menus
 	//if( ! mra_sitepush_can_admin() && ! $mra_sitepush_options['ok'] ) return;
 
 	//add menu(s) - only options page is shown if not configured properly
@@ -145,7 +145,7 @@ function mra_sitepush_menu()
 
 	$parent_slug = $menu_slug;
 	
-	//add WP Push if options are OK
+	//add SitePush if options are OK
 	if( $mra_sitepush_options['ok'] )
 	{	
 		$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $function);
@@ -204,7 +204,7 @@ function mra_sitepush_relative_urls( $content='' )
 }
 
 
-/* -------------------------------------------------------------- *//* !WP PUSH FUNCTIONS *//* -------------------------------------------------------------- */
+/* -------------------------------------------------------------- *//* !SITEPUSH FUNCTIONS *//* -------------------------------------------------------------- */
 
 function mra_sitepush_can_admin()
 {
@@ -338,7 +338,7 @@ function mra_sitepush_option_html($option, $label, $admin_only='admin_only', $ch
  * mra_sitepush_clear_cache
  * 
  * Clear cache(s) based on HTTP GET parameters. Allows another site to tell this site to clear its cache.
- * Will only run if GET params include correct secret key, which is defined in WP Push options
+ * Will only run if GET params include correct secret key, which is defined in SitePush options
  *
  * @return string result code
  */
@@ -443,9 +443,9 @@ function mra_sitepush_plugin_admin_override( $links, $file )
 		if ( $file == $plugin )
 		{
 			if( array_key_exists('activate', $links) )
-				$links['activate'] = "Deactivated by WP Push";
+				$links['activate'] = "Deactivated by SitePush";
 			elseif( array_key_exists('deactivate', $links) )
-				$links['deactivate'] = "Activated by WP Push";
+				$links['deactivate'] = "Activated by SitePush";
 
 			return $links;
 		}

@@ -22,7 +22,7 @@ class SitePush
 	//don't actually do anything if dry_run is TRUE
 	public $dry_run = FALSE;
 	
-	//hold any results$wp_content_dir
+	//hold any results
 	public $results = array();
 	
 	//CACHE_KEY - security key required to run commands remotely
