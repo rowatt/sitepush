@@ -128,7 +128,24 @@ class SitePush
 	{
 		if( !file_exists($this->sites_conf_path) )
 			die("Sites config file not found at {$this->sites_conf_path}\n");
-		$this->sites = parse_ini_file($this->sites_conf_path,TRUE);
+
+		//get site info from the sites.conf file
+		$sites_conf = parse_ini_file($this->sites_conf_path,TRUE);
+		
+		//check if conf file has 'all' section and if so merge that config with config for each site	
+		if( !empty( $sites_conf['all'] ) )
+		{
+			$sites_conf_all = $sites_conf['all'];
+			unset( $sites_conf['all'] );
+			
+			foreach( $sites_conf  as $site=>$site_conf )
+			{
+				$sites_conf[$site] = array_merge( $sites_conf_all, $sites_conf[$site] );
+			}
+	
+		}
+
+		$this->sites = $sites_conf;
 		return $this->sites;
 	}
 

@@ -107,7 +107,22 @@ function mra_sitepush_options_init()
 	}
 
 	//get site info from the sites.conf file
-	$mra_sitepush_options['sites'] = parse_ini_file($mra_sitepush_options['sites_conf'],TRUE);
+	$sites_conf = parse_ini_file($mra_sitepush_options['sites_conf'],TRUE);
+	
+	//check if conf file has 'all' section and if so merge that config with config for each site	
+	if( !empty( $sites_conf['all'] ) )
+	{
+		$sites_conf_all = $sites_conf['all'];
+		unset( $sites_conf['all'] );
+		
+		foreach( $sites_conf  as $site=>$site_conf )
+		{
+			$sites_conf[$site] = array_merge( $sites_conf_all, $sites_conf[$site] );
+		}
+
+	}
+	
+	$mra_sitepush_options['sites'] = $sites_conf;
 
 	//make sure certain sites options set correctly
 	foreach( $mra_sitepush_options['sites'] as $site=>$params )
