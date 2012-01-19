@@ -94,6 +94,7 @@ function mra_sitepush_options_init()
 	$mra_sitepush_options['plugins']['activate'][] = 'google-sitemap-generator/sitemap.php';
 	$mra_sitepush_options['plugins']['activate'][] = 'jetpack/jetpack.php';
 	$mra_sitepush_options['plugins']['deactivate'][] = 'debug-bar/debug-bar.php';
+	$mra_sitepush_options['plugins']['deactivate'][] = 'debug-bar-extender/debug-bar-extender.php';
 	$mra_sitepush_options['plugins']['deactivate'][] = 'debug-bar-console/debug-bar-console.php';
 
 	
