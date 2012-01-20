@@ -136,6 +136,19 @@ function mra_sitepush_options_init()
 
 	$mra_sitepush_options['current_site'] = $mra_sitepush_options['sites'][ mra_sitepush_get_current_site() ];
 
+	//set which cache plugin we are using
+	switch( $mra_sitepush_options['cache'] )
+	{
+		case 'w3tc':
+			$mra_sitepush_options['plugins']['cache'] = 'w3-total-cache/w3-total-cache.php';
+			break;
+
+		//unknown cache or none set
+		default:
+			$mra_sitepush_options['plugins']['cache'] = FALSE;
+			break;
+	}
+
 	//all options OK, so plugin can do its stuff!
 	$mra_sitepush_options['ok'] = TRUE;
 }
@@ -435,13 +448,13 @@ function mra_sitepush_activate_plugins_for_site()
 	}
 
 	//caching plugins - make sure plugin is on if WP_CACHE constant is TRUE
-	if( WP_CACHE )
+	if( WP_CACHE && $mra_sitepush_options['plugins']['cache'] )
 	{
-		if( !is_plugin_active($mra_sitepush_options['cache']) ) activate_plugin( $mra_sitepush_options['cache'] );	
+		if( !is_plugin_active($mra_sitepush_options['plugins']['cache']) ) activate_plugin( $mra_sitepush_options['plugins']['cache'] );	
 	}
 	else
 	{
-		if( is_plugin_active($mra_sitepush_options['cache']) ) deactivate_plugins( $mra_sitepush_options['cache'] );	
+		if( is_plugin_active($mra_sitepush_options['plugins']['cache']) ) deactivate_plugins( $mra_sitepush_options['plugins']['cache'] );	
 	}
 	
 }
@@ -454,7 +467,11 @@ function mra_sitepush_plugin_admin_override( $links, $file )
 	//check if settings OK
 	if( !$mra_sitepush_options['ok'] ) return $links;
 	
-	foreach( array_merge( $mra_sitepush_options['plugins']['activate'], $mra_sitepush_options['plugins']['deactivate'] ) as $plugin )
+	$plugins = array_merge( $mra_sitepush_options['plugins']['activate'], $mra_sitepush_options['plugins']['deactivate'] );
+	if( $mra_sitepush_options['plugins']['cache'] )
+		$plugins[] = $mra_sitepush_options['plugins']['cache'];
+	
+	foreach( $plugins as $plugin )
 	{
 		if ( $file == $plugin )
 		{
