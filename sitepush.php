@@ -347,6 +347,11 @@ function mra_sitepush_do_the_push( $my_push, $push_options )
 	//if anything is output here it probably means something went wrong
 	if( $result ) echo "<div class='error'>{$result}</div>";
 
+	//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
+
+	activate_plugin('sitepush/sitepush.php');	
+	add_option( 'mra_sitepush_options', $mra_sitepush_options);
+
 	return TRUE;
 }
 
