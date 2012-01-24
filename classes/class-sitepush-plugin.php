@@ -1,0 +1,761 @@
+<?php
+
+class SitePushPlugin
+{
+	//default capability required to use SitePush
+	public static $default_capability = 'delete_plugins';
+	
+	//holds all options
+	private $options=array();
+	
+	public function __construct()
+	{
+		/* -------------------------------------------------------------- */		/* !SETUP HOOKS */		/* -------------------------------------------------------------- */
+		
+		//activation
+		register_activation_hook( __FILE__, array( __CLASS__, 'activate') );
+		
+		//initialisation
+		add_action('init', array( &$this, 'activate_plugins_for_site') );
+		add_action('init', array( &$this, 'clear_cache') );
+		add_action('admin_init', array( __CLASS__, 'admin_init') );
+		add_action('admin_menu', array( &$this, 'register_options_menu') );
+		
+		//uninstall
+		register_uninstall_hook(__FILE__, array( __CLASS__, 'uninstall') );
+		
+		//add settings to plugin listing page
+		add_filter( 'plugin_action_links', array( __CLASS__, 'plugin_links'), 10, 2 );
+		add_filter( 'plugin_action_links', array( &$this, 'plugin_admin_override'), 10, 2 );
+		
+		//content filters
+		add_filter('the_content', array( &$this, 'relative_urls') );
+		
+		//check for notices etc
+		$this->check_query_vars();
+	}
+	
+	//run when plugin is activated
+	static public function activate()
+	{
+		$errors = array();
+	
+		if( version_compare( get_bloginfo( 'version' ), '3.5', '<') )
+			$errors[] = "SitePush requires at least WordPress version 3.3";
+	
+		if( (defined('WP_ALLOW_MULTISITE') && WP_ALLOW_MULTISITE) && ! (defined('MRA_SITEPUSH_ALLOW_MULTISITE') && MRA_SITEPUSH_ALLOW_MULTISITE) )
+			$errors[] = "SitePush does not support WordPress multisite installs. If you wish to use SitePush on a multisite install, add define('MRA_SITEPUSH_ALLOW_MULTISITE',TRUE) to your wp-config.php file and proceed with caution!";
+
+		if( $errors )
+			deactivate_plugins( MRA_SITEPUSH_PLUGIN_DIR . '/sitepush.php' );
+	}
+	
+	//delete options entry when plugin is deleted
+	static public function uninstall()
+	{
+		delete_option('mra_sitepush_options');
+	}
+	
+	//add settings to plugin listing page
+	//called by plugin_action_links filter
+	static public function plugin_links( $links, $file )
+	{
+		if ( $file == plugin_basename( __FILE__ ) )
+		{
+			$add_link = '<a href="'.get_admin_url().'admin.php?page=mra_sitepush_options">'.__('Settings').'</a>'; //@todo
+			array_unshift( $links, $add_link );
+		}
+		return $links;
+	}
+	
+	private function check_query_vars()
+	{
+		if( isset($_GET['settings-updated']) && $_GET['settings-updated'] )
+			$this->options['notices']['notices'][] = 'Options updated.';
+	}
+	
+	/* -------------------------------------------------------------- */	/* !INITIALISATION FUNCTIONS */	/* -------------------------------------------------------------- */
+	
+	//make sure we have all options set and valid
+	function options_init()
+	{
+		//get options from DB
+		$this->options = array_merge( get_option( 'mra_sitepush_options' ), $this->options );
+	
+		//make sure various option defaults are set
+		if( empty($this->options['cache']) )
+			$this->options['cache'] = 'none';
+		
+		//activate/deactivate plugin options for live site(s)
+		//for non-live sites plugins are switched to the opposite state
+		if( !empty($this->options['plugin_activates']) )
+			$this->options['plugins']['activate'] = explode("\n",trim($this->options['plugin_activates']));
+		else
+			$this->options['plugins']['activate'] = array();
+
+		if( !empty($this->options['plugin_deactivates']) )
+			$this->options['plugins']['deactivate'] = explode("\n",trim($this->options['plugin_deactivates']));
+		else
+			$this->options['plugins']['deactivate'] = array();			
+		
+		//never manage these plugins or cache plugins managed elsewhere
+		$this->options['plugins']['never_manage'] = array('w3-total-cache/w3-total-cache.php');
+		
+		
+		//get options from WP_DB & validate all user set params
+		$this->options = $this->validate_options( $this->options );
+		if( !empty( $this->options['notices']['errors'] ) )
+		{
+			//one or more options not OK, so stop here and leave SitePush inactive
+			$this->options['ok'] = FALSE;
+			return FALSE;
+		}
+	
+		//get site info from the sites.conf file
+		$sites_conf = parse_ini_file($this->options['sites_conf'],TRUE);
+		
+		//check if conf file has 'all' section and if so merge that config with config for each site	
+		if( !empty( $sites_conf['all'] ) )
+		{
+			$sites_conf_all = $sites_conf['all'];
+			unset( $sites_conf['all'] );
+			
+			foreach( $sites_conf  as $site=>$site_conf )
+			{
+				$sites_conf[$site] = array_merge( $sites_conf_all, $sites_conf[$site] );
+			}
+	
+		}
+		
+		$this->options['sites'] = $sites_conf;
+	
+		//make sure certain sites options set correctly
+		foreach( $this->options['sites'] as $site=>$params )
+		{
+			$this->options['sites'][ $site ]['label'] = empty( $params['label'] ) ? $site : $params['label'];
+			$this->options['sites'][ $site ]['default'] = empty( $this->options['default_push'] ) ? $params['default'] : $this->options['default_push'];
+			$this->options['sites'][ $site ]['admin_only'] =  empty( $params['sitepush_admin_only'] ) ? FALSE : $params['sitepush_admin_only'];
+			$this->options['sites'][ $site ]['name'] =  $site;
+		}
+	
+		$this->options['current_site'] = $this->options['sites'][ $this->get_current_site() ];
+	
+		//set which cache plugin we are using
+		switch( $this->options['cache'] )
+		{
+			case 'w3tc':
+				$this->options['plugins']['cache'] = 'w3-total-cache/w3-total-cache.php';
+				break;
+	
+			//unknown cache or none set
+			default:
+				$this->options['plugins']['cache'] = FALSE;
+				break;
+		}
+	
+		//all options OK, so plugin can do its stuff!
+		$this->options['ok'] = TRUE;
+		
+		return $this->options;
+	}
+	
+	//set up the WP admin menu & settings
+	//called by admin_menu action
+	function register_options_menu()
+	{
+		//initialise all options
+		$this->options_init();
+
+		//instantiate menu classes
+		$push_screen = new SitePush_Push_Screen( &$this, $this->options );
+		$options_screen = new SitePush_Options_Screen( &$this, $this->options );
+		
+		//register the settings
+		$this->register_options( $options_screen );
+	
+		//if options aren't OK and user doesn't have admin capability don't add SitePush menus
+		if( ! $this->can_admin() && ! $this->options['ok'] )
+		{
+			return;
+		}
+		
+		//add menu(s) - only options page is shown if not configured properly
+		$page_title = 'SitePush';
+		$menu_title = 'SitePush';
+		$capability = $this->options['capability'];
+		$menu_slug = $this->options['ok'] ? 'mra_sitepush' : 'mra_sitepush_options';
+		$function = $this->options['ok'] ? array( $push_screen, 'display_screen') : array( $options_screen, 'display_screen');
+		$icon_url = '';
+		$position = 3;
+		add_menu_page( $page_title, $menu_title, $capability, $menu_slug, $function, $icon_url, $position );
+	
+		$parent_slug = $menu_slug;
+		
+		//add SitePush if options are OK
+		if( $this->options['ok'] )
+		{	
+			$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $function);
+			add_action('admin_print_styles-' . $page, array( __CLASS__, 'admin_styles' ) ); //add custom stylesheet
+		}
+		
+		if( $this->can_admin() )
+		{
+			//add options page if we have admin capability
+			$page_title = 'SitePush Options';
+			$menu_title = 'Options';
+			$menu_slug = 'mra_sitepush_options';
+			$function = array( $options_screen, 'display_screen');
+			
+			$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $function);
+	
+			add_action('admin_print_styles-' . $page, array( __CLASS__, 'admin_styles' ) ); //add custom stylesheet
+		}
+	}
+	
+	static public function admin_init()
+	{
+		wp_register_style( 'mra-sitepush-styles', MRA_SITEPUSH_PLUGIN_DIR_URL.'/styles.css' );
+	}
+	
+	// load css
+	static public function admin_styles()
+	{
+		wp_enqueue_style( 'mra-sitepush-styles' );
+	}
+	
+	/* -------------------------------------------------------------- */	/* !CONTENT FILTERS */	/* -------------------------------------------------------------- */
+	
+	/**
+	 * relative_urls
+	 * 
+	 * Removes domain names from URLs on site to make them relative, so that links still work across versions of a site
+	 * Domains to remove is defined in SitePush options
+	 *
+	 * Called by the_content filter
+	 */
+	function relative_urls( $content='' )
+	{
+		if( empty($this->options['make_relative_urls']) ) return $content;
+		
+		$make_relative_urls = explode( ',', $this->options['make_relative_urls'] );
+		
+		foreach( $make_relative_urls as $domain )
+		{
+			$search = array( "http://{$domain}", "https://{$domain}" );
+			$content = str_ireplace( $search, '', $content );	
+		}
+		
+		return $content;
+	}
+	
+	
+	/* -------------------------------------------------------------- */	/* !SITEPUSH FUNCTIONS */	/* -------------------------------------------------------------- */
+	
+	function can_admin()
+	{
+		return current_user_can( $this->options['admin_capability'] ) || current_user_can( self::$default_capability );
+	}
+	
+	function can_use()
+	{
+		return current_user_can( $this->options['capability'] ) || current_user_can( self::$default_capability );
+	}
+	
+	function do_the_push( $my_push, $push_options )
+	{
+		//if we are going to do a push, check that we were referred from options page as expected
+		check_admin_referer('sitepush','mra_sitepush'); //@todo check this is correct
+		
+		$my_push->sites_conf_path = $this->options['sites_conf'];
+		$my_push->dbs_conf_path = $this->options['dbs_conf'];
+		
+		$my_push->source = $push_options['source'];
+		$my_push->dest = $push_options['dest'];
+		
+		$my_push->dry_run = $push_options['dry_run'] ? TRUE : FALSE;
+		$my_push->do_backup = $push_options['do_backup'] ? TRUE : FALSE;
+		$my_push->backup_path = $this->options['backup_path'];
+		
+		$my_push->echo_output = TRUE;
+		$my_push->output_level = $this->can_admin() ? 2 : 1;
+		
+		//initialise some parameters
+		$push_files = FALSE;
+		$result = '';
+		$db_types = array();
+		
+	/* -------------------------------------------------------------- */
+	/* !Push WordPress Files */
+	/* -------------------------------------------------------------- */
+		if( $push_options['push_uploads'] )
+		{
+			$push_files = TRUE;
+			$my_push->push_uploads = TRUE;
+		}
+		
+		if( $push_options['push_themes'] )
+		{
+			$push_files = TRUE;
+			$my_push->push_themes = TRUE;
+		}
+		
+		if( $push_options['push_theme'] && ! $push_options['push_themes'])
+		{
+			//pushes current (child) theme
+			$push_files = TRUE;
+			$themes = get_themes();
+			$my_push->theme = $themes[ get_current_theme() ]['Stylesheet'];
+		}
+		
+		if( $push_options['push_plugins'] )
+		{
+			$push_files = TRUE;
+			$my_push->push_plugins = TRUE;
+		}
+		
+		if( $push_options['push_wp_core'] )
+		{
+			$push_files = TRUE;
+			$my_push->push_wp_files = TRUE;
+		}
+	
+		//do the push
+		if( $push_files) $result .= $my_push->push_files();
+	
+	/* -------------------------------------------------------------- */
+	/* !Push WordPress Database */
+	/* -------------------------------------------------------------- */
+		if( $push_options['db_all_tables'] )
+		{
+			//with no params entire DB is pushed
+			$result .= $my_push->push_db();
+		}
+		else
+		{
+			if( $push_options['db_post_content'] ) $db_types[] = 'content';
+			if( $push_options['db_users'] ) $db_types[] = 'users';
+			if( $push_options['db_options'] ) $db_types[] = 'options';
+			//if( $push_options['db_gravity_options'] ) $db_types[] = 'forms';
+			//if( $push_options['db_gravity_data'] ) $db_types[] = 'form-data';
+		
+			//do the push
+			if( $db_types ) $result .= $my_push->push_db( $db_types );
+		}
+	/* -------------------------------------------------------------- */
+	/* !Clear Cache */
+	/* -------------------------------------------------------------- */
+	
+		if( $push_options['clear_cache'] && !empty($this->options['cache']) && 'none'<>$this->options['cache'] )
+		{
+			$my_push->cache_type = $this->options['cache'];
+			$my_push->cache_key = urlencode( $this->options['cache_key'] );
+			$result .= $my_push->clear_cache();
+		}
+		
+	/* -------------------------------------------------------------- */
+	/* !Other things to do */
+	/* -------------------------------------------------------------- */
+		//normally result should be empty - results to display are captured in class and output separately
+		//if anything is output here it probably means something went wrong
+		if( $result ) echo "<div class='error'>{$result}</div>";
+	
+		//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
+	
+		activate_plugin('sitepush/sitepush.php');	
+		add_option( 'mra_sitepush_options', $this->options);
+	
+		return TRUE;
+	}
+	
+	//clear cache for this site
+	/**
+	 * clear_cache
+	 * 
+	 * Clear cache(s) based on HTTP GET parameters. Allows another site to tell this site to clear its cache.
+	 * Will only run if GET params include correct secret key, which is defined in SitePush options
+	 *
+	 * @return string result code
+	 */
+	function clear_cache()
+	{
+		//check $_GET to see if someone has asked us to clear the cache
+		//for example a push from another server to this one
+		$cmd = isset($_GET['mra_sitepush_cmd']) ? $_GET['mra_sitepush_cmd'] : FALSE;
+		$key = isset($_GET['mra_sitepush_key']) ? $_GET['mra_sitepush_key'] : FALSE;
+	
+		//do nothing if the secret key isn't correct
+		$options = get_option('mra_sitepush_options');
+		if( ! $key == urlencode( $options['cache_key'] ) ) return;
+	
+		switch( $cmd )
+		{
+			case 'clear_w3tc':
+				// Purge the entire w3tc page cache:
+				if (function_exists('w3tc_pgcache_flush')) {
+					w3tc_pgcache_flush();
+					die('W3TC cache cleared');
+				}
+				else
+				{
+					die('W3TC cache not present');
+				}
+				break;
+				
+			case '':
+				//no command supplied
+				break;
+			
+			default:
+				die('Unrecognised cache command');
+				break;
+		}	
+	}
+	
+	//make sure correct plugins are activated/deactivated for the site we are viewing
+	function activate_plugins_for_site()
+	{
+		//initialise vars if we haven't run plugin init already
+		if( empty($this->options) ) $this->options_init();
+		
+		//check if settings OK
+		if( empty($this->options['ok']) ) return FALSE;
+		
+		//make sure WP plugin code is loaded
+		require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
+		
+		if( !empty($this->options['current_site']['live']) )
+		{
+			//site is live so activate/deactivate plugins for live site(s) as per options
+			foreach( $this->options['plugins']['activate'] as $plugin )
+			{
+				if( !is_plugin_active($plugin) ) activate_plugin($plugin);
+			}
+	
+			foreach( $this->options['plugins']['deactivate'] as $plugin )
+			{
+				if( is_plugin_active($plugin) ) deactivate_plugins($plugin);
+			}
+		}
+		else
+		{
+			//activate/deactivate plugins for non-live site(s) as per opposite of options for live site(s)
+			foreach( $this->options['plugins']['deactivate'] as $plugin )
+			{
+				if( !is_plugin_active($plugin) ) activate_plugin($plugin);
+			}
+	
+			foreach( $this->options['plugins']['activate'] as $plugin )
+			{
+				if( is_plugin_active($plugin) ) deactivate_plugins($plugin);
+			}
+		}
+	
+		//caching plugins - make sure plugin is on if WP_CACHE constant is TRUE
+		if( WP_CACHE && $this->options['plugins']['cache'] )
+		{
+			if( !is_plugin_active($this->options['plugins']['cache']) ) activate_plugin( $this->options['plugins']['cache'] );	
+		}
+		else
+		{
+			if( is_plugin_active($this->options['plugins']['cache']) ) deactivate_plugins( $this->options['plugins']['cache'] );	
+		}
+		
+	}
+	
+	//removes activate/deactivate links for plugins controlled by sitepush
+	function plugin_admin_override( $links, $file )
+	{
+		//check if settings OK
+		if( !$this->options['ok'] ) return $links;
+		
+		$plugins = array_merge( $this->options['plugins']['activate'], $this->options['plugins']['deactivate'] );
+		if( $this->options['plugins']['cache'] )
+			$plugins[] = $this->options['plugins']['cache'];
+		
+		foreach( $plugins as $plugin )
+		{
+			if ( $file == $plugin )
+			{
+				if( array_key_exists('activate', $links) )
+					$links['activate'] = "Deactivated by SitePush";
+				elseif( array_key_exists('deactivate', $links) )
+					$links['deactivate'] = "Activated by SitePush";
+	
+				return $links;
+			}
+		}
+	
+		return $links;
+	}
+	
+	//figure out which of our sites is currently running
+	function get_current_site()
+	{
+		$this_site = '';
+		$default = '';
+		
+		foreach( $this->options['sites'] as $site=>$site_conf )
+		{
+			if( !empty( $site_conf['domain'] ) )
+				$site_conf['domains'][] = $site_conf['domain'];
+			
+			//check if this site is the default and remember if it is
+			if( $site_conf['default'] )
+				$default = $site;
+		
+			if( in_array( $_SERVER['SERVER_NAME'], $site_conf['domains'] ) )
+			{
+				//we found a match so we know what site we are on
+				$this_site = $site;
+				break;
+			}
+		}
+		
+		//we didn't recognise the URL, so assume we are in the default site
+		if( !$this_site )
+			$this_site = $default;
+		
+		if( $this_site )
+			return $this_site;
+		else
+			die("<div id='mra_sitepush_site_error' class='error settings-error'>This site ({$_SERVER['SERVER_NAME']}) is not recognised and you have not set a default in sites.conf. Please configure sites.conf with the domain of this site, or set a default.</div>");
+	}
+	
+	//get all sites which are valid given current capability
+	function get_sites( $exclude_current='no' )
+	{
+		$sites_list = array();
+		
+		$exclude = ('exclude_current'==$exclude_current) ? $this->get_current_site() : '';
+	
+		foreach( $this->options['sites'] as $site=>$site_conf )
+		{
+			if( $site<>$exclude && ($this->can_admin() || !$site_conf['admin_only']) )
+				$sites_list[] = $site;
+		}
+		return $sites_list;
+	}
+	
+	//equivalent to WP function get_query_var, but works in admin
+	static public function get_query_var( $var )
+	{
+		return empty( $_REQUEST[ $var ] ) ? FALSE : $_REQUEST[ $var ];
+	}
+	
+	/* -------------------------------------------------------------- */	/* SitePush options field validation */
+	
+	//@todo fix duplicated errors/errors not showing when options in SitePush menu
+	function validate_options( $options )
+	{
+		$errors = array();
+		
+		if( empty( $options ) )
+		{
+			//no options have been set, so this is a fresh config
+			$options['ok'] = FALSE;
+			$options['notices']['errors'] = '<b>Please configure SitePush</b>';
+			return $options;
+		}
+		
+		if( array_key_exists('sites_conf', $options) ) $options['sites_conf'] = trim( $options['sites_conf'] );
+		if( empty( $options['sites_conf'] ) || !file_exists( $options['sites_conf'] ) )
+			$errors['sites_conf'] = 'Path not valid - sites config file not found.';
+			
+		if( array_key_exists('dbs_conf', $options) ) $options['dbs_conf'] = trim( $options['dbs_conf'] );
+		if( empty( $options['dbs_conf'] ) ||  !file_exists( $options['dbs_conf'] ) )
+			$errors['dbs_conf'] = 'Path not valid - DB config file not found.';
+		
+		if( !empty($options['sites_conf']) && !empty($options['dbs_conf']) && $options['dbs_conf'] == $options['sites_conf'] )
+			$errors['dbs_conf'] = 'Sites and DBs config files cannot be the same file!';
+	
+		if( array_key_exists('backup_path', $options) ) $options['backup_path'] = trim( $options['backup_path'] );
+		if( !empty($options['backup_path']) && !file_exists( $options['backup_path'] ) )
+			$errors['backup_path'] = 'Path not valid - backup directory not found.';
+	
+		
+		if( !empty( $options['timezone'] ) )
+		{
+			@$tz=timezone_open( $options['timezone'] );
+			if( FALSE===$tz )
+			{
+				$errors['timezone'] = "{$options['timezone']} is not a valid timezone. See <a href='http://php.net/manual/en/timezones.php' target='_blank'>list of supported timezones</a> for valid values.";
+			}
+		}
+	
+		if( !empty($options['plugin_activates']) )
+		{
+			$plugin_activates = array();
+			foreach( explode("\n",$options['plugin_activates']) as $plugin )
+			{
+				$plugin = trim( $plugin );
+				if( !$plugin || in_array($plugin, $plugin_activates) || in_array($plugin, $this->options['plugins']['never_manage']) ) continue; //empty line or duplicate
+				$plugin_activates[] = $plugin;
+			}
+			asort($plugin_activates);
+			$options['plugin_activates'] = implode("\n", $plugin_activates);		
+		}
+
+		if( !empty($options['plugin_deactivates']) )
+		{
+			$plugin_deactivates = array();
+			foreach( explode("\n",$options['plugin_deactivates']) as $plugin )
+			{
+				$plugin = trim( $plugin );
+				if( !$plugin || in_array($plugin, $plugin_deactivates) || in_array($plugin, $plugin_activates) || in_array($plugin, $this->options['plugins']['never_manage']) ) continue; //empty line or duplicate
+				$plugin_deactivates[] = $plugin;
+			}
+			asort($plugin_deactivates);
+			$options['plugin_deactivates'] = implode("\n", $plugin_deactivates);		
+		}
+	
+	
+		if( empty($options['capability']) )
+			$options['capability'] = SitePushPlugin::$default_capability;
+	
+		if( empty($options['admin_capability']) )
+			$options['admin_capability'] = SitePushPlugin::$default_capability;
+	
+	
+		if( empty($options['cache']) )
+			$options['cache'] = 'none';
+	
+		if( empty($options['cache_key']) )
+			$options['cache_key'] = '';
+	
+		
+		if( $errors )
+		{
+			$options['ok'] = FALSE;
+			$options['notices']['errors'] = $errors;
+		}
+		else
+		{
+			$options['ok'] = TRUE;
+		}
+	
+		return $options;
+	}
+
+	//register all the settings
+	//must be passed object for screen these settings are on
+	function register_options( $options_screen )
+	{
+		register_setting('mra_sitepush_options', 'mra_sitepush_options', array( &$this, 'validate_options') );
+	
+		/* General settings fields */
+		add_settings_section(
+			'mra_sitepush_section_config',
+			'General Configuration',
+			array( $options_screen, 'section_config_text' ),
+			'sitepush_options'	
+		);
+		
+		add_settings_field(
+			'mra_sitepush_field_sites_conf',
+			'Full path to sites.conf file',
+			array( $options_screen, 'field_sites_conf' ),
+			'sitepush_options',
+			'mra_sitepush_section_config'
+		);
+		
+		add_settings_field(
+			'mra_sitepush_field_dbs_conf',
+			'Full path to dbs.conf file',
+			array( $options_screen, 'field_dbs_conf' ),
+			'sitepush_options',
+			'mra_sitepush_section_config'
+		);	
+	
+		add_settings_field(
+			'mra_sitepush_field_backup_path',
+			'Path to backups directory',
+			array( $options_screen, 'field_backup_path' ),
+			'sitepush_options',
+			'mra_sitepush_section_config'
+		);	
+	
+		add_settings_field(
+			'mra_sitepush_field_timezone',
+			'Timezone',
+			array( $options_screen, 'field_timezone' ),
+			'sitepush_options',
+			'mra_sitepush_section_config'
+		);	
+	
+		/*Capability fields */
+		add_settings_section(
+			'mra_sitepush_section_capabilities',
+			'SitePush Capabilities',
+			array( $options_screen, 'section_capabilities_text' ),
+			'sitepush_options'	
+		);
+	
+		add_settings_field(
+			'mra_sitepush_field_capability',
+			'SitePush capability',
+			array( $options_screen, 'field_capability' ),
+			'sitepush_options',
+			'mra_sitepush_section_capabilities'
+		);
+		
+		add_settings_field(
+			'mra_sitepush_field_admin_capability',
+			'SitePush admin capability',
+			array( $options_screen, 'field_admin_capability' ),
+			'sitepush_options',
+			'mra_sitepush_section_capabilities'
+		);
+	
+		/* Cache option fields */
+		add_settings_section(
+			'mra_sitepush_section_cache',
+			'Cache management',
+			array( $options_screen, 'section_cache_text' ),
+			'sitepush_options'	
+		);
+		add_settings_field(
+			'mra_sitepush_field_cache',
+			'Cache plugin',
+			array( $options_screen, 'field_cache' ),
+			'sitepush_options',
+			'mra_sitepush_section_cache'
+		);
+		add_settings_field(
+			'mra_sitepush_field_cache_key',
+			'Cache secret key',
+			array( $options_screen, 'field_cache_key' ),
+			'sitepush_options',
+			'mra_sitepush_section_cache'
+		);
+	
+	
+		/* Plugin option fields */
+		add_settings_section(
+			'mra_sitepush_section_plugins',
+			'Plugin management',
+			array( $options_screen, 'section_plugins_text' ),
+			'sitepush_options'	
+		);
+	
+		add_settings_field(
+			'mra_sitepush_field_plugins_activate',
+			'Activate Plugins',
+			array( $options_screen, 'field_plugin_activates' ),
+			'sitepush_options',
+			'mra_sitepush_section_plugins'
+		);
+
+		add_settings_field(
+			'mra_sitepush_field_plugins_deactivate',
+			'Deactivate Plugins',
+			array( $options_screen, 'field_plugin_deactivates' ),
+			'sitepush_options',
+			'mra_sitepush_section_plugins'
+		);
+	
+	}
+
+
+}
+
+/* EOF */

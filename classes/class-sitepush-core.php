@@ -1,9 +1,9 @@
 <?php
 /**
- * SitePush class
+ * SitePushCore class
  * 
  */
-class SitePush
+class SitePushCore
 {
 	//main parameters
 	public $source;
@@ -79,6 +79,7 @@ class SitePush
 	public $remote_user; //user account on remote destination
 	public $ssh_key_dir; //where ssh key is on local server for remote push (key must be named same as the remote server)
 	private $remote_shell; //set up by __construct
+	public $rsync_cmd = '/usr/bin/rsync'; //full path to rsync
 
 	//are we in wordpress maintenance mode or not
 	private $maintenance_mode = 'off';
@@ -100,6 +101,8 @@ class SitePush
 	
 	function __construct( $vars=array() )
 	{
+		//$this->check_requirements();
+
 		$defaults = array(
 			  'timezone'	=>	''
 		);
@@ -214,6 +217,26 @@ class SitePush
 			die( "ERROR: required parameter name, or user, or pw, or prefix is missing from config for {$result['label']} in dbs.conf\n" );
 
 		return $result;
+	}
+
+	public function check_requirements()
+	{
+		//get php version
+		if (!defined('PHP_VERSION_ID'))
+		{
+			$php_version = explode('.', PHP_VERSION);
+			define('PHP_VERSION_ID', ($php_version[0] * 10000 + $php_version[1] * 100 + $php_version[2]));
+		}
+		if( PHP_VERSION_ID < 50200 ) echo 'we need PHP 5.2';
+		
+		if( !file_exists( $this->rsync_cmd ) )
+			echo "rsync not found at {$this->rsync_cmd}";
+		
+		system("{$this->rsync_cmd} --version", $result);
+			if( $result ) echo 'rsync not working';
+		
+		die();
+			
 	}
 
 /* -------------------------------------------------------------- */
@@ -774,14 +797,14 @@ class SitePush
 		}
 		
 		//create the command
-		$command = "rsync {$rsync_options} '{$source_path}' '{$remote_site}{$dest_path}'";
+		$command = "{$this->rsync_cmd} {$rsync_options} '{$source_path}' '{$remote_site}{$dest_path}'";
 		
 		//write file which will undo the push
 		if( $this->source_backup_path && $this->save_undo && $dir && $backup_file )
 		{
 			$undo_dir = "{$this->dest}-{$this->timestamp}-undo_files";
 			$undo_prep = "cd {$this->dest_backup_dir}; mkdir '{$undo_dir}'; cd '{$undo_dir}'; tar -zpxf {$backup_file}\n";
-			$undo_sync = "rsync {$rsync_options} '{$this->dest_backup_dir}/{$undo_dir}/{$dir}/' '{$dest_path}'\n\n";
+			$undo_sync = "{$this->rsync_cmd} {$rsync_options} '{$this->dest_backup_dir}/{$undo_dir}/{$dir}/' '{$dest_path}'\n\n";
 			$undo['original'] = $command;
 			$undo['remote'] = $this->remote_shell;
 			$undo['type'] = 'rsync';
