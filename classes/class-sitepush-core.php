@@ -93,6 +93,9 @@ class SitePushCore
 	//how much info to output (normal,backups=1 or detail=2, very_detail=3)
 	public $output_level = 1;
 	
+	//holds any errors for later output
+	public $errors = array();
+	
 	//passwords will be replaced with **** in any log output
 	public $hide_passwords = TRUE;
 	
@@ -101,7 +104,7 @@ class SitePushCore
 	
 	function __construct( $vars=array() )
 	{
-		//$this->check_requirements();
+		$this->check_requirements();
 
 		$defaults = array(
 			  'timezone'	=>	''
@@ -173,6 +176,9 @@ class SitePushCore
 			//make sure certain optional params are set correctly
 			if( empty($params['wp_dir']) ) $params['wp_dir'] = ''; //make sure it is set
 			if( empty($params['wp_content_dir']) ) $params['wp_content_dir'] = '/wp-content';
+			if( empty($params['wp_plugins_dir']) ) $params['wp_plugins_dir'] = $params['wp_content_dir'] . '/plugins';
+			if( empty($params['wp_uploads_dir']) ) $params['wp_uploads_dir'] = $params['wp_content_dir'] . '/uploads';
+			if( empty($params['wp_themes_dir']) ) $params['wp_themes_dir'] = $params['wp_content_dir'] . '/themes';
 			
 			//stop if certain required params not present
 			if( empty( $params['web_path'] ) || empty( $params['db'] ) )
@@ -221,22 +227,26 @@ class SitePushCore
 
 	public function check_requirements()
 	{
+		$errors = array();
+		
 		//get php version
 		if (!defined('PHP_VERSION_ID'))
 		{
 			$php_version = explode('.', PHP_VERSION);
 			define('PHP_VERSION_ID', ($php_version[0] * 10000 + $php_version[1] * 100 + $php_version[2]));
 		}
-		if( PHP_VERSION_ID < 50200 ) echo 'we need PHP 5.2';
+		if( PHP_VERSION_ID < 50200 ) $errors[] = 'we need PHP 5.2';
 		
+		//if we can't find rsync at defined path, try without any path
 		if( !file_exists( $this->rsync_cmd ) )
-			echo "rsync not found at {$this->rsync_cmd}";
+			$this->rsync_cmd = 'rsync';
 		
-		system("{$this->rsync_cmd} --version", $result);
-			if( $result ) echo 'rsync not working';
+		$result = shell_exec("{$this->rsync_cmd} --version");
+			if( !$result ) $errors[]='Rsync not found or not configured properly.';
 		
-		die();
-			
+		$this->errors = array_merge($this->errors, $errors);
+		
+		return ! (bool) $errors;			
 	}
 
 /* -------------------------------------------------------------- */
@@ -317,36 +327,28 @@ class SitePushCore
 		$source = $this->source_params;
 		$dest = $this->dest_params;
 	
-		if( $this->push_wp_files )
-		{
-			//never push the wp-content dir even when pushing all WP files
-			$this->excludes[] = 'wp-content';
-			$backup_file = $this->file_backup( $dest_path . $dest['wp_dir'] );
-			$this->copy_files( $this->source_path . $source['wp_dir'], $this->dest_path . $dest['wp_dir'], $backup_file, 'WordPress', TRUE );
-		}
-		
 		if( $this->push_plugins )
 		{
-			$backup_file = $this->file_backup( $this->dest_path . $dest['wp_content_dir'] . '/plugins' );
-			$this->copy_files( $this->source_path . $source['wp_content_dir'] . '/plugins', $this->dest_path . $dest['wp_content_dir'] . '/plugins', $backup_file, 'plugins', TRUE );
+			$backup_file = $this->file_backup( $this->dest_path . $dest['wp_plugins_dir'] );
+			$this->copy_files( $this->source_path . $source['wp_plugins_dir'], $this->dest_path . $dest['wp_plugins_dir'], $backup_file, 'plugins', TRUE );
 		}
 		
 		if( $this->push_uploads )
 		{
-			$backup_file = $this->file_backup( $this->dest_path . $dest['wp_content_dir'] . '/uploads' );
-			$this->copy_files( $this->source_path . $source['wp_content_dir'] . '/uploads', $this->dest_path . $dest['wp_content_dir'] . '/uploads', $backup_file, 'uploads', TRUE );
+			$backup_file = $this->file_backup( $this->dest_path . $dest['wp_uploads_dir'] );
+			$this->copy_files( $this->source_path . $source['wp_uploads_dir'], $this->dest_path . $dest['wp_uploads_dir'], $backup_file, 'uploads', TRUE );
 		}
 
 		if( $this->push_themes )
 		{
-			$backup_file = $this->file_backup( $this->dest_path . $dest['wp_content_dir'] . '/themes' );
-			$this->copy_files( $this->source_path . $source['wp_content_dir'] . '/themes', $this->dest_path . $dest['wp_content_dir'] . '/themes', $backup_file, 'themes', TRUE );
+			$backup_file = $this->file_backup( $this->dest_path . $dest['wp_themes_dir'] );
+			$this->copy_files( $this->source_path . $source['wp_themes_dir'], $this->dest_path . $dest['wp_themes_dir'], $backup_file, 'themes', TRUE );
 		}
 		
 		if( $this->theme )
 		{
-			$backup_file = $this->file_backup( $this->dest_path . $dest['wp_content_dir'] . '/themes/' . $this->theme );
-			$this->copy_files( $this->source_path . $source['wp_content_dir'] . '/themes/' . $this->theme, $this->dest_path . $dest['wp_content_dir'] . '/themes/' . $this->theme, $backup_file, $this->theme, TRUE );
+			$backup_file = $this->file_backup( $this->dest_path . $dest['wp_themes_dir'] . '/' . $this->theme );
+			$this->copy_files( $this->source_path . $source['wp_themes_dir'] . '/' . $this->theme, $this->dest_path . $dest['wp_themes_dir'] . '/' . $this->theme, $backup_file, $this->theme, TRUE );
 		}
 
 	}
@@ -368,12 +370,19 @@ class SitePushCore
 		$db_dest = $this->get_db_params( $this->db_dest, 'dest' );
 
 		if( empty( $db_source['prefix'] ) )
-			die( "ERROR: you must set a database prefix for each database in dbs.conf.\n" );
+			$this->errors[] = "You must set a database prefix for each database in dbs.ini.php";
 		if( $db_source['prefix'] <> $db_dest['prefix'] )
-			die( "ERROR: Source and destination DB prefix must be the same.\n" );
+			$this->errors[] = "Source and destination DB prefix must be the same.";
 		$this->db_prefix = $db_source['prefix'];
 
-		if( !$db_source || !$db_dest ) die('Unknown database source or destination');
+		if( !$db_source || !$db_dest )
+			$this->errors[] = 'Unknown database source or destination';
+
+		if( $db_source['name'] == $db_dest['name'] )
+			$this->errors[] = 'Database not pushed. Source and destination databases are the same!';
+
+		if( $this->errors )
+			return FALSE;
 
 		//work out which table(s) to push
 		if( $table_groups )
@@ -594,7 +603,10 @@ class SitePushCore
 			$this->dest_params['remote'] = FALSE;
 		}
 
-		if( isset($this->source_params['remote']) && $this->source_params['remote'] ) die("Remote source isn't currently supported.\n");
+		if( isset($this->source_params['remote']) && $this->source_params['remote'] )
+		{
+			die("Remote source isn't currently supported.\n");
+		}
 		
 		//set up remote shell command
 		$this->remote_shell = $this->dest_params['remote'] ? "ssh -i {$this->ssh_key_dir}{$this->dest_params['domain']} {$this->remote_user}@{$this->dest_params['domain']} " : '';
@@ -642,6 +654,9 @@ class SitePushCore
 	{
 		//no backup dir set
 		if( !$path ) return FALSE;
+	
+		//don't backup if directory is really a symlink
+		if( is_link($path) ) return FALSE;
 	
 		$last_pos =  strrpos($path, '/') + 1;
 		$dir = substr( $path, $last_pos );
@@ -735,14 +750,6 @@ class SitePushCore
 			case 'users':
 				$tables = 'wp_usermeta wp_users';
 				break;
-			case 'forms':
-				$tables = 'wp_rg_form wp_rg_form_meta wp_rg_form_view';
-				break;
-			case 'form-data':
-				//@todo update class, CLI options for this
-				//and test
-				$tables = 'wp_rg_lead wp_rg_lead_detail wp_rg_lead_detail_long wp_rg_lead_notes';
-				break;
 			case 'all-tables':
 				$tables = '';
 				break;
@@ -763,6 +770,7 @@ class SitePushCore
 	
 	//copies files from source to dest
 	//deleting anything in dest not in source
+	//aborts if either source or dest is a symlink
 	private function copy_files($source_path,$dest_path,$backup_file='',$dir='',$maint_mode=FALSE)
 	{
 		//rsync option parameters
@@ -770,6 +778,18 @@ class SitePushCore
 		
 		$source_path = $this->trailing_slashit( $source_path );
 		$dest_path = $this->trailing_slashit( $dest_path );
+		
+		//don't copy if source or dest are symlinks
+		if( is_link( rtrim($source_path,'/') ) )
+		{
+			$this->errors[] = "Could not push from {$source_path} because it is a symlink and not a real directory.";
+			return FALSE;
+		}
+		elseif( is_link( rtrim($dest_path,'/') ) )
+		{
+			$this->errors[] = "Could not push to {$dest_path} because it is a symlink and not a real directory.";
+			return FALSE;
+		}
 		
 		//are we syncing to a remote server?
 		$remote_site = '';
@@ -791,8 +811,10 @@ class SitePushCore
 		}
 		
 		//add the excludes to the options
+		if( !is_array($this->excludes) ) $this->excludes = explode( ',', $this->excludes );
 		foreach( $this->excludes as $exclude )
 		{
+			$exclude = trim($exclude);
 			$rsync_options .= " --exclude='{$exclude}'";
 		}
 		

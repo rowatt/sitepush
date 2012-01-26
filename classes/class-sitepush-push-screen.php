@@ -2,6 +2,9 @@
 
 class SitePush_Push_Screen extends SitePush_Screen
 {
+	//holds the last source/dest for current user
+	private $user_last_source = '';
+	private $user_last_dest = '';
 
 	public function __construct( $plugin, $options )
 	{
@@ -21,6 +24,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 		//initialise options from form data
 		$push_options['db_all_tables'] =  SitePushPlugin::get_query_var('mra_sitepush_push_db_all_tables') ? TRUE : FALSE;
 		$push_options['db_post_content'] =  SitePushPlugin::get_query_var('mra_sitepush_push_db_post_content') ? TRUE : FALSE;
+		$push_options['db_comments'] = SitePushPlugin::get_query_var('mra_sitepush_push_db_comments') ? TRUE : FALSE;
 		$push_options['db_users'] = SitePushPlugin::get_query_var('mra_sitepush_push_db_users') ? TRUE : FALSE;
 		$push_options['db_options'] = SitePushPlugin::get_query_var('mra_sitepush_push_db_options') ? TRUE : FALSE;
 		
@@ -37,6 +41,10 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$push_options['source'] = SitePushPlugin::get_query_var('mra_sitepush_source') ? SitePushPlugin::get_query_var('mra_sitepush_source') : '';
 		$push_options['dest'] = SitePushPlugin::get_query_var('mra_sitepush_dest') ? SitePushPlugin::get_query_var('mra_sitepush_dest') : '';
 	
+		$user_options = get_user_option('mra_sitepush_options');
+		$this->user_last_source = empty($user_options['last_source']) ? '' : $user_options['last_source'];
+		$this->user_last_dest = empty($user_options['last_dest']) ? '' : $user_options['last_dest'];
+	
 		//instantiate a new push object
 		$args = array(
 				  'timezone' => $this->options['timezone']
@@ -46,7 +54,8 @@ class SitePush_Push_Screen extends SitePush_Screen
 		set_time_limit( 6000 );
 	
 		$my_sitepush = new SitePushCore( $this->options['sites_conf'] );
-	
+		$my_sitepush->rsync_cmd = $this->options['rsync_path'];
+		$my_sitepush->excludes = $this->options['dont_sync'];
 	?>
 		<div class="wrap">
 			<h2>SitePush</h2>	
@@ -54,17 +63,38 @@ class SitePush_Push_Screen extends SitePush_Screen
 	
 		if( $push_options['dest'] )
 		{
+			//save source/dest to user options
+			$user_options = get_user_option('mra_sitepush_options');
+			$user_options['last_source'] = $push_options['source'];
+			$user_options['last_dest'] = $push_options['dest'];
+			update_user_option( get_current_user_id(), 'mra_sitepush_options', $user_options );
+
 			// do the push!
-			echo "<h3>Push results</h3>";
-			if( $push_options['dry_run'] )
-				echo "<p style='color:red; font-weight:bold;'>Dry run only, nothing pushed</p>";
-			
-			echo "<pre id='mra-sitepush-results'>";
+			if( defined('MRA_SITEPUSH_OUTPUT_LEVEL') && MRA_SITEPUSH_OUTPUT_LEVEL )
+				$hide_html = '';
+			else
+				$hide_html = ' style="display: none;"';
+				
+			echo "<h3{$hide_html}>Push results</h3>";
+			echo "<pre id='mra-sitepush-results'{$hide_html}>";
 			$push_result = $this->plugin->do_the_push( $my_sitepush, $push_options );
 			echo "</pre>";
 	
-			if( ! $push_result )
-				echo "Nothing selected to push<br />";
+			if( $this->plugin->errors )
+			{
+				foreach( $this->plugin->errors as $error )
+				{
+					echo "<div class='error'><p>{$error}</p></div>";
+				}
+			}
+			elseif( $push_result )
+			{
+				echo "<div class='updated'><p>Push complete!</p></div>";
+			}
+			else
+			{
+				echo "<div class='error'><p>Nothing selected to push.</p></div>";
+			}
 		}
 		else
 		{
@@ -93,10 +123,23 @@ class SitePush_Push_Screen extends SitePush_Screen
 			}
 		
 		}
+		
+		//set up what menu options are selected by default
+		if( !empty($_REQUEST['sitepush-nonce']) )
+		{
+			//already done a push, so redo what we had before
+			$default_source = empty( $_REQUEST['mra_sitepush_source'] ) ? '' :  $_REQUEST['mra_sitepush_source'];
+			$default_dest = empty( $_REQUEST['mra_sitepush_dest'] ) ? '' :  $_REQUEST['mra_sitepush_dest'];
+		}
+		if( empty($default_source) )
+			$default_source = $this->user_last_source ? $this->user_last_source : $this->plugin->get_current_site();
+		if( empty($default_dest) )
+			$default_dest = $this->user_last_dest ? $this->user_last_dest : '';
+
 	?>
 	
 			<form method="post" action="">
-				<?php wp_nonce_field('sitepush','mra_sitepush'); ?>
+				<?php wp_nonce_field('sitepush-dopush','sitepush-nonce'); ?>
 				<table class="form-table">
 					<tr valign="top">
 						<th scope="row">Source</th>
@@ -106,7 +149,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 								foreach( $this->plugin->get_sites() as $site )
 								{
 									echo "<option value='{$site}'";
-									if( $this->plugin->get_current_site() == $site ) echo " selected='selected'";
+									if( $default_source == $site ) echo " selected='selected'";
 									echo ">{$this->options['sites'][$site]['label']}</option>";
 								}
 							?>
@@ -122,7 +165,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 								foreach( $this->plugin->get_sites() as $site )
 								{
 									echo "<option value='{$site}'";
-									if( !empty( $this->options['default_site'] ) && $site == $this->options['default_site'] ) echo " selected='selected'";
+									if( $default_dest == $site ) echo " selected='selected'";
 									echo ">{$this->options['sites'][$site]['label']}</option>";
 								}
 							?>
@@ -133,9 +176,10 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<tr valign="top">
 						<th scope="row">Database content</th>
 						<td>
-							<?php echo $this->option_html('mra_sitepush_push_db_all_tables','Entire database (caution - this will overwrite all content and settings)','admin_only');?>
-							<?php echo $this->option_html('mra_sitepush_push_db_post_content','All WordPress post content (pages, posts, comments, etc)', 'user');?>
-							<?php echo $this->option_html('mra_sitepush_push_db_users','WordPress users','admin_only');?>
+							<?php echo $this->option_html('mra_sitepush_push_db_all_tables','Entire database (this will overwrite all content and settings)','admin_only');?>
+							<?php echo $this->option_html('mra_sitepush_push_db_post_content','All post content (pages, posts, custom post types, link, post meta, categories, tags &amp; custom taxonomies)', 'user');?>
+							<?php echo $this->option_html('mra_sitepush_push_db_comments','Comments','user');?>
+							<?php echo $this->option_html('mra_sitepush_push_db_users','Users &amp; user meta','admin_only');?>
 							<?php echo $this->option_html('mra_sitepush_push_db_options','WordPress options','admin_only');?>
 						</td>
 					</tr>
@@ -143,33 +187,29 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<tr valign="top">
 						<th scope="row">Files</th>
 						<td>
-							<?php echo $this->option_html('mra_sitepush_push_uploads','WordPress media uploads', 'user');?>
-							<?php echo $this->option_html('mra_sitepush_push_theme',get_current_theme().' theme','admin_only');?>
+							<?php echo $this->option_html('mra_sitepush_push_theme', 'Current theme ('.get_current_theme().')','admin_only');?>
 							<?php echo $this->option_html('mra_sitepush_push_themes','All themes','admin_only');?>
 							<?php echo $this->option_html('mra_sitepush_push_plugins','WordPress plugins','admin_only');?>
-							<?php echo $this->option_html('mra_sitepush_push_wp_core','All WordPress core files. Excludes content in wp-content, i.e. themes, plugins, uploads, etc.','admin_only');?>
-	
+							<?php echo $this->option_html('mra_sitepush_push_uploads','WordPress media uploads', 'user');?>
 						</td>
 					</tr>				
 	
-					<tr valign="top">
-						<th scope="row">Push options</th>
-						<td>
-							<?php
-								if( 'none'<>$this->options['cache'] )
-									echo $this->option_html('clear_cache','Clear WordPress cache on destination','user','checked');
-							?>
-							<?php echo $this->option_html('mra_sitepush_dry_run','Dry run (nothing will be pushed)','admin_only');?>
-							<?php 
-								if( !empty( $this->options['backup_path'] ) )
-									echo $this->option_html('mra_sitepush_push_backup','Backup push (caution - do not turn this off unless you are sure!)','user','checked');
-							?>
-						</td>
-					</tr>				
+					<?php
+						$output = '';
+
+						if( 'none'<>$this->options['cache'] )
+							$output .= $this->option_html('clear_cache','Clear WordPress cache on destination','user','checked');
+
+						if( !empty( $this->options['backup_path'] ) )
+							$output .= $this->option_html('mra_sitepush_push_backup','Backup push (note - restoring from a backup is currently a manual process and requires command line access)','user','checked');
+
+					/* No undo till we get it working properly!
+					<br /><label title="undo"><input type="radio" name="push_type" value="undo"<?php echo $push_type=='undo'?' checked="checked"':'';?> /> Undo the last push (<?php echo date( "D j F, Y \a\t H:i:s e O T",$my_sitepush->get_last_undo_time() );?>)</label>
+					*/
 					
-							<?php /* No undo till we get it working properly!
-							<br /><label title="undo"><input type="radio" name="push_type" value="undo"<?php echo $push_type=='undo'?' checked="checked"':'';?> /> Undo the last push (<?php echo date( "D j F, Y \a\t H:i:s e O T",$my_sitepush->get_last_undo_time() );?>)</label>
-							*/ ?>
+						if( $output )
+							echo "<tr valign='top'><th scope='row'>Push options</th><td>{$output}</td></tr>";
+					?>
 	
 				<?php if( ! $this->plugin->can_admin() ) : ?>
 					<tr valign="top">
@@ -192,7 +232,12 @@ class SitePush_Push_Screen extends SitePush_Screen
 	//output HTML for push option
 	private function option_html($option, $label, $admin_only='admin_only', $checked='not_checked' )
 	{
-		$checked_html = 'checked'==$checked ? ' checked="checked"' : '';
+		//set checked either to default, or to last run if we have just done a push
+		if( !empty($_REQUEST['sitepush-nonce']) )
+			$checked_html = empty($_REQUEST[ $option ]) ? '' : ' checked="checked"';
+		else
+			$checked_html = 'checked'==$checked ? ' checked="checked"' : '';
+	
 		if( 'admin_only'==$admin_only && ! $this->plugin->can_admin() )
 			return '';
 		else

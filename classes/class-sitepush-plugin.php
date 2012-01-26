@@ -2,18 +2,25 @@
 
 class SitePushPlugin
 {
-	//default capability required to use SitePush
+	//default capabilities required to use SitePush
 	public static $default_capability = 'delete_plugins';
+	public static $default_admin_capability = 'delete_plugins';
+	public static $fallback_capability = 'delete_users'; //user with this capability will always be able to access options
+	
+	//major errors in initialisation will stop even options screen showing
+	public $abort = FALSE;
+	
+	//holds any errors from push
+	public $errors = array();
 	
 	//holds all options
 	private $options=array();
 	
+	private $min_wp_version = '3.3';
+	
 	public function __construct()
 	{
 		/* -------------------------------------------------------------- */		/* !SETUP HOOKS */		/* -------------------------------------------------------------- */
-		
-		//activation
-		register_activation_hook( __FILE__, array( __CLASS__, 'activate') );
 		
 		//initialisation
 		add_action('init', array( &$this, 'activate_plugins_for_site') );
@@ -30,24 +37,23 @@ class SitePushPlugin
 		
 		//content filters
 		add_filter('the_content', array( &$this, 'relative_urls') );
-		
+
 		//check for notices etc
-		$this->check_query_vars();
+		$this->check_requirements();
 	}
 	
+
 	//run when plugin is activated
-	static public function activate()
+	public function check_requirements()
 	{
-		$errors = array();
-	
-		if( version_compare( get_bloginfo( 'version' ), '3.5', '<') )
-			$errors[] = "SitePush requires at least WordPress version 3.3";
+		if( version_compare( get_bloginfo( 'version' ), $this->min_wp_version, '<') )
+			$this->errors[] = "SitePush requires at least WordPress version {$this->min_wp_version}";
 	
 		if( (defined('WP_ALLOW_MULTISITE') && WP_ALLOW_MULTISITE) && ! (defined('MRA_SITEPUSH_ALLOW_MULTISITE') && MRA_SITEPUSH_ALLOW_MULTISITE) )
-			$errors[] = "SitePush does not support WordPress multisite installs. If you wish to use SitePush on a multisite install, add define('MRA_SITEPUSH_ALLOW_MULTISITE',TRUE) to your wp-config.php file and proceed with caution!";
+			$this->errors[] = "SitePush does not support WordPress multisite installs. If you wish to use SitePush on a multisite install, add define('MRA_SITEPUSH_ALLOW_MULTISITE',TRUE) to your wp-config.php file and proceed with caution!";
 
-		if( $errors )
-			deactivate_plugins( MRA_SITEPUSH_PLUGIN_DIR . '/sitepush.php' );
+		if( !empty($this->errors) )
+			$this->abort = TRUE;	
 	}
 	
 	//delete options entry when plugin is deleted
@@ -80,7 +86,7 @@ class SitePushPlugin
 	function options_init()
 	{
 		//get options from DB
-		$this->options = array_merge( get_option( 'mra_sitepush_options' ), $this->options );
+		$this->options = array_merge( (array) get_option( 'mra_sitepush_options' ), $this->options );
 	
 		//make sure various option defaults are set
 		if( empty($this->options['cache']) )
@@ -178,13 +184,31 @@ class SitePushPlugin
 		{
 			return;
 		}
+
+		//make sure menus show for right capabilities, but will always show for admin
+		if( ! current_user_can( $this->options['capability'] ) && current_user_can( self::$fallback_capability ) )
+		{
+			$capability = self::$fallback_capability;
+		}
+		else
+		{
+			$capability = $this->options['capability'];
+		}
+		
+		if( ! current_user_can( $this->options['admin_capability'] ) && current_user_can( self::$fallback_capability ) )
+		{
+			$admin_capability = self::$fallback_capability;
+		}
+		else
+		{
+			$capability = $this->options['admin_capability'];
+		}
 		
 		//add menu(s) - only options page is shown if not configured properly
 		$page_title = 'SitePush';
 		$menu_title = 'SitePush';
-		$capability = $this->options['capability'];
-		$menu_slug = $this->options['ok'] ? 'mra_sitepush' : 'mra_sitepush_options';
-		$function = $this->options['ok'] ? array( $push_screen, 'display_screen') : array( $options_screen, 'display_screen');
+		$menu_slug = ($this->options['ok'] && ! $this->abort) ? 'mra_sitepush' : 'mra_sitepush_options';
+		$function = ($this->options['ok'] && ! $this->abort) ? array( $push_screen, 'display_screen') : array( $options_screen, 'display_screen');
 		$icon_url = '';
 		$position = 3;
 		add_menu_page( $page_title, $menu_title, $capability, $menu_slug, $function, $icon_url, $position );
@@ -192,13 +216,13 @@ class SitePushPlugin
 		$parent_slug = $menu_slug;
 		
 		//add SitePush if options are OK
-		if( $this->options['ok'] )
+		if( $this->options['ok'] && !$this->abort)
 		{	
 			$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $function);
 			add_action('admin_print_styles-' . $page, array( __CLASS__, 'admin_styles' ) ); //add custom stylesheet
 		}
-		
-		if( $this->can_admin() )
+
+		if( $this->can_admin() || $this->abort )
 		{
 			//add options page if we have admin capability
 			$page_title = 'SitePush Options';
@@ -207,7 +231,7 @@ class SitePushPlugin
 			$function = array( $options_screen, 'display_screen');
 			
 			$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $function);
-	
+
 			add_action('admin_print_styles-' . $page, array( __CLASS__, 'admin_styles' ) ); //add custom stylesheet
 		}
 	}
@@ -253,18 +277,32 @@ class SitePushPlugin
 	
 	function can_admin()
 	{
-		return current_user_can( $this->options['admin_capability'] ) || current_user_can( self::$default_capability );
+	return TRUE;
+		return current_user_can( $this->options['admin_capability'] )
+				|| current_user_can( 'delete_users' )
+				|| current_user_can( self::$default_admin_capability );
 	}
 	
 	function can_use()
 	{
+	return TRUE;
 		return current_user_can( $this->options['capability'] ) || current_user_can( self::$default_capability );
 	}
 	
 	function do_the_push( $my_push, $push_options )
 	{
 		//if we are going to do a push, check that we were referred from options page as expected
-		check_admin_referer('sitepush','mra_sitepush'); //@todo check this is correct
+		check_admin_referer('sitepush-dopush','sitepush-nonce');
+		
+		if( $my_push->errors )
+		{
+			//if there are any errors before we start, then stop here!
+			$this->errors = array_merge($this->errors, $my_push->errors);
+			return FALSE;		
+		}
+		
+		//track if we have actually tried to push anything
+		$done_push = FALSE;
 		
 		$my_push->sites_conf_path = $this->options['sites_conf'];
 		$my_push->dbs_conf_path = $this->options['dbs_conf'];
@@ -277,12 +315,13 @@ class SitePushPlugin
 		$my_push->backup_path = $this->options['backup_path'];
 		
 		$my_push->echo_output = TRUE;
-		$my_push->output_level = $this->can_admin() ? 2 : 1;
+		$my_push->output_level = defined('MRA_SITEPUSH_OUTPUT_LEVEL') ? MRA_SITEPUSH_OUTPUT_LEVEL : 0;
 		
 		//initialise some parameters
 		$push_files = FALSE;
 		$result = '';
 		$db_types = array();
+		$current_options = get_option('mra_sitepush_options');
 		
 	/* -------------------------------------------------------------- */
 	/* !Push WordPress Files */
@@ -320,8 +359,11 @@ class SitePushPlugin
 		}
 	
 		//do the push
-		if( $push_files) $result .= $my_push->push_files();
-	
+		if( $push_files )
+		{
+			$result .= $my_push->push_files();
+			$done_push = TRUE;
+		}
 	/* -------------------------------------------------------------- */
 	/* !Push WordPress Database */
 	/* -------------------------------------------------------------- */
@@ -329,17 +371,21 @@ class SitePushPlugin
 		{
 			//with no params entire DB is pushed
 			$result .= $my_push->push_db();
+			$done_push = TRUE;
 		}
 		else
 		{
 			if( $push_options['db_post_content'] ) $db_types[] = 'content';
+			if( $push_options['db_comments'] ) $db_types[] = 'comments';
 			if( $push_options['db_users'] ) $db_types[] = 'users';
 			if( $push_options['db_options'] ) $db_types[] = 'options';
-			//if( $push_options['db_gravity_options'] ) $db_types[] = 'forms';
-			//if( $push_options['db_gravity_data'] ) $db_types[] = 'form-data';
 		
 			//do the push
-			if( $db_types ) $result .= $my_push->push_db( $db_types );
+			if( $db_types )
+			{
+				$result .= $my_push->push_db( $db_types );
+				$done_push = TRUE;
+			}
 		}
 	/* -------------------------------------------------------------- */
 	/* !Clear Cache */
@@ -360,11 +406,18 @@ class SitePushPlugin
 		if( $result ) echo "<div class='error'>{$result}</div>";
 	
 		//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
+		activate_plugin('sitepush/sitepush.php');
+
+echo "<pre>".var_export(get_option('mra_sitepush_options'),TRUE)."</pre>";
+
+		add_option( 'mra_sitepush_options', $current_options);
+
+echo "<pre>".var_export(get_option('mra_sitepush_options'),TRUE)."</pre>";
+
 	
-		activate_plugin('sitepush/sitepush.php');	
-		add_option( 'mra_sitepush_options', $this->options);
+		$this->errors = array_merge($this->errors, $my_push->errors);
 	
-		return TRUE;
+		return $this->errors ? FALSE : $done_push;
 	}
 	
 	//clear cache for this site
@@ -571,7 +624,31 @@ class SitePushPlugin
 		if( array_key_exists('backup_path', $options) ) $options['backup_path'] = trim( $options['backup_path'] );
 		if( !empty($options['backup_path']) && !file_exists( $options['backup_path'] ) )
 			$errors['backup_path'] = 'Path not valid - backup directory not found.';
-	
+
+		if( array_key_exists('backup_keep_time', $options) ) $options['backup_keep_time'] = trim( $options['backup_keep_time'] );
+		if( array_key_exists('backup_keep_time', $options) && ''==$options['backup_keep_time'] )
+			$options['backup_keep_time'] = 10;
+
+		if( array_key_exists('rsync_path', $options) ) $options['rsync_path'] = trim( $options['rsync_path'] );
+		if( !empty($options['rsync_path']) && !file_exists( $options['rsync_path'] ) )
+			$errors['rsync_path'] = 'Path not valid - rsync not found.';
+		if( empty($options['rsync_path']) )
+		{
+			$whereis_path = trim( str_ireplace('rsync:', '', `whereis -b rsync`) );
+			$rsync_paths = array($whereis_path, '/usr/bin/rsync', '/usr/local/bin/rsync' );
+			foreach( $rsync_paths as $rsync_path )
+			{
+				if( file_exists($rsync_path) )
+				{
+					$options['rsync_path'] = $rsync_path;
+					break;
+				}
+			}
+		}
+		
+		if( array_key_exists('dont_sync', $options) ) $options['dont_sync'] = trim( $options['dont_sync'] );
+		if( empty($options['dont_sync']) )
+			$options['dont_sync'] = '.git, .svn, .htaccess, tmp/, wp-config.php';
 		
 		if( !empty( $options['timezone'] ) )
 		{
@@ -613,7 +690,7 @@ class SitePushPlugin
 			$options['capability'] = SitePushPlugin::$default_capability;
 	
 		if( empty($options['admin_capability']) )
-			$options['admin_capability'] = SitePushPlugin::$default_capability;
+			$options['admin_capability'] = SitePushPlugin::$default_admin_capability;
 	
 	
 		if( empty($options['cache']) )
@@ -662,14 +739,6 @@ class SitePushPlugin
 			'mra_sitepush_field_dbs_conf',
 			'Full path to dbs.conf file',
 			array( $options_screen, 'field_dbs_conf' ),
-			'sitepush_options',
-			'mra_sitepush_section_config'
-		);	
-	
-		add_settings_field(
-			'mra_sitepush_field_backup_path',
-			'Path to backups directory',
-			array( $options_screen, 'field_backup_path' ),
 			'sitepush_options',
 			'mra_sitepush_section_config'
 		);	
@@ -752,6 +821,56 @@ class SitePushPlugin
 			'sitepush_options',
 			'mra_sitepush_section_plugins'
 		);
+		
+		/* Backup options */
+		add_settings_section(
+			'mra_sitepush_section_backup',
+			'Backup options',
+			array( $options_screen, 'section_backup_text' ),
+			'sitepush_options'	
+		);
+		
+		add_settings_field(
+			'mra_sitepush_field_backup_path',
+			'Path to backups directory',
+			array( $options_screen, 'field_backup_path' ),
+			'sitepush_options',
+			'mra_sitepush_section_backup'
+		);	
+		
+		add_settings_field(
+			'mra_sitepush_field_backup_keep_time',
+			'Days before backups deleted',
+			array( $options_screen, 'field_backup_keep_time' ),
+			'sitepush_options',
+			'mra_sitepush_section_backup'
+		);	
+
+
+		/* Rsync options */
+		add_settings_section(
+			'mra_sitepush_section_rsync',
+			'Rsync options',
+			array( $options_screen, 'section_rsync_text' ),
+			'sitepush_options'	
+		);
+		
+		add_settings_field(
+			'mra_sitepush_field_rsync_path',
+			'Path to rsync',
+			array( $options_screen, 'field_rsync_path' ),
+			'sitepush_options',
+			'mra_sitepush_section_rsync'
+		);	
+
+		add_settings_field(
+			'mra_sitepush_field_dont_sync',
+			'Exclude from sync',
+			array( $options_screen, 'field_dont_sync' ),
+			'sitepush_options',
+			'mra_sitepush_section_rsync'
+		);	
+
 	
 	}
 

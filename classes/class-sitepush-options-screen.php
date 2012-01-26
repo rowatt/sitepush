@@ -3,7 +3,6 @@
 class SitePush_Options_Screen extends SitePush_Screen
 {
 
-
 	public function __construct( $plugin, $options )
 	{
 		parent::__construct( $plugin, $options );
@@ -19,15 +18,22 @@ class SitePush_Options_Screen extends SitePush_Screen
 			
 			<?php if( !empty($this->options['notices']) ) echo $this->settings_notices(); ?>
 			
+			<?php 
+					if( $this->plugin->abort )
+					{
+						foreach( $this->plugin->errors as $error )
+						{
+							echo "<div class='error'><p>{$error}</p></div>";
+						}
+						return FALSE;
+					}			
+			?>
+			
 			<p>@todo Help text will go here…</p>
 			
 			<form action='options.php' method='post'>
 			<?php
 				settings_fields('mra_sitepush_options');
-				do_settings_sections('mra_sitepush_section_config');
-				do_settings_sections('mra_sitepush_section_capabilities');
-				do_settings_sections('mra_sitepush_section_cache');	
-				do_settings_sections('mra_sitepush_section_plugins');	
 				do_settings_sections('sitepush_options');	
 			?>
 			<input name="Submit" type='submit' value='Save Changes' class='button-primary' />
@@ -38,15 +44,18 @@ class SitePush_Options_Screen extends SitePush_Screen
 	
 	function settings_notices()
 	{
+		//don't display notices if we haven't submitted options form
+		if( empty( $_REQUEST['settings-updated'] ) ) return FALSE;
+
 		if( empty( $this->options['notices'] ) ) return FALSE; //nothing to display
 		
 		$output = '';
 		
-		foreach( $this->options['notices'] as $type )
+		foreach( $this->options['notices'] as $type=>$notices )
 		{
-			foreach( $type as $field=>$msg )
+			foreach( $notices as $field=>$msg )
 			{
-				$class = 'error'==$type ? 'error settings-error' : 'updated settings-error';
+				$class = 'errors'==$type ? 'error settings-error' : 'updated settings-error';
 				$output .= "<div id='mra_sitepush_options_{$type}' class='{$class}'>";
 				$output .= "<p>{$msg}</p>";
 				$output .= "</div>";
@@ -71,6 +80,16 @@ class SitePush_Options_Screen extends SitePush_Screen
 	function section_cache_text()
 	{
 		echo '<p class="description">With certain cache plugins, SitePush can can clear the cache immediately after a push.</p>';
+	}
+
+	function section_rsync_text()
+	{
+		echo '<p class="description">Files are copied between sites using rsync. These options can normally be left as they are.</p>';
+	}
+
+	function section_backup_text()
+	{
+		echo '<p class="description">Destination files and database will be backed up before being overwritten. Files and database dumps are saved in the directory defined below. Currently SitePush cannot automatically restore - if you need to restore files or database you will need to do this manually.</p>';
 	}
 	
 	function section_plugins_text()
@@ -112,12 +131,37 @@ class SitePush_Options_Screen extends SitePush_Screen
 	{
 		echo $this->input_text('backup_path','If you leave this blank, destination site will not be backed up before a push.','large-text');
 	}
+
+	function field_backup_keep_time()
+	{
+		echo $this->input_text('backup_keep_time','SitePush backups will be deleted after they are this many days old.');
+	}
+
+	
+	function field_rsync_path()
+	{
+		$rsync_help = 'Path to rsync on this server. ';
+		if( !empty($this->options['rsync_path']) && file_exists($this->options['rsync_path']) )
+			$rsync_help .= 'The current path appears to be OK.';
+		elseif( !empty($this->options['rsync_path']) && ! file_exists($this->options['rsync_path']) )
+			$rsync_help .= '<b>Rsync was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/rsync.';
+		else
+			$rsync_help .= ' Please enter a path to rsync, e.g. /usr/bin/rsync';
+
+		echo $this->input_text('rsync_path',$rsync_help,'large-text');
+	}
+
+	function field_dont_sync()
+	{
+		echo $this->input_text('dont_sync','Comma separated list of files or directories that will never be synced. You probably don\'t need or want to change this.','large-text');
+	}
+
 	
 	function field_timezone()
 	{
 		echo $this->input_text('timezone','Your default timezone is  <i>' . date_default_timezone_get() . '</i>. If that is not correct, enter your timezone here to make sure that logs and reporting are in your correct local time. See <a href="http://php.net/manual/en/timezones.php" target="_blank">list of supported timezones</a> for valid values.');
 	}
-	
+
 	function field_capability()
 	{
 		echo $this->input_text('capability');
