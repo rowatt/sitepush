@@ -63,12 +63,13 @@ class SitePushPlugin
 	{
 		delete_option('mra_sitepush_options');
 	}
-	
+
+
 	//add settings to plugin listing page
 	//called by plugin_action_links filter
 	static public function plugin_links( $links, $file )
 	{
-		if ( $file == plugin_basename( __FILE__ ) )
+		if ( $file == MRA_SITEPUSH_BASENAME )
 		{
 			$add_link = '<a href="'.get_admin_url().'admin.php?page=mra_sitepush_options">'.__('Settings').'</a>'; //@todo
 			array_unshift( $links, $add_link );
@@ -395,7 +396,7 @@ class SitePushPlugin
 		}
 	
 		//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
-		activate_plugin('sitepush/sitepush.php');
+		activate_plugin(MRA_SITEPUSH_BASENAME);
 
 //@todo fix save config after pull
 

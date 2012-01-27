@@ -37,6 +37,7 @@ require_once('classes/class-sitepush-push-screen.php');
 
 define( 'MRA_SITEPUSH_PLUGIN_DIR_URL', plugins_url( '', __FILE__ ) );
 define( 'MRA_SITEPUSH_PLUGIN_DIR', dirname(__FILE__) );
+define( 'MRA_SITEPUSH_BASENAME', plugin_basename(__FILE__) );
 
 define( 'MRA_SITEPUSH_OUTPUT_LEVEL', 3 ); //@debug
 

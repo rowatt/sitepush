@@ -253,7 +253,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		
 		//gather plugins we are already managing or can't manage
 		$managed_plugins = array_merge($this->options['plugins']['activate'],$this->options['plugins']['deactivate'],$this->options['plugins']['never_manage']);
-		$managed_plugins[] = 'sitepush/sitepush.php';
+		$managed_plugins[] = MRA_SITEPUSH_BASENAME;
 		
 		//create list of plugins we could manage
 		foreach( get_plugins() as $plugin=>$info )
