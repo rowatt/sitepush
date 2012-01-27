@@ -56,6 +56,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$my_sitepush = new SitePushCore( $this->options['sites_conf'] );
 		$my_sitepush->rsync_cmd = $this->options['rsync_path'];
 		$my_sitepush->excludes = $this->options['dont_sync'];
+		$my_sitepush->backup_keep_time = $this->options['backup_keep_time'];
 	?>
 		<div class="wrap">
 			<h2>SitePush</h2>	

@@ -56,17 +56,13 @@ class SitePushCore
 	public $source_path;
 	public $dest_path;
 
-	//name of site - defines dir where backups are stored
-	//this is either set explicitly or inferred from CLI path
-	public $site_name = '';
-	
 	//where to store backups
 	public $source_backup_path; //undo files etc **required**
 	public $dest_backup_path; //file archives, db_dumps etc **required**
-	//site_name (if set) and yyyy-mm gets appended to backup_path in set_all_params, so all backups for a site/timeframe are grouped together
+	public $backup_keep_time; //how many days to keep backups
 	private $source_backup_dir;
 	private $dest_backup_dir;
-	
+
 	//mysqldump options
 	//add  --events --routines to options if we need to backup triggers & stored procedures too (shouldn't be necessary for wp)
 	private $dump_options = "--opt";
@@ -283,8 +279,6 @@ class SitePushCore
 				
 				, 'source_path'			=>	'string'
 				, 'dest_path'			=>	'string'
-				
-				, 'site_name'			=>	'string'
 				
 				, 'backup_path'			=>	'string'
 				, 'source_backup_path'	=>	'string'
@@ -619,9 +613,6 @@ class SitePushCore
 		//set up remote shell command
 		$this->remote_shell = $this->dest_params['remote'] ? "ssh -i {$this->ssh_key_dir}{$this->dest_params['domain']} {$this->remote_user}@{$this->dest_params['domain']} " : '';
 
-		//set the actual backup dir for this site/month
-		$backup_group_path = $this->site_name ? "{$this->site_name}/" . date('Y-m') : date('Y-m');
-
 		//set source/dest backup path from backup_path parameter if explicit source/dest paths not set
 		if( empty($this->source_backup_path) ) $this->source_backup_path = $this->backup_path;
 		if( empty($this->dest_backup_path) ) $this->dest_backup_path = $this->backup_path;
@@ -629,14 +620,14 @@ class SitePushCore
 		if( $this->source_backup_path )
 		{
 			$this->source_backup_path = $this->trailing_slashit($this->source_backup_path);
-			$this->source_backup_dir = $this->source_backup_path . $backup_group_path . '/';
+			$this->source_backup_dir = $this->source_backup_path;
 			if( ! file_exists($this->source_backup_dir) ) mkdir($this->source_backup_dir,0700,TRUE);
 		}
 
 		if( $this->dest_backup_path )
 		{
 			$this->dest_backup_path = $this->trailing_slashit($this->dest_backup_path);
-			$this->dest_backup_dir = $this->dest_backup_path . $backup_group_path . '/';
+			$this->dest_backup_dir = $this->dest_backup_path;
 			if( $this->dest_params['remote'] )
 			{
 				$command = $this->make_remote("mkdir -p {$this->dest_backup_dir}");
@@ -664,11 +655,17 @@ class SitePushCore
 		if( !$path ) return FALSE;
 	
 		//don't backup if directory is really a symlink
-		if( is_link($path) ) return FALSE;
-	
+		if( is_link($path) )
+		{
+			$this->add_result("{$path} not backed up, it is a symlink.",1);
+			return FALSE;
+		}
+		
 		$last_pos =  strrpos($path, '/') + 1;
 		$dir = substr( $path, $last_pos );
 		$newpath = substr( $path, 0, $last_pos );
+		
+		$this->clear_old_backups();
 		
 		if( !$backup_name ) $backup_name = $dir;
 	
@@ -692,10 +689,16 @@ class SitePushCore
 			//return the backup file name/path so we can undo		
 			return $backup_file;
 		}
+		elseif( !$this->do_backup )
+		{
+			$this->add_result("File backup off",2);
+			$this->add_result('--',2);		
+		}
 		else
 		{
 			//we didn't backup, so return FALSE
 			$this->add_result("{$path} not backed up, because it was not found.",1);
+			$this->add_result('--',1);		
 			return FALSE;
 		}
 	}
@@ -705,6 +708,8 @@ class SitePushCore
 	{
 		if( $this->do_backup )
 		{
+			$this->clear_old_backups();
+
 			//where do we backup to
 			$destination = "{$this->dest_backup_dir}{$this->dest}-{$this->timestamp}-db-{$db['name']}.sql";
 			
@@ -729,8 +734,62 @@ class SitePushCore
 		else
 		{
 			//we didn't backup, so return FALSE
+			$this->add_result("Database backup off",2);
+			$this->add_result('--',2);
 			return FALSE;
 		}
+	}
+	
+	/**
+	 * clear_old_backups
+	 * 
+	 * Deletes old backups. Backups older than the backup_keep_time option will be deleted.
+	 * It runs whenever a new backup is made.
+	 * @todo will need to be updated for remote site backups
+	 *
+	 * @return bool TRUE if any backups deleted
+	 */
+	private function clear_old_backups()
+	{
+		static $already_cleared_backups;
+		if( $already_cleared_backups )
+		{
+			$this->add_result("Skipping backup clear because we've already run it.",3);
+			$this->add_result('--',3);
+			return FALSE;
+		}
+		else
+		{
+			$already_cleared_backups = TRUE;
+		}
+		$this->add_result("Checking for old backups to clear at {$this->dest_backup_dir}",2);
+
+		$have_deleted = FALSE;
+		if( !$this->backup_keep_time ) return FALSE;
+		
+		//anything older than this is too old
+		$too_old = time() - $this->backup_keep_time*24*60*60;
+		
+		foreach( scandir($this->dest_backup_dir) as $backup )
+		{
+		
+			//skip if it doesn't look like a sitepush backup file
+			if( !in_array( substr($backup, -4), array( '.sql', '.tgz', 'undo') ) ) continue;
+			$this->add_result("Checking {$backup}",4);
+		
+			if( filemtime($this->dest_backup_dir.$backup) < $too_old )
+			{
+				$this->add_result("Deleting old backup at {$this->dest_backup_dir}{$backup}");
+				unlink($this->dest_backup_dir.$backup);
+				$have_deleted = TRUE;
+			}
+		}
+		
+		if( ! $have_deleted )
+			$this->add_result('No old backups found to delete', 2);
+		
+		$this->add_result('--', $have_deleted ? 1 : 2);
+		return $have_deleted;
 	}
 	
 	//get tables for any given push group
