@@ -441,13 +441,16 @@ class SitePushCore
 		
 		//turn maintenance mode on
 		if( $maint_mode ) $this->set_maintenance_mode('on');
-				
-		$log_result = "Database source: {$db_source['label']} on {$this->source_params['domain']}\nDatabase dest: {$db_dest['label']} on {$this->dest_params['domain']}";
-		if( $tables ) $log_result .= "\nTables: {$tables}";
-		$this->add_result($log_result);
-		$this->add_result('--');
+		
+		if( $tables )
+			$this->add_result("Pushing database tables from {$db_source['label']} to {$db_dest['label']}: {$tables}");
+		else
+			$this->add_result("Pushing whole database",1);		
+		$this->add_result("Database source: {$db_source['label']} on {$this->source_params['domain']}",2);
+		$this->add_result("Database dest: {$db_dest['label']} on {$this->dest_params['domain']}",2);
 
 		$result = $this->my_exec($command);
+		$this->add_result('--');
 		
 		//turn maintenance mode off
 		if( $maint_mode ) $this->set_maintenance_mode('off');
@@ -671,6 +674,8 @@ class SitePushCore
 	
 		if( file_exists($path) && $this->do_backup )
 		{
+			$this->add_result("Backing up {$path}",1);
+
 			//where do we backup to
 			$backup_file = "{$this->dest_backup_dir}{$this->dest}-{$this->timestamp}-file-{$backup_name}.tgz";
 
@@ -681,7 +686,8 @@ class SitePushCore
 			$this->my_exec($command);
 						
 			//add the backup file to the backups array so we know what's been done for user reporting etc
-			$this->add_result($backup_file,'backups');
+			$this->add_result("Backup file is at {$backup_file}",1);
+			$this->add_result('--');
 
 			//return the backup file name/path so we can undo		
 			return $backup_file;
@@ -689,6 +695,7 @@ class SitePushCore
 		else
 		{
 			//we didn't backup, so return FALSE
+			$this->add_result("{$path} not backed up, because it was not found.",1);
 			return FALSE;
 		}
 	}
@@ -708,8 +715,8 @@ class SitePushCore
 			$command = $this->make_remote("mysqldump {$this->dump_options} -r {$destination}{$dest_host} -u {$db['user']} -p'{$db['pw']}' {$db['name']}; chmod 400 {$destination}");
 
 			//add the backup file to the backups array so we know what's been done for user reporting etc
-			$this->add_result("Backing up {$this->dest} DB to",1);
-			$this->add_result($destination,'backups');
+			$this->add_result("Backing up {$this->dest} DB",1);
+			$this->add_result("Backup file is at {$destination}",2);
 			
 			//run the backup command
 			$this->my_exec($command);
@@ -844,11 +851,13 @@ class SitePushCore
 		if( $maint_mode ) $this->set_maintenance_mode('on');
 		
 		//add to the results log so we know what has been done
-		$this->add_result("Files source: {$this->source}\n{$source_path}\nFiles dest: {$this->dest}\n{$dest_path}\n");
-		$this->add_result('--');
+		$this->add_result("Pushing files from {$this->source} to {$this->dest}",1);
+		$this->add_result("Files source path: {$source_path}",2);
+		$this->add_result("Files dest path: {$dest_path}",2);
 
 		//run the command
 		$result = $this->my_exec($command);
+		$this->add_result('--');
 		
 		//turn maintenance mode off
 		if( $maint_mode ) $this->set_maintenance_mode('off');
@@ -919,7 +928,7 @@ class SitePushCore
 		return rtrim( $path , '/' ) . '/';
 	}
 	
-	private function my_exec($command,$log_level='detail')
+	private function my_exec($command,$log_level=3)
 	{
 		$log_command = htmlspecialchars($command);
 
@@ -958,70 +967,39 @@ class SitePushCore
 	//config add params for echo or not
 	private function add_result( $result, $log_level=1 )
 	{
-		if( '--' == $result )
-			$result = "\n"; //line break for realtime output
-		else
-			$this->results[$log_level][] = trim($this->sanitize_cmd($result));
-		
-		switch( $log_level )
-		{
-			case 'normal':
-			case 'backups':
-				$log_level = 1;
-				break;
-			case 'detail':
-				$log_level = 2;
-				break;		
-		}
+		$this->results[] = array( 'level'=>$log_level, 'msg'=>trim($this->sanitize_cmd($result)) );
 		
 		if( $this->echo_output && $this->output_level>=$log_level )
 		{
-			echo trim($this->sanitize_cmd($result)) . "\n";
+			if( '--' == $result )
+				echo "\n";
+			else
+				echo "[{$log_level}] " . trim($this->sanitize_cmd($result)) . "\n";
 			flush();
 			ob_flush();
 		}
 	}
 	
-	//return contents of $results, optionally wrapped in a tag
-	//$results cleared when displayed
-	public function get_results( $type='normal' )
+	/**
+	 * get_results
+	 * 
+	 * returns results up to defined log level
+	 *
+	 * @param int $max_level output up to log level $max_level
+	 * @return string results
+	 */
+	public function get_results( $max_level='' )
 	{
 		$output = '';
-		//turn type into array in case more than one
-		$types = explode(',',$type);
-		foreach( $types as $type )
+		foreach( $this->results as $result )
 		{
-
-			switch( $type )
-			{
-				case 'backups':
-					$message = "Backups from this run:\n";
-					break;
-	
-				case 'detail':
-					$message = "Detailed information:\n";
-					break;
-					
-				default:
-					$message = '';
-			}
-
-			//show general results
-			if( array_key_exists($type,$this->results) && $this->results[$type] )
-			{
-				$output .= "-------------------------------------\n";
-				$output .= $message;
-				foreach( $this->results[$type] as $result )
-				{
-					$output .= $result . "\n";
-				}
-			}
+			$level = is_array( $result ) ? $result['level'] : 1;
+			$result = is_array( $result ) ? $result['msg'] : $result;
 			
-			//clear the results
-			$this->results[$type] = array();
-			
+			if( $max_level==='' || $max_level >= $level )
+				$output .= "[{$level}] {$result}\n";
 		}
-		
+
 		return $output;
 	}
 	
@@ -1105,7 +1083,7 @@ class SitePushCore
 
 		$this->add_result( "Maintenance mode {$switch}" );
 		$this->my_exec($command,3);
-		if( 'on' == $switch ) $this->add_result('--');
+		$this->add_result('--');
 
 		//remember whether or not we are in maint mode
 		$this->maintenance_mode = $switch;
