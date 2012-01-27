@@ -26,11 +26,11 @@ class SitePushPlugin
 		add_action('init', array( &$this, 'activate_plugins_for_site') ); //makes sure correct plugins activated/deactivated for site
 		add_action('init', array( &$this, 'clear_cache') ); //clears cache if proper $_GET params set, otherwise does nothing
 		
-		//register styles & menus
+		//register scripts, styles & menus
 		add_action('admin_init', array( __CLASS__, 'admin_init') );
-		add_action('admin_menu', array( &$this, 'register_options_menu') );
-		
+		add_action('admin_menu', array( &$this, 'register_options_menu_help') );
 		add_action('admin_head', array( &$this, 'add_plugin_js') );
+
 		//uninstall
 		register_uninstall_hook(__FILE__, array( __CLASS__, 'uninstall') );
 		
@@ -152,9 +152,9 @@ class SitePushPlugin
 		return $this->options;
 	}
 	
-	//set up the WP admin menu & settings
+	//set up the plugin options, plugin menus and help screens
 	//called by admin_menu action
-	function register_options_menu()
+	function register_options_menu_help()
 	{
 		//initialise all options
 		$this->options_init();
@@ -207,6 +207,7 @@ class SitePushPlugin
 		{	
 			$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $function);
 			add_action('admin_print_styles-' . $page, array( __CLASS__, 'admin_styles' ) ); //add custom stylesheet
+			add_action('load-' . $page, array( __CLASS__, 'push_help' ) ); //add contextual help for main push screen
 		}
 
 		if( $this->can_admin() || $this->abort )
@@ -220,6 +221,7 @@ class SitePushPlugin
 			$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $function);
 
 			add_action('admin_print_styles-' . $page, array( __CLASS__, 'admin_styles' ) ); //add custom stylesheet
+			add_action('load-' . $page, array( __CLASS__, 'options_help' ) ); //add contextual help for options screen
 		}
 	}
 	
@@ -289,6 +291,33 @@ class SitePushPlugin
 		return $content;
 	}
 	
+	/* -------------------------------------------------------------- */	/* !HELP FUNCTIONS */	/* -------------------------------------------------------------- */
+	
+	//@todo
+	
+	static public function options_help()
+	{
+		$screen = get_current_screen();
+		$screen->add_help_tab( array(
+			'id'      => 'mra-sitepush-options-help',
+			'title'   => 'Special Instructions',
+			'content' => '<p>This is the content for the tab.</p>',
+		) );
+		
+		$screen->set_help_sidebar( "<p>Help sidebar here...</p>" );
+	}
+
+	static public function push_help()
+	{
+		$screen = get_current_screen();
+		$screen->add_help_tab( array(
+			'id'      => 'mra-sitepush-push-help',
+			'title'   => 'Special Instructions',
+			'content' => '<p>This is the content for the tab.</p>',
+		) );
+		
+		$screen->set_help_sidebar( "<p>Help sidebar here...</p>" );
+	}
 	
 	/* -------------------------------------------------------------- */	/* !SITEPUSH FUNCTIONS */	/* -------------------------------------------------------------- */
 	
