@@ -28,7 +28,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 						return FALSE;
 					}			
 			?>
-			
+			<p>You are using SitePush version <?php $pd=get_plugin_data( WP_PLUGIN_DIR .'/' . MRA_SITEPUSH_BASENAME ); echo $pd['Version']; ?>
 			<p>@todo Help text will go here…</p>
 			
 			<form action='options.php' method='post'>
@@ -66,6 +66,14 @@ class SitePush_Options_Screen extends SitePush_Screen
 	
 	
 	/* -------------------------------------------------------------- */	/* Options page sections help texts */
+	
+	function section_warning_text()
+	{
+		?>
+			<p>This plugin does a lot of things which, if they go wrong, could break your site. It has been successfully used on a number of sites without problem, but your server may be different.</p>
+			<p>It is strongly suggested that when you first use SitePush you do it on a non live site, and/or have a complete backup of your files and database. Once you have confirmed things work for your setup it's less likely to do any serious damage, but it's still possible.</p>
+		<?php
+	}
 	
 	function section_config_text()
 	{
@@ -116,6 +124,11 @@ class SitePush_Options_Screen extends SitePush_Screen
 	
 	
 	/* -------------------------------------------------------------- */	/* Options page settings fields */
+	
+	function field_accept()
+	{
+		echo $this->input_checkbox('accept',' I have read the instructions, backed up my site and accept the risks.');
+	}
 	
 	function field_sites_conf()
 	{
@@ -240,6 +253,17 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $description )
 			$output .= "<span class='description' style='display:block;'>{$description}</span>";
 		
+		return $output;
+	}
+	
+	function input_checkbox( $field, $description, $class='' )
+	{
+		if( $class ) $class=" class='{$class}'";
+
+		$checked = empty( $this->options[$field] ) ? '' : ' checked="checked"';
+		$output = "<label for='mra_sitepush_field_{$field}'>";
+		$output = "<input id='mra_sitepush_field_{$field}' name='mra_sitepush_options[{$field}]' type='checkbox'{$checked}{$class} />";
+		$output .= "{$description}</label>";
 		return $output;
 	}
 	

@@ -406,7 +406,6 @@ class SitePushPlugin
 
 //echo "<pre>".var_export(get_option('mra_sitepush_options'),TRUE)."</pre>";
 
-	
 		$this->errors = array_merge($this->errors, $my_push->errors, $cleaned_results);
 	
 		return $this->errors ? FALSE : $done_push;
@@ -649,6 +648,9 @@ class SitePushPlugin
 			$options['notices']['errors'] = '<b>Please configure SitePush</b>';
 			return $options;
 		}
+
+		if( ! array_key_exists('accept', $options) )
+			$errors['accept'] = 'You must accept the warning before using SitePush.';
 		
 		if( array_key_exists('sites_conf', $options) ) $options['sites_conf'] = trim( $options['sites_conf'] );
 		if( empty( $options['sites_conf'] ) || !file_exists( $options['sites_conf'] ) )
@@ -755,6 +757,23 @@ class SitePushPlugin
 	function register_options( $options_screen )
 	{
 		register_setting('mra_sitepush_options', 'mra_sitepush_options', array( &$this, 'validate_options') );
+
+		/* General settings fields */
+		add_settings_section(
+			'mra_sitepush_section_warning',
+			'Caution!',
+			array( $options_screen, 'section_warning_text' ),
+			'sitepush_options'	
+		);
+		
+		add_settings_field(
+			'mra_sitepush_field_accept',
+			'',
+			array( $options_screen, 'field_accept' ),
+			'sitepush_options',
+			'mra_sitepush_section_warning'
+		);
+
 	
 		/* General settings fields */
 		add_settings_section(
