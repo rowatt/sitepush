@@ -197,7 +197,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<?php
 						$output = '';
 
-						if( 'none'<>$this->options['cache'] )
+						if( 'none'<>$this->options['cache_key'] )
 							$output .= $this->option_html('clear_cache','Clear WordPress cache on destination','user','checked');
 
 						if( !empty( $this->options['backup_path'] ) )

@@ -56,10 +56,6 @@ class SitePushCore
 	public $source_path;
 	public $dest_path;
 
-	//path from web_path where wp and wp-content directories are located
-	public $wp_dir;
-	public $wp_content_dir;
-	
 	//name of site - defines dir where backups are stored
 	//this is either set explicitly or inferred from CLI path
 	public $site_name = '';
@@ -515,12 +511,24 @@ class SitePushCore
 		return strtotime("{$last_date}T{$last_time}");
 	}
 	
-	//clears any cache directories on destination
-	//returns TRUE if there was a cache to clear
+
+	/**
+	 * clear_cache
+	 * 
+	 * Clears caches on destination. Will attempt to clear W3TC and SuperCache,
+	 * and empty any directories defined in sites.ini.php 'caches' parameter.
+	 * 
+	 * @return bool TRUE if any cache cleared, FALSE otherwise
+	 */
 	public function clear_cache()
 	{
 		$this->set_all_params();
 		$result = '';
+		$return = FALSE;
+
+
+echo "<pre>xxx".var_export($this->sites[$this->dest],TRUE)."xxx</pre>";
+
 
 		//clear any cache directories defined by site parameters
 		if( array_key_exists('caches', $this->sites[$this->dest]) && is_array($this->sites[$this->dest]['caches']) )
@@ -530,43 +538,35 @@ class SitePushCore
 				$cache_path = $this->trailing_slashit($this->dest_path) . ltrim($this->trailing_slashit($cache),'/') . '*';
 				$command = $this->make_remote("rm -rf {$cache_path}");
 				$result .= "Clearing cache {$cache} " . $this->my_exec($command) ."\n";
+				$return = TRUE;
 			}
 		}
 		
-		$this->add_result($result);
-		
-		switch( $this->cache_type )
-		{
-			case 'w3tc':
-				$this->clear_cache_of_type( $this->cache_type );
-				break;
-		}
-	}
-		
-	//clear w3tc cache programmatically
-	//won't do anything if w3tc isn't installed/active
-	public function clear_cache_of_type( $type )
-	{
-		$this->set_all_params();
-		$result = '';
-
-		$url = "{$this->trailing_slashit($this->dest_params['domain'])}?mra_sitepush_cmd=clear_{$type}&mra_sitepush_key={$this->cache_key}";
+		$url = "{$this->trailing_slashit($this->dest_params['domain'])}?mra_sitepush_cmd=clear_cache&mra_sitepush_key={$this->cache_key}";
 		
 		$cc_result = $this->callResource($url, 'GET', $data = null);
+
 		if( $cc_result['code']==200 )
 		{
 			//sucess
 			$result .= "Cache: {$cc_result['data']}";
+			$return = TRUE;
+		}
+		elseif(  $cc_result['code']==401 )
+		{
+			$result .= "Cache: could not access destination site to clear cache because authorisation failed (check in your .htaccess that this server can access the destination).";
+			$result .= "\n{$url}";
 		}
 		else
 		{	
-			$cc_result['data'] = htmlentities( substr($cc_result['data'],0,60) ); //only get first chars of result as error often is whole HTML page
-			$result .= "Error clearing {$type} cache:  {$cc_result['data']} [{$cc_result['code']}]";
+			$result .= "Error clearing cache: status code [{$cc_result['code']}]";
 			$result .= "\n{$url}";
 		}
 		
 		$this->add_result($result);
 		$this->add_result('--');
+		
+		return $return;
 	}
 
 
@@ -916,9 +916,11 @@ class SitePushCore
 	
 	private function my_exec($command,$log_level='detail')
 	{
+		$log_command = htmlspecialchars($command);
+
 		if(!$this->dry_run)
 		{
-			$this->add_result("RUN: {$command}",$log_level);
+			$this->add_result("RUN: {$log_command}",$log_level);
 			
 			if( $this->echo_output )
 				return system($command . ' 2>&1' );
@@ -929,7 +931,7 @@ class SitePushCore
 		}
 		else
 		{
-			$this->add_result("DRYRUN: {$command}",$log_level);
+			$this->add_result("DRYRUN: {$log_command}",$log_level);
 			return FALSE;
 		}
 	
@@ -1077,7 +1079,7 @@ class SitePushCore
 	private function set_maintenance_mode( $switch=FALSE )
 	{
 		$maint_file = '<?php \$upgrading='.time().'; ?>';
-		$maint_file_path = $this->trailing_slashit($this->dest_path) . '.maintenance';
+		$maint_file_path = $this->dest_path . $this->trailing_slashit($this->dest_params['wp_dir']) . '.maintenance';
 		
 		if( $switch===TRUE || $switch===1 ) $switch = 'on';
 		if( $switch===FALSE || $switch===0 ) $switch = 'off';

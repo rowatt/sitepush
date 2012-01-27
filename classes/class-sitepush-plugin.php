@@ -24,7 +24,7 @@ class SitePushPlugin
 		
 		//initialisation
 		add_action('init', array( &$this, 'activate_plugins_for_site') );
-		add_action('init', array( &$this, 'clear_cache') );
+		//add_action('init', array( &$this, 'clear_cache') ); //@todo !!why is this here?
 		add_action('admin_init', array( __CLASS__, 'admin_init') );
 		add_action('admin_menu', array( &$this, 'register_options_menu') );
 		
@@ -391,7 +391,7 @@ class SitePushPlugin
 	/* !Clear Cache */
 	/* -------------------------------------------------------------- */
 	
-		if( $push_options['clear_cache'] && !empty($this->options['cache']) && 'none'<>$this->options['cache'] )
+		if( $push_options['clear_cache'] && !empty($this->options['cache']) && 'none'<>$this->options['cache'] ) //@todo update
 		{
 			$my_push->cache_type = $this->options['cache'];
 			$my_push->cache_key = urlencode( $this->options['cache_key'] );
@@ -408,11 +408,13 @@ class SitePushPlugin
 		//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
 		activate_plugin('sitepush/sitepush.php');
 
-echo "<pre>".var_export(get_option('mra_sitepush_options'),TRUE)."</pre>";
+//@todo fix save config after pull
+
+//echo "<pre>".var_export(get_option('mra_sitepush_options'),TRUE)."</pre>";
 
 		add_option( 'mra_sitepush_options', $current_options);
 
-echo "<pre>".var_export(get_option('mra_sitepush_options'),TRUE)."</pre>";
+//echo "<pre>".var_export(get_option('mra_sitepush_options'),TRUE)."</pre>";
 
 	
 		$this->errors = array_merge($this->errors, $my_push->errors);
@@ -431,37 +433,53 @@ echo "<pre>".var_export(get_option('mra_sitepush_options'),TRUE)."</pre>";
 	 */
 	function clear_cache()
 	{
+
 		//check $_GET to see if someone has asked us to clear the cache
 		//for example a push from another server to this one
 		$cmd = isset($_GET['mra_sitepush_cmd']) ? $_GET['mra_sitepush_cmd'] : FALSE;
 		$key = isset($_GET['mra_sitepush_key']) ? $_GET['mra_sitepush_key'] : FALSE;
-	
+
 		//do nothing if the secret key isn't correct
 		$options = get_option('mra_sitepush_options');
-		if( ! $key == urlencode( $options['cache_key'] ) ) return;
+
+		if( $key <> urlencode( $options['cache_key'] ) )
+		{
+			status_header('403'); //return an HTTP error so we know cache clear wasn't successful
+			die('Unrecognized cache key.');
+		}
+	
+		$result = '';
 	
 		switch( $cmd )
 		{
-			case 'clear_w3tc':
+			case 'clear_cache':
 				// Purge the entire w3tc page cache:
-				if (function_exists('w3tc_pgcache_flush')) {
-					w3tc_pgcache_flush();
-					die('W3TC cache cleared');
-				}
-				else
+				if( function_exists('w3tc_pgcache_flush') )
 				{
-					die('W3TC cache not present');
+					w3tc_pgcache_flush();
+					w3tc_dbcache_flush();
+					w3tc_minify_flush();
+					w3tc_objectcache_flush();
+					$result .= 'W3TC cache cleared, ';
 				}
+
+				if( function_exists('wp_cache_clear_cache') )
+				{
+					wp_cache_clear_cache();
+					$result .= 'Supercache cleared, ';
+				}
+
 				break;
-				
-			case '':
-				//no command supplied
-				break;
-			
+
 			default:
-				die('Unrecognised cache command');
+				$result .= 'Unrecognised cache command, ';
+				status_header('400'); //return an HTTP error so we know cache clear wasn't successful
 				break;
-		}	
+		}
+		
+		if( !$result ) $result = 'No supported cache present.';
+		
+		die( trim( $result, ' ,' ) );
 	}
 	
 	//make sure correct plugins are activated/deactivated for the site we are viewing
