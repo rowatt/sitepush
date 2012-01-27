@@ -425,11 +425,10 @@ class SitePushCore
 		//write file which will undo the push
 		if( $this->save_undo && $backup_file )
 		{
-			$undo_command = "mysql -u {$db_dest['user']} -p'{$db_dest['pw']}'{$dest_host} -D {$db_dest['name']} < {$backup_file}";
-			$undo['original'] = $command;
-			$undo['remote'] = $this->remote_shell;
 			$undo['type'] = 'mysql';
-			$undo['undo'] = $undo_command;
+			$undo['original'] = $command;
+			//$undo['remote'] = $this->remote_shell; //@todo make remote
+			$undo['undo'] = "mysql -u {$db_dest['user']} -p'{$db_dest['pw']}'{$dest_host} -D {$db_dest['name']} < '{$backup_file}'";
 			$this->write_undo_file( $undo );
 		}
 		
@@ -896,13 +895,11 @@ class SitePushCore
 		if( $this->source_backup_path && $this->save_undo && $dir && $backup_file )
 		{
 			$undo_dir = "{$this->dest}-{$this->timestamp}-undo_files";
-			$undo_prep = "cd {$this->dest_backup_dir}; mkdir '{$undo_dir}'; cd '{$undo_dir}'; tar -zpxf {$backup_file}\n";
-			$undo_sync = "{$this->rsync_cmd} {$rsync_options} '{$this->dest_backup_dir}/{$undo_dir}/{$dir}/' '{$dest_path}'\n\n";
-			$undo['original'] = $command;
-			$undo['remote'] = $this->remote_shell;
 			$undo['type'] = 'rsync';
-			$undo['undo'][] = $undo_prep;
-			$undo['undo'][] = $undo_sync;
+			$undo['original'] = $command;
+			//$undo['remote'] = $this->remote_shell; //@todo add remote
+			$undo['undo'][] = "cd {$this->dest_backup_dir}; mkdir '{$undo_dir}'; cd '{$undo_dir}'; tar -zpxf {$backup_file}"; //prep
+			$undo['undo'][] = "{$this->rsync_cmd} {$rsync_options} '{$this->dest_backup_dir}{$undo_dir}/{$dir}/' '{$dest_path}'"; //sync
 			$this->write_undo_file( $undo );
 		}
 		
@@ -968,14 +965,33 @@ class SitePushCore
 		//write file so we know what the last timestamp for backups was
 		file_put_contents($this->source_backup_path . 'last', $this->undo_file);
 
-		$undo_text = "start\tundo\n";
+		$undo_text = "#\n# start undo\n#\n";
 		foreach( $undos as $key=>$undo )
 		{
-			if( !is_array($undo) ) $undo = array( $undo );
-			foreach( $undo as $undo_item )
-				$undo_text .= "{$key}\t{$undo_item}\n";
+			switch( $key )
+			{
+				case 'undo':
+					$undo_text .= "# undo command:\n";
+					if( !is_array($undo) ) $undo = array( $undo );
+					foreach( $undo as $undo_item )
+					{
+						$undo_text .= "{$undo_item}\n";
+					}
+					$undo_text .= "\n";
+					break;
+					
+				case 'type':
+					$undo_text .= "# type {$undo}\n";
+					break;
+										
+				default:
+					$undo_text .= "# {$key}:\n";
+					$undo_text .= "## {$undo}\n";
+					break;
+			}
+
 		}
-		$undo_text .= "end\tundo\n";
+		$undo_text .= "#\n# end undo\n#\n\n\n";
 		
 		if( file_exists($this->undo_file) ) chmod($this->undo_file, 0600);
 		file_put_contents($this->undo_file, $undo_text, FILE_APPEND);
