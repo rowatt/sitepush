@@ -23,8 +23,10 @@ class SitePushPlugin
 		/* -------------------------------------------------------------- */		/* !SETUP HOOKS */		/* -------------------------------------------------------------- */
 		
 		//initialisation
-		add_action('init', array( &$this, 'activate_plugins_for_site') );
-		//add_action('init', array( &$this, 'clear_cache') ); //@todo !!why is this here?
+		add_action('init', array( &$this, 'activate_plugins_for_site') ); //makes sure correct plugins activated/deactivated for site
+		add_action('init', array( &$this, 'clear_cache') ); //clears cache if proper $_GET params set, otherwise does nothing
+		
+		//register styles & menus
 		add_action('admin_init', array( __CLASS__, 'admin_init') );
 		add_action('admin_menu', array( &$this, 'register_options_menu') );
 		
@@ -302,7 +304,7 @@ class SitePushPlugin
 		
 		//initialise some parameters
 		$push_files = FALSE;
-		$result = '';
+		$results = array(); //should be empty at end if everything worked as expected
 		$db_types = array();
 		$current_options = get_option('mra_sitepush_options');
 		
@@ -344,7 +346,7 @@ class SitePushPlugin
 		//do the push
 		if( $push_files )
 		{
-			$result .= $my_push->push_files();
+			$results[] = $my_push->push_files();
 			$done_push = TRUE;
 		}
 	/* -------------------------------------------------------------- */
@@ -353,7 +355,7 @@ class SitePushPlugin
 		if( $push_options['db_all_tables'] )
 		{
 			//with no params entire DB is pushed
-			$result .= $my_push->push_db();
+			$results[] = $my_push->push_db();
 			$done_push = TRUE;
 		}
 		else
@@ -366,7 +368,7 @@ class SitePushPlugin
 			//do the push
 			if( $db_types )
 			{
-				$result .= $my_push->push_db( $db_types );
+				$results[] = $my_push->push_db( $db_types );
 				$done_push = TRUE;
 			}
 		}
@@ -374,10 +376,10 @@ class SitePushPlugin
 	/* !Clear Cache */
 	/* -------------------------------------------------------------- */
 	
-		if( $push_options['clear_cache'] )
+		if( $push_options['clear_cache'] && !empty($this->options['cache_key']) )
 		{
 			$my_push->cache_key = urlencode( $this->options['cache_key'] );
-			$result .= $my_push->clear_cache();
+			$cc_result = $my_push->clear_cache();
 		}
 		
 	/* -------------------------------------------------------------- */
@@ -385,7 +387,12 @@ class SitePushPlugin
 	/* -------------------------------------------------------------- */
 		//normally result should be empty - results to display are captured in class and output separately
 		//if anything is output here it probably means something went wrong
-		if( $result ) echo "<div class='error'>{$result}</div>";
+		//clean the array of empty elements
+		$cleaned_results = array();
+		foreach( $results as $result )
+		{
+			if( trim($result) ) $cleaned_results[] = $result;
+		}
 	
 		//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
 		activate_plugin('sitepush/sitepush.php');
@@ -399,7 +406,7 @@ class SitePushPlugin
 //echo "<pre>".var_export(get_option('mra_sitepush_options'),TRUE)."</pre>";
 
 	
-		$this->errors = array_merge($this->errors, $my_push->errors);
+		$this->errors = array_merge($this->errors, $my_push->errors, $cleaned_results);
 	
 		return $this->errors ? FALSE : $done_push;
 	}
@@ -411,7 +418,7 @@ class SitePushPlugin
 	 * Clear cache(s) based on HTTP GET parameters. Allows another site to tell this site to clear its cache.
 	 * Will only run if GET params include correct secret key, which is defined in SitePush options
 	 *
-	 * @return string result code
+	 * @return mixed result code, or FALSE if command/key not set
 	 */
 	function clear_cache()
 	{
@@ -421,13 +428,16 @@ class SitePushPlugin
 		$cmd = isset($_GET['mra_sitepush_cmd']) ? $_GET['mra_sitepush_cmd'] : FALSE;
 		$key = isset($_GET['mra_sitepush_key']) ? $_GET['mra_sitepush_key'] : FALSE;
 
+		//no command and/or key so return to normal WP initialisation
+		if( !$cmd || !$key ) return FALSE;
+
 		//do nothing if the secret key isn't correct
 		$options = get_option('mra_sitepush_options');
 
 		if( $key <> urlencode( $options['cache_key'] ) )
 		{
 			status_header('403'); //return an HTTP error so we know cache clear wasn't successful
-			die('Unrecognized cache key.');
+			$result .= 'Unrecognized cache key.';
 		}
 	
 		$result = '';
@@ -445,6 +455,7 @@ class SitePushPlugin
 					$result .= 'W3TC cache cleared, ';
 				}
 
+				// Purge the entire supercache page cache:
 				if( function_exists('wp_cache_clear_cache') )
 				{
 					wp_cache_clear_cache();

@@ -526,10 +526,6 @@ class SitePushCore
 		$result = '';
 		$return = FALSE;
 
-
-echo "<pre>xxx".var_export($this->sites[$this->dest],TRUE)."xxx</pre>";
-
-
 		//clear any cache directories defined by site parameters
 		if( array_key_exists('caches', $this->sites[$this->dest]) && is_array($this->sites[$this->dest]['caches']) )
 		{
@@ -542,27 +538,36 @@ echo "<pre>xxx".var_export($this->sites[$this->dest],TRUE)."xxx</pre>";
 			}
 		}
 		
-		$url = "{$this->trailing_slashit($this->dest_params['domain'])}?mra_sitepush_cmd=clear_cache&mra_sitepush_key={$this->cache_key}";
-		
-		$cc_result = $this->callResource($url, 'GET', $data = null);
-
-		if( $cc_result['code']==200 )
+		//cache not active on destination, so don't try to clear it
+		if( empty($this->sites[$this->dest]['cache']) )
 		{
-			//sucess
-			$result .= "Cache: {$cc_result['data']}";
-			$return = TRUE;
-		}
-		elseif(  $cc_result['code']==401 )
-		{
-			$result .= "Cache: could not access destination site to clear cache because authorisation failed (check in your .htaccess that this server can access the destination).";
-			$result .= "\n{$url}";
+			$result .= "WordPress cache is not activated on destination site";
 		}
 		else
-		{	
-			$result .= "Error clearing cache: status code [{$cc_result['code']}]";
-			$result .= "\n{$url}";
+		{
+			//clear WP cache on destination site
+			$url = "{$this->trailing_slashit($this->dest_params['domain'])}?mra_sitepush_cmd=clear_cache&mra_sitepush_key={$this->cache_key}";
+			
+			$cc_result = $this->callResource($url, 'GET', $data = null);
+	
+			if( $cc_result['code']==200 )
+			{
+				//sucess
+				$result .= "Cache: {$cc_result['data']}";
+				$return = TRUE;
+			}
+			elseif(  $cc_result['code']==401 )
+			{
+				$result .= "Cache: could not access destination site to clear cache because authorisation failed (check in your .htaccess that this server can access the destination) [{$cc_result['code']}]";
+				$result .= "\n{$url}";
+			}
+			else
+			{	
+				$result .= "Error clearing cache: status code [{$cc_result['code']}]";
+				$result .= "\n{$url}";
+			}
 		}
-		
+			
 		$this->add_result($result);
 		$this->add_result('--');
 		
