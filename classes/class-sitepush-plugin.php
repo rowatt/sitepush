@@ -88,10 +88,6 @@ class SitePushPlugin
 		//get options from DB
 		$this->options = array_merge( (array) get_option( 'mra_sitepush_options' ), $this->options );
 	
-		//make sure various option defaults are set
-		if( empty($this->options['cache']) )
-			$this->options['cache'] = 'none';
-		
 		//activate/deactivate plugin options for live site(s)
 		//for non-live sites plugins are switched to the opposite state
 		if( !empty($this->options['plugin_activates']) )
@@ -104,8 +100,8 @@ class SitePushPlugin
 		else
 			$this->options['plugins']['deactivate'] = array();			
 		
-		//never manage these plugins or cache plugins managed elsewhere
-		$this->options['plugins']['never_manage'] = array('w3-total-cache/w3-total-cache.php');
+		//never manage these plugins
+		$this->options['plugins']['never_manage'] = array();
 		
 		
 		//get options from WP_DB & validate all user set params
@@ -145,19 +141,6 @@ class SitePushPlugin
 		}
 	
 		$this->options['current_site'] = $this->options['sites'][ $this->get_current_site() ];
-	
-		//set which cache plugin we are using
-		switch( $this->options['cache'] )
-		{
-			case 'w3tc':
-				$this->options['plugins']['cache'] = 'w3-total-cache/w3-total-cache.php';
-				break;
-	
-			//unknown cache or none set
-			default:
-				$this->options['plugins']['cache'] = FALSE;
-				break;
-		}
 	
 		//all options OK, so plugin can do its stuff!
 		$this->options['ok'] = TRUE;
@@ -391,9 +374,8 @@ class SitePushPlugin
 	/* !Clear Cache */
 	/* -------------------------------------------------------------- */
 	
-		if( $push_options['clear_cache'] && !empty($this->options['cache']) && 'none'<>$this->options['cache'] ) //@todo update
+		if( $push_options['clear_cache'] )
 		{
-			$my_push->cache_type = $this->options['cache'];
 			$my_push->cache_key = urlencode( $this->options['cache_key'] );
 			$result .= $my_push->clear_cache();
 		}
@@ -482,23 +464,57 @@ class SitePushPlugin
 		die( trim( $result, ' ,' ) );
 	}
 	
-	//make sure correct plugins are activated/deactivated for the site we are viewing
+	/**
+	 * is_cache_plugin
+	 * 
+	 * is a plugin a cache plugin?
+	 *
+	 * @param string plugin to test
+	 * @return bool TRUE if it is a cache plugin
+	 */
+	private function is_cache_plugin( $plugin='' )
+	{
+		$cache_plugins = array(
+				  'w3-total-cache/w3-total-cache.php'
+				, 'wp-super-cache/wp-cache.php'
+		);
+			
+		return in_array( trim($plugin), $cache_plugins );
+	}
+	
+
+	/**
+	 * activate_plugins_for_site
+	 * 
+	 * make sure correct plugins are activated/deactivated for the site we are viewing
+	 * will make sure cache plugin is deactivated irrespective, if WP_CACHE is not TRUE
+	 *
+	 * @return void
+	 */
 	function activate_plugins_for_site()
 	{
 		//initialise vars if we haven't run plugin init already
 		if( empty($this->options) ) $this->options_init();
-		
+				
 		//check if settings OK
 		if( empty($this->options['ok']) ) return FALSE;
 		
 		//make sure WP plugin code is loaded
 		require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
-		
+
 		if( !empty($this->options['current_site']['live']) )
 		{
 			//site is live so activate/deactivate plugins for live site(s) as per options
 			foreach( $this->options['plugins']['activate'] as $plugin )
 			{
+				//deactivate if it's a cache plugin but caching is turned off for this site
+				if( $this->is_cache_plugin( $plugin ) && empty($this->options['current_site']['cache']) )
+				{
+					if( is_plugin_active($plugin) ) deactivate_plugins($plugin);
+					continue;
+				}
+				
+				//activate if necessary
 				if( !is_plugin_active($plugin) ) activate_plugin($plugin);
 			}
 	
@@ -512,6 +528,14 @@ class SitePushPlugin
 			//activate/deactivate plugins for non-live site(s) as per opposite of options for live site(s)
 			foreach( $this->options['plugins']['deactivate'] as $plugin )
 			{
+				//deactivate if it's a cache plugin but caching is turned off for this site
+				if( $this->is_cache_plugin( $plugin ) && empty($this->options['current_site']['cache']) )
+				{
+					if( is_plugin_active($plugin) ) deactivate_plugins($plugin);
+					continue;
+				}
+						
+				//activate if necessary
 				if( !is_plugin_active($plugin) ) activate_plugin($plugin);
 			}
 	
@@ -519,16 +543,6 @@ class SitePushPlugin
 			{
 				if( is_plugin_active($plugin) ) deactivate_plugins($plugin);
 			}
-		}
-	
-		//caching plugins - make sure plugin is on if WP_CACHE constant is TRUE
-		if( WP_CACHE && $this->options['plugins']['cache'] )
-		{
-			if( !is_plugin_active($this->options['plugins']['cache']) ) activate_plugin( $this->options['plugins']['cache'] );	
-		}
-		else
-		{
-			if( is_plugin_active($this->options['plugins']['cache']) ) deactivate_plugins( $this->options['plugins']['cache'] );	
 		}
 		
 	}
@@ -540,8 +554,6 @@ class SitePushPlugin
 		if( !$this->options['ok'] ) return $links;
 		
 		$plugins = array_merge( $this->options['plugins']['activate'], $this->options['plugins']['deactivate'] );
-		if( $this->options['plugins']['cache'] )
-			$plugins[] = $this->options['plugins']['cache'];
 		
 		foreach( $plugins as $plugin )
 		{
@@ -614,8 +626,6 @@ class SitePushPlugin
 	}
 	
 	/* -------------------------------------------------------------- */	/* SitePush options field validation */
-	
-	//@todo fix duplicated errors/errors not showing when options in SitePush menu
 	function validate_options( $options )
 	{
 		$errors = array();
@@ -709,10 +719,7 @@ class SitePushPlugin
 	
 		if( empty($options['admin_capability']) )
 			$options['admin_capability'] = SitePushPlugin::$default_admin_capability;
-	
-	
-		if( empty($options['cache']) )
-			$options['cache'] = 'none';
+
 	
 		if( empty($options['cache_key']) )
 			$options['cache_key'] = '';
@@ -799,13 +806,6 @@ class SitePushPlugin
 			'Cache management',
 			array( $options_screen, 'section_cache_text' ),
 			'sitepush_options'	
-		);
-		add_settings_field(
-			'mra_sitepush_field_cache',
-			'Cache plugin',
-			array( $options_screen, 'field_cache' ),
-			'sitepush_options',
-			'mra_sitepush_section_cache'
 		);
 		add_settings_field(
 			'mra_sitepush_field_cache_key',

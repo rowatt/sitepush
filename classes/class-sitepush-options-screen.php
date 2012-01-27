@@ -79,7 +79,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 	
 	function section_cache_text()
 	{
-		echo '<p class="description">With certain cache plugins, SitePush can can clear the cache immediately after a push.</p>';
+		echo '<p class="description">If the destination site uses <a href="http://wordpress.org/extend/plugins/w3-total-cache/" target="_blank">W3 Total Cache</a> or <a href="http://wordpress.org/extend/plugins/wp-super-cache/" target="_blank">WP Super Cache</a>, SitePush can can clear the cache immediately after a push. To enable this, you must first set the cache secret key below.</p>';
 	}
 
 	function section_rsync_text()
@@ -172,14 +172,6 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_text('admin_capability');
 	}
 	
-	function field_cache()
-	{
-		$caches = array(
-				  'w3tc' => 'W3 Total Cache'
-				, 'none' => 'None <span class="description">(select this if you have a cache installed but it is not listed above)</span>'
-		);
-		echo $this->input_radio('cache', $caches);
-	}
 	function field_cache_key()
 	{
 		$extra_text = empty( $this->options['cache_key'] ) ? "<br />A random string you could use: " .  md5( microtime() ) : '';
@@ -261,8 +253,6 @@ class SitePush_Options_Screen extends SitePush_Screen
 		
 		//gather plugins we are already managing or can't manage
 		$managed_plugins = array_merge($this->options['plugins']['activate'],$this->options['plugins']['deactivate'],$this->options['plugins']['never_manage']);
-		if( !empty( $this->options['plugins']['cache'] ) )
-			$managed_plugins[] = $this->options['plugins']['cache'];
 		$managed_plugins[] = 'sitepush/sitepush.php';
 		
 		//create list of plugins we could manage
