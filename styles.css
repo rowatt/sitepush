@@ -15,3 +15,10 @@
 	overflow: scroll;
 	overflow-x: hidden;
 }
+
+#mra_sitepush_dest-warning {
+	margin-left: 10px;
+	font-weight: bold;
+	color: red;
+	display: none;
+}

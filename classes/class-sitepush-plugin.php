@@ -30,6 +30,7 @@ class SitePushPlugin
 		add_action('admin_init', array( __CLASS__, 'admin_init') );
 		add_action('admin_menu', array( &$this, 'register_options_menu') );
 		
+		add_action('admin_head', array( &$this, 'add_plugin_js') );
 		//uninstall
 		register_uninstall_hook(__FILE__, array( __CLASS__, 'uninstall') );
 		
@@ -231,6 +232,36 @@ class SitePushPlugin
 	static public function admin_styles()
 	{
 		wp_enqueue_style( 'mra-sitepush-styles' );
+	}
+	
+	public function add_plugin_js()
+	{
+		//create JS array of live sites for script below
+		$live_sites = array();
+		foreach( $this->options['sites'] as $site )
+		{
+			if( !empty($site['live']) ) $live_sites[] = "'{$site['name']}'";
+		}
+		$live_sites = implode(',', $live_sites);
+		
+		//showHideWarningText - show/hide warning text if selected destination is a live site
+	?>
+		<script type="text/javascript">				
+			jQuery(function($) {
+				liveSites = [ <?php echo $live_sites; ?> ];
+				function showHideWarningText() {
+	    			if( $.inArray( $("#mra_sitepush_dest").find("option:selected").val(), liveSites ) > -1 )
+						$('#mra_sitepush_dest-warning').show();
+					else
+						$('#mra_sitepush_dest-warning').hide();
+				};
+				showHideWarningText();
+				$("#mra_sitepush_dest").change(function() {
+					showHideWarningText();
+				});
+			});
+		</script>
+	<?php
 	}
 	
 	/* -------------------------------------------------------------- */	/* !CONTENT FILTERS */	/* -------------------------------------------------------------- */

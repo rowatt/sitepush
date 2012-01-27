@@ -171,6 +171,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 								}
 							?>
 							</select>
+							<span id='mra_sitepush_dest-warning'>Caution - live site!<span>
 						</td>
 					</tr>
 	
