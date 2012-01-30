@@ -29,7 +29,6 @@ class SitePush_Options_Screen extends SitePush_Screen
 					}			
 			?>
 			<p>You are using SitePush version <?php $pd=get_plugin_data( WP_PLUGIN_DIR .'/' . MRA_SITEPUSH_BASENAME ); echo $pd['Version']; ?>
-			<p>@todo Help text will go here…</p>
 			
 			<form action='options.php' method='post'>
 			<?php
