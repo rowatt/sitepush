@@ -126,7 +126,8 @@ class SitePush_Options_Screen extends SitePush_Screen
 	
 	function field_accept()
 	{
-		echo $this->input_checkbox('accept',' I have read the instructions, backed up my site and accept the risks.');
+		if( empty($this->options['accept']) )
+			echo $this->input_checkbox('accept',' I have read the instructions, backed up my site and accept the risks.');
 	}
 	
 	function field_sites_conf()
