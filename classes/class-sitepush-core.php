@@ -545,22 +545,29 @@ class SitePushCore
 			$url = "{$this->trailing_slashit($this->dest_params['domain'])}?mra_sitepush_cmd=clear_cache&mra_sitepush_key={$this->cache_key}";
 			
 			$cc_result = $this->callResource($url, 'GET', $data = null);
-	
+
+			//Get explanation returned by destination. First 4 chars are error code, so exclude them
+			$result_text = empty( $cc_result['data'] ) ? '' : substr( $cc_result['data'], 4 ).' ';
+
 			if( $cc_result['code']==200 )
 			{
 				//sucess
-				$result .= "Cache: {$cc_result['data']}";
+				$result .= "Cache: {$result_text}";
 				$return = TRUE;
 			}
 			elseif(  $cc_result['code']==401 )
 			{
-				$result .= "Cache: could not access destination site to clear cache because authorisation failed (check in your .htaccess that this server can access the destination) [{$cc_result['code']}]";
+				$error = "Cache: could not access destination site to clear cache because authorisation failed (check in your .htaccess that this server can access the destination) [{$cc_result['code']}]";
+				$result .= $error;
 				$result .= "\n{$url}";
+				$this->errors[] = $error;
 			}
 			else
 			{	
-				$result .= "Error clearing cache: status code [{$cc_result['code']}]";
+				$error = "Error clearing cache: {$result_text}[{$cc_result['code']}]";
+				$result .= $error;
 				$result .= "\n{$url}";
+				$this->errors[] = $error;
 			}
 		}
 			

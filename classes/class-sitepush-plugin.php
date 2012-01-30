@@ -448,7 +448,12 @@ class SitePushPlugin
 		if( $push_options['clear_cache'] && !empty($this->options['cache_key']) )
 		{
 			$my_push->cache_key = urlencode( $this->options['cache_key'] );
-			$cc_result = $my_push->clear_cache();
+			$my_push->clear_cache();
+		}
+		elseif( $push_options['clear_cache'] && empty($this->options['cache_key']) )
+		{
+			if( !$this->errors )
+				$this->errors[] = "Push complete, but you tried to clear the destination cache and the cache secret key is not set.";
 		}
 		
 	/* -------------------------------------------------------------- */
@@ -501,14 +506,14 @@ class SitePushPlugin
 
 		//do nothing if the secret key isn't correct
 		$options = get_option('mra_sitepush_options');
+		$result = '';
 
 		if( $key <> urlencode( $options['cache_key'] ) )
 		{
 			status_header('403'); //return an HTTP error so we know cache clear wasn't successful
-			$result .= 'Unrecognized cache key.';
+			$result .= "[1] Unrecognized cache key\n";
+			die( trim( $result ) );
 		}
-	
-		$result = '';
 	
 		switch( $cmd )
 		{
@@ -520,27 +525,27 @@ class SitePushPlugin
 					w3tc_dbcache_flush();
 					w3tc_minify_flush();
 					w3tc_objectcache_flush();
-					$result .= 'W3TC cache cleared, ';
+					$result .= "[0] W3TC cache cleared\n";
 				}
 
 				// Purge the entire supercache page cache:
 				if( function_exists('wp_cache_clear_cache') )
 				{
 					wp_cache_clear_cache();
-					$result .= 'Supercache cleared, ';
+					$result .= "[0] Supercache cleared\n";
 				}
 
 				break;
 
 			default:
-				$result .= 'Unrecognised cache command, ';
+				$result .= "[2] Unrecognised cache command\n";
 				status_header('400'); //return an HTTP error so we know cache clear wasn't successful
 				break;
 		}
 		
-		if( !$result ) $result = 'No supported cache present.';
+		if( !$result ) $result = "[3] No supported cache present\n";
 		
-		die( trim( $result, ' ,' ) );
+		die( trim( $result ) );
 	}
 	
 	/**
