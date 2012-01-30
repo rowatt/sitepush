@@ -31,6 +31,8 @@ class SitePushPlugin
 		add_action('admin_menu', array( &$this, 'register_options_menu_help') );
 		add_action('admin_head', array( &$this, 'add_plugin_js') );
 
+		add_action('admin_notices',array( &$this, 'show_warnings'));
+
 		//uninstall
 		register_uninstall_hook(__FILE__, array( __CLASS__, 'uninstall') );
 		
@@ -982,7 +984,56 @@ class SitePushPlugin
 
 	
 	}
+	
+	/**
+	 * show_warnings
+	 * 
+	 * Alert user to any SitePush related config errors.
+	 * These errors are displayed anywhere in admin, to any SitePush admin user.
+	 *
+	 * @return bool TRUE if errors to be reported
+	 */
+	public function show_warnings()
+	{
+		$errors = array();
 
+		//don't show warnings if user can't admin SitePush
+		if( ! current_user_can( $this->options['admin_capability'] ) ) return '';
+
+		if( $error = $this->check_wp_config() )
+			$errors[] = $error;
+		
+		if( $errors )
+		    echo "<div id='my-custom-warning' class='error'><p>".implode( '<br />', $errors )."</p></div>";
+	}
+
+	private function check_wp_config()
+	{
+		$error = FALSE;
+		if( empty($this->options['current_site']['cache']) && ( defined('WP_CACHE') && WP_CACHE ) )
+				$error = "<b>SitePush Warning</b> - caching is turned off in your config file for this site, but WP_CACHE is defined as TRUE in your wp-config.php file. You should either change the setting in your config file ({$this->options['sites_conf']}), or update wp-config.php.";
+		elseif( !empty($this->options['current_site']['cache']) && ( !defined('WP_CACHE') || !WP_CACHE ) )
+			$error = "<b>SitePush Warning</b> - caching is turned on in your config file for this site, but WP_CACHE is defined as FALSE or not defined in your wp-config.php file. You should either change the setting in your config file ({$this->options['sites_conf']}), or update wp-config.php.";
+
+		return $error;
+	}
+
+	/**
+	 * get_wp_config_path
+	 * 
+	 * Gets full path of the site's wp-config.php file
+	 *
+	 * @return mixed full path to wp-config.php, FALSE if not found
+	 */
+	private function get_wp_config_path()
+	{
+		if( file_exists( ABSPATH . 'wp-config.php') )
+			return ABSPATH . 'wp-config.php';
+		elseif( file_exists( dirname(ABSPATH) . '/wp-config.php' ) )
+			return dirname(ABSPATH) . '/wp-config.php';
+		else
+			return FALSE;
+	}
 
 }
 
