@@ -240,17 +240,24 @@ class SitePushPlugin
 	
 	public function add_plugin_js()
 	{
+		echo "<script type='text/javascript'>\n";
+		$this->plugin_js_live_warn();
+		echo "</script>\n";
+	}
+
+	//showHideWarningText - show/hide warning text if selected destination is a live site
+	private function plugin_js_live_warn()
+	{
+		if( empty($this->options['sites']) ) return '';
+		
 		//create JS array of live sites for script below
 		$live_sites = array();
 		foreach( $this->options['sites'] as $site )
 		{
 			if( !empty($site['live']) ) $live_sites[] = "'{$site['name']}'";
 		}
-		$live_sites = implode(',', $live_sites);
-		
-		//showHideWarningText - show/hide warning text if selected destination is a live site
+		$live_sites = implode(',', $live_sites);	
 	?>
-		<script type="text/javascript">				
 			jQuery(function($) {
 				liveSites = [ <?php echo $live_sites; ?> ];
 				function showHideWarningText() {
@@ -263,8 +270,7 @@ class SitePushPlugin
 				$("#mra_sitepush_dest").change(function() {
 					showHideWarningText();
 				});
-			});
-		</script>
+			});	
 	<?php
 	}
 	
