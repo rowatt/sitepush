@@ -148,7 +148,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<tr valign="top">
 						<th scope="row">Source</th>
 						<td>
-							<select name="mra_sitepush_source" id="mra_sitepush_source">
+							<select name="mra_sitepush_source" id="mra_sitepush_source" class="site-selector">
 							<?php
 								foreach( $this->plugin->get_sites() as $site )
 								{
@@ -164,7 +164,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<tr valign="top">
 						<th scope="row">Destination</th>
 						<td>
-							<select name="mra_sitepush_dest" id="mra_sitepush_dest">
+							<select name="mra_sitepush_dest" id="mra_sitepush_dest" class="site-selector">
 							<?php
 								foreach( $this->plugin->get_sites() as $site )
 								{
@@ -174,7 +174,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 								}
 							?>
 							</select>
-							<span id='mra_sitepush_dest-warning'>Caution - live site!<span>
+							<span id='mra_sitepush_dest-warning'><span>
 						</td>
 					</tr>
 	
@@ -227,7 +227,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 	
 				</table>
 				<p class="submit">
-			   	<input type="submit" class="button-primary" value="Push Content" />
+			   	<input type="submit" class="button-primary" value="Push Content" id="push-button" />
 				</p>
 			</form>
 		</div>

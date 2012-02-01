@@ -241,12 +241,14 @@ class SitePushPlugin
 	public function add_plugin_js()
 	{
 		echo "<script type='text/javascript'>\n";
-		$this->plugin_js_live_warn();
+		echo "			jQuery(function($) {\n";
+		$this->jq_update_source_dest();
+		echo "			});\n";
 		echo "</script>\n";
 	}
 
-	//showHideWarningText - show/hide warning text if selected destination is a live site
-	private function plugin_js_live_warn()
+	//jq_update_source_dest - update various things when user changes source/dest
+	private function jq_update_source_dest()
 	{
 		if( empty($this->options['sites']) ) return '';
 		
@@ -258,21 +260,41 @@ class SitePushPlugin
 		}
 		$live_sites = implode(',', $live_sites);	
 	?>
-			jQuery(function($) {
-				liveSites = [ <?php echo $live_sites; ?> ];
-				function showHideWarningText() {
-	    			if( $.inArray( $("#mra_sitepush_dest").find("option:selected").val(), liveSites ) > -1 )
-						$('#mra_sitepush_dest-warning').show();
-					else
-						$('#mra_sitepush_dest-warning').hide();
-				};
-				showHideWarningText();
-				$("#mra_sitepush_dest").change(function() {
-					showHideWarningText();
-				});
-			});	
+		var liveSites = [ <?php echo $live_sites; ?> ];
+		function updateSourceDest() {
+			var warnText = '';
+
+		<?php //show/hide warning if pushing to live site ?>
+			if( $.inArray( $("#mra_sitepush_dest").find("option:selected").val(), liveSites ) > -1 )
+				warnText = 'Caution - live site!';
+
+		<?php //change button from Push<->Pull depending on destination ?>
+			if( $("#mra_sitepush_dest").find("option:selected").val() == "<?php echo $this->options['current_site']['name']; ?>" )
+				$('#push-button').val('Pull Content');
+			else
+				$('#push-button').val('Push Content');
+
+		<?php //hide submit button if source/dest are same ?>
+			if( $("#mra_sitepush_dest").find("option:selected").val() == $("#mra_sitepush_source").find("option:selected").val() )
+			{
+				$('#push-button').hide();
+				warnText = 'Source and destination sites cannot be the same!';
+			}
+			else
+			{
+				$('#push-button').show();
+			}
+
+			$('#mra_sitepush_dest-warning').text(warnText);
+		};
+		
+		updateSourceDest();
+		$(".site-selector").change(function() {
+			updateSourceDest();
+		});
 	<?php
 	}
+
 	
 	/* -------------------------------------------------------------- */	/* !CONTENT FILTERS */	/* -------------------------------------------------------------- */
 	
