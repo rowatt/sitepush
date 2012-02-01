@@ -39,8 +39,8 @@ class SitePushCore
 	protected $timestamp;
 	
 	//source/dest params - array created during __construct
-	private $source_params;
-	private $dest_params;
+	public $source_params;
+	public $dest_params;
 	
 	//the following options could be set from web interface
 	//where we look for info about the sites we are pushing
@@ -1174,4 +1174,5 @@ class SitePushCore
 	}
 	
 }
-?>
+
+/* EOF */

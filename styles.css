@@ -26,3 +26,9 @@
 .hide-field {
 	display: none;
 }
+
+.hidden-iframe {
+	display: none;
+	height: 0;
+	width: 0;
+}

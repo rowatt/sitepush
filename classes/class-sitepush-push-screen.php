@@ -91,6 +91,9 @@ class SitePush_Push_Screen extends SitePush_Screen
 			elseif( $push_result )
 			{
 				echo "<div class='updated'><p>Push complete!</p></div>";
+				//bit of a hack... do one page load for destination site to make sure SitePush has activated plugins etc
+				//before any user accesses the site
+				echo "<iframe src='http://{$my_sitepush->dest_params['domain']}' class='hidden-iframe'></iframe>";
 			}
 			else
 			{
