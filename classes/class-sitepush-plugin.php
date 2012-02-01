@@ -376,6 +376,7 @@ class SitePushPlugin
 		$results = array(); //should be empty at end if everything worked as expected
 		$db_types = array();
 		$current_options = get_option('mra_sitepush_options');
+		$current_user_options = $this->get_all_user_options();
 		
 	/* -------------------------------------------------------------- */
 	/* !Push WordPress Files */
@@ -421,11 +422,13 @@ class SitePushPlugin
 	/* -------------------------------------------------------------- */
 	/* !Push WordPress Database */
 	/* -------------------------------------------------------------- */
+		$db_push = FALSE;
 		if( $push_options['db_all_tables'] )
 		{
 			//with no params entire DB is pushed
 			$results[] = $my_push->push_db();
 			$done_push = TRUE;
+			$db_push = TRUE;
 		}
 		else
 		{
@@ -439,6 +442,7 @@ class SitePushPlugin
 			{
 				$results[] = $my_push->push_db( $db_types );
 				$done_push = TRUE;
+				$db_push = TRUE;
 			}
 		}
 	/* -------------------------------------------------------------- */
@@ -470,18 +474,44 @@ class SitePushPlugin
 	
 		//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
 		activate_plugin(MRA_SITEPUSH_BASENAME);
-
-//@todo fix save config after pull
-
-//echo "<pre>".var_export(get_option('mra_sitepush_options'),TRUE)."</pre>";
-
-		add_option( 'mra_sitepush_options', $current_options);
-
-//echo "<pre>".var_export(get_option('mra_sitepush_options'),TRUE)."</pre>";
-
+		
+		//save current site & user options back to DB so options on site we are pulling from won't overwrite
+		//microtime ensures that options are written and don't use cached value
+		if( $db_push && $this->options['current_site']['name'] == $push_options['dest'] )
+		{
+			$current_options['last_pull'] = microtime(TRUE);
+			update_option( 'mra_sitepush_options', $current_options);
+			$this->save_all_user_options( $current_user_options );
+		}
+		
 		$this->errors = array_merge($this->errors, $my_push->errors, $cleaned_results);
-	
+
 		return $this->errors ? FALSE : $done_push;
+	}
+	
+	private function get_all_user_options()
+	{
+		global $wpdb;
+		
+		$results = array();
+		
+		//get options for all users with mra_sitepush_options usermeta
+		foreach( get_users( "meta_key={$wpdb->prefix}mra_sitepush_options&fields=ID" ) as $user_id )
+		{
+			$results[$user_id] = get_user_option( 'mra_sitepush_options', $user_id );
+		}
+
+		return $results;
+	}
+	
+	private function save_all_user_options( $user_opts=array() )
+	{
+		foreach( $user_opts as $user_id=>$options )
+		{
+			if( !$options ) continue;
+			$options['last_pull'] = microtime(TRUE); //make sure we aren't caching
+			update_user_option( $user_id, 'mra_sitepush_options', $options );
+		}
 	}
 	
 	//clear cache for this site
