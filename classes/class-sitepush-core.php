@@ -427,7 +427,7 @@ class SitePushCore
 		{
 			$undo['type'] = 'mysql';
 			$undo['original'] = $command;
-			//$undo['remote'] = $this->remote_shell; //@todo make remote
+			//$undo['remote'] = $this->remote_shell; //@later make remote
 			$undo['undo'] = "mysql -u {$db_dest['user']} -p'{$db_dest['pw']}'{$dest_host} -D {$db_dest['name']} < '{$backup_file}'";
 			$this->write_undo_file( $undo );
 		}
@@ -751,7 +751,7 @@ class SitePushCore
 	 * 
 	 * Deletes old backups. Backups older than the backup_keep_time option will be deleted.
 	 * It runs whenever a new backup is made.
-	 * @todo will need to be updated for remote site backups
+	 * @later will need to be updated for remote site backups
 	 *
 	 * @return bool TRUE if any backups deleted
 	 */

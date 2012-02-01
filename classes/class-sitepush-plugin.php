@@ -65,6 +65,8 @@ class SitePushPlugin
 	static public function uninstall()
 	{
 		delete_option('mra_sitepush_options');
+		
+		//@todo delete user options
 	}
 
 
@@ -74,7 +76,7 @@ class SitePushPlugin
 	{
 		if ( $file == MRA_SITEPUSH_BASENAME )
 		{
-			$add_link = '<a href="'.get_admin_url().'admin.php?page=mra_sitepush_options">'.__('Settings').'</a>'; //@todo
+			$add_link = '<a href="'.get_admin_url().'admin.php?page=mra_sitepush_options">'.__('Settings').'</a>';
 			array_unshift( $links, $add_link );
 		}
 		return $links;
