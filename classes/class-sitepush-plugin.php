@@ -112,30 +112,13 @@ class SitePushPlugin
 		
 		//get options from WP_DB & validate all user set params
 		$this->options = $this->validate_options( $this->options );
+		$this->validate_conf_files();
 		if( !empty( $this->options['notices']['errors'] ) )
 		{
 			//one or more options not OK, so stop here and leave SitePush inactive
 			$this->options['ok'] = FALSE;
 			return FALSE;
 		}
-	
-		//get site info from the sites.conf file
-		$sites_conf = parse_ini_file($this->options['sites_conf'],TRUE);
-		
-		//check if conf file has 'all' section and if so merge that config with config for each site	
-		if( !empty( $sites_conf['all'] ) )
-		{
-			$sites_conf_all = $sites_conf['all'];
-			unset( $sites_conf['all'] );
-			
-			foreach( $sites_conf  as $site=>$site_conf )
-			{
-				$sites_conf[$site] = array_merge( $sites_conf_all, $sites_conf[$site] );
-			}
-	
-		}
-		
-		$this->options['sites'] = $sites_conf;
 	
 		//make sure certain sites options set correctly
 		foreach( $this->options['sites'] as $site=>$params )
@@ -743,9 +726,14 @@ class SitePushPlugin
 			$this_site = $default;
 		
 		if( $this_site )
+		{
 			return $this_site;
+		}
 		else
-			die("<div id='mra_sitepush_site_error' class='error settings-error'>This site ({$_SERVER['SERVER_NAME']}) is not recognised and you have not set a default in sites.conf. Please configure sites.conf with the domain of this site, or set a default.</div>");
+		{
+			$this->errors[]="<div id='mra_sitepush_site_error' class='error settings-error'>This site ({$_SERVER['SERVER_NAME']}) is not recognised and you have not set a default in sites.conf. Please configure sites.conf with the domain of this site, or set a default.</div>";
+			$this->options['ok'] = FALSE;
+		}
 	}
 	
 	//get all sites which are valid given current capability
@@ -778,7 +766,7 @@ class SitePushPlugin
 		{
 			//no options have been set, so this is a fresh config
 			$options['ok'] = FALSE;
-			$options['notices']['errors'] = '<b>Please configure SitePush</b>';
+			$options['notices']['errors'][] = '<b>Please configure SitePush</b>';
 			return $options;
 		}
 
@@ -880,9 +868,78 @@ class SitePushPlugin
 		else
 		{
 			$options['ok'] = TRUE;
+			$options['notices']['errors'] = array();
 		}
 	
 		return $options;
+	}
+
+	/**
+	 * validate_conf_files
+	 * 
+	 * Validate config files. Should be run after options have been validated.
+	 *
+	 * @sets array $this->options['notices']['errors'] with any errors
+	 * @return bool TRUE if valid, FALSE otherwise.
+	 */
+	private function validate_conf_files()
+	{
+		$errors = array();
+		
+		$required_site_params = array( 'db', 'web_path' );
+		$required_db_params = array( 'name', 'user', 'pw' );
+		
+		//get site info from the sites.conf file
+		$sites_conf = parse_ini_file($this->options['sites_conf'],TRUE);
+		$dbs_conf = parse_ini_file($this->options['dbs_conf'],TRUE);
+		
+		//check if conf file has 'all' section and if so merge that config with config for each site	
+		if( !empty( $sites_conf['all'] ) )
+		{
+			$sites_conf_all = $sites_conf['all'];
+			unset( $sites_conf['all'] );
+			
+			foreach( $sites_conf  as $site=>$site_conf )
+			{
+				$sites_conf[$site] = array_merge( $sites_conf_all, $sites_conf[$site] );
+			}
+		}
+
+		if( count( $sites_conf ) < 2 )
+			$errors[] = "You must have at least 2 sites defined in your sites config file.";
+		
+		foreach( $sites_conf as $site=>$site_conf )
+		{
+			foreach( $required_site_params as $req )
+			{
+				if( empty( $site_conf[$req] ) )
+					$errors[] = "Required parameter {$req} missing in site config for {$site}";
+			}
+				
+			if( !array_key_exists($site_conf['db'], $dbs_conf) )
+				$errors[] = "Database {$site_conf['db']} in config for {$site} is not defined in database config file.";
+			
+		
+		
+		}
+
+		foreach( $dbs_conf as $db=>$db_conf )
+		{
+			foreach( $required_db_params as $req )
+			{
+				if( empty( $db_conf[$req] ) )
+					$errors[] = "Required parameter {$req} missing in database config for {$db}";
+			}
+		}
+		
+		if( $errors )
+		{
+			$this->options['notices']['errors'] = array_merge( $this->options['notices']['errors'], $errors );
+			return FALSE;
+		}
+		$this->options['sites'] = $sites_conf;
+		$this->options['dbs'] = $dbs_conf;
+		return TRUE;
 	}
 
 	//register all the settings
