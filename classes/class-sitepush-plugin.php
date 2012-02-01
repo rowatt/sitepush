@@ -375,8 +375,11 @@ class SitePushPlugin
 		$push_files = FALSE;
 		$results = array(); //should be empty at end if everything worked as expected
 		$db_types = array();
+		
+		//save various options which we don't want overwritten if we are doing a pull
 		$current_options = get_option('mra_sitepush_options');
 		$current_user_options = $this->get_all_user_options();
+		$current_active_plugins = get_option('active_plugins');
 		
 	/* -------------------------------------------------------------- */
 	/* !Push WordPress Files */
@@ -472,18 +475,23 @@ class SitePushPlugin
 			if( trim($result) ) $cleaned_results[] = $result;
 		}
 	
-		//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
-		activate_plugin(MRA_SITEPUSH_BASENAME);
-		
 		//save current site & user options back to DB so options on site we are pulling from won't overwrite
-		//microtime ensures that options are written and don't use cached value
 		if( $db_push && $this->options['current_site']['name'] == $push_options['dest'] )
 		{
+			//microtime ensures that options are written and don't use cached value
 			$current_options['last_pull'] = microtime(TRUE);
 			update_option( 'mra_sitepush_options', $current_options);
+
 			$this->save_all_user_options( $current_user_options );
+
+			//deactivating sitepush ensures that when we update option cached value isn't used
+			//we reactivate again after this if clause just to make sure it's active
+			deactivate_plugins(MRA_SITEPUSH_BASENAME);
+			update_option( 'active_plugins', $current_active_plugins );
 		}
 		
+		//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
+		activate_plugin(MRA_SITEPUSH_BASENAME);
 		$this->errors = array_merge($this->errors, $my_push->errors, $cleaned_results);
 
 		return $this->errors ? FALSE : $done_push;
