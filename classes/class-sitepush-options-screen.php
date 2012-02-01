@@ -126,8 +126,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 	
 	function field_accept()
 	{
-		if( empty($this->options['accept']) )
-			echo $this->input_checkbox('accept',' I have read the instructions, backed up my site and accept the risks.');
+		echo $this->input_checkbox('accept',' I have read the instructions, backed up my site and accept the risks.', empty($this->options['accept']) ? '' : 'hide-field' );
 	}
 	
 	function field_sites_conf()
@@ -261,8 +260,8 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $class ) $class=" class='{$class}'";
 
 		$checked = empty( $this->options[$field] ) ? '' : ' checked="checked"';
-		$output = "<label for='mra_sitepush_field_{$field}'>";
-		$output = "<input id='mra_sitepush_field_{$field}' name='mra_sitepush_options[{$field}]' type='checkbox'{$checked}{$class} />";
+		$output = "<label for='mra_sitepush_field_{$field}'{$class}>";
+		$output .= "<input id='mra_sitepush_field_{$field}' name='mra_sitepush_options[{$field}]' type='checkbox'{$checked} />";
 		$output .= "{$description}</label>";
 		return $output;
 	}
