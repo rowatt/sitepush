@@ -121,102 +121,6 @@ class SitePushCore
 /* !METHODS USED TO SET THINGS UP */
 /* -------------------------------------------------------------- */
 
-	//get site config info from sites config file
-	private function get_sites()
-	{
-		if( !file_exists($this->sites_conf_path) )
-			die("Sites config file not found at {$this->sites_conf_path}\n");
-
-		//get site info from the sites.conf file
-		$sites_conf = parse_ini_file($this->sites_conf_path,TRUE);
-		
-		//check if conf file has 'all' section and if so merge that config with config for each site	
-		if( !empty( $sites_conf['all'] ) )
-		{
-			$sites_conf_all = $sites_conf['all'];
-			unset( $sites_conf['all'] );
-			
-			foreach( $sites_conf  as $site=>$site_conf )
-			{
-				$sites_conf[$site] = array_merge( $sites_conf_all, $sites_conf[$site] );
-			}
-	
-		}
-
-		$this->sites = $sites_conf;
-		return $this->sites;
-	}
-
-	//get db config info from sites config file
-	private function get_dbs()
-	{
-		if( !file_exists($this->dbs_conf_path) )
-			die("DB config file not found at {$this->dbs_conf_path}\n");
-		$this->dbs = parse_ini_file($this->dbs_conf_path,TRUE);
-		return $this->dbs;
-	}
-	
-	//get params for a specific site
-	protected function get_site_params( $site )
-	{
-		if( array_key_exists($site,$this->sites) )
-		{
-			$params = $this->sites[$site];
-			if( array_key_exists('domains',$params) )
-				$params['domain'] = $params['domains'][0];
-				
-			//make sure certain optional params are set correctly
-			if( empty($params['wp_dir']) ) $params['wp_dir'] = ''; //make sure it is set
-			if( empty($params['wp_content_dir']) ) $params['wp_content_dir'] = '/wp-content';
-			if( empty($params['wp_plugins_dir']) ) $params['wp_plugins_dir'] = $params['wp_content_dir'] . '/plugins';
-			if( empty($params['wp_uploads_dir']) ) $params['wp_uploads_dir'] = $params['wp_content_dir'] . '/uploads';
-			if( empty($params['wp_themes_dir']) ) $params['wp_themes_dir'] = $params['wp_content_dir'] . '/themes';
-			
-			//stop if certain required params not present
-			if( empty( $params['web_path'] ) || empty( $params['db'] ) )
-				die( "ERROR: required parameter, or web_path, or db is missing from config for {$site} in sites.conf\n" );
-
-			return $params;
-		}
-		else
-		{
-			return FALSE;
-		}
-	}
-	
-	//get params for a specific db
-	protected function get_db_params( $db='', $db_type='' )
-	{
-		
-		if( array_key_exists($db,$this->dbs) )
-		{
-			$result = $this->dbs[$db];
-			$result['label'] = $db;
-		}
-		else
-		{
-			switch( $db_type )
-			{
-				case 'source':
-					$result = $this->dbs[ $this->source_params['db'] ];
-					$result['label'] = $this->source_params['db'];
-					break;
-				case 'dest':
-					$result =  $this->dbs[ $this->dest_params['db'] ];
-					$result['label'] = $this->dest_params['db'];
-					break;
-				default:
-					$result =  FALSE;
-			}
-		}
-
-		//stop if certain required params not present
-		if( empty( $result['name'] ) || empty( $result['user'] ) || empty( $result['pw'] ) || empty( $result['prefix'] ) )
-			die( "ERROR: required parameter name, or user, or pw, or prefix is missing from config for {$result['label']} in dbs.conf\n" );
-
-		return $result;
-	}
-
 	public function check_requirements()
 	{
 		$errors = array();
@@ -389,62 +293,6 @@ class SitePushCore
 		return $result;
 	}
 	
-	/**
-	 * undo function.
-	 * 
-	 * undo either the last push, or a specific one if specified
-	 * 
-	 * @access public
-	 * @return string :what happened
-	 */
-	public function undo()
-	{
-		$this->set_all_params();
-
-		$result = '';
-
-		if( $this->undo && strlen($this->undo) <= 1 )
-		{
-			//get the last push undo file if no file was specified
-			//this will have full path
-			$this->undo = file_get_contents("{$this->source_backup_dir}last");
-		}
-		else
-		{
-			//don't expect user to enter full path, so add it
-			$this->undo = "{$this->source_backup_dir}/{$this->undo}";
-		}
-		
-		if( $this->undo )	
-		{
-			$result = "Running backup {$this->undo}:\n";
-			$commands = file($this->undo);
-			//run all commands in the undo file
-			foreach( $commands as $command )
-			{
-				$result .= trim($command)."\n";
-				if( $command ) $this->my_exec($command);
-			}
-		}
-	return $result;
-	}
-
-	//return the undo file
-	//reads from the 'last' file so will get last undo even on later instantiation
-	public function get_last_undo_file()
-	{
-		return file_exists($this->source_backup_path . 'last') ? file_get_contents($this->source_backup_path . 'last') : FALSE;
-	}
-
-	//parses last undo filename and returns udate of last undo
-	public function get_last_undo_time()
-	{
-		$undo_file = $this->get_last_undo_file();
-		$last_time = substr( $undo_file, -11, 6);
-		$last_date = substr( $undo_file, -20, 8);
-		return strtotime("{$last_date}T{$last_time}");
-	}
-	
 
 	/**
 	 * clear_cache
@@ -519,70 +367,6 @@ class SitePushCore
 /* -------------------------------------------------------------- */
 /* !PRIVATE METHODS */
 /* -------------------------------------------------------------- */
-	
-	//make sure all variables are set properly from config files etc
-	private function set_all_params()
-	{
-		//read site & db config files
-		$this->get_sites();
-		$this->get_dbs();
-		
-		//get params for source and dest
-		$this->source_params = $this->get_site_params( $this->source );
-		if( !$this->source_params ) die("Unknown site config '{$this->source}'.\n");
-		
-		$this->dest_params = $this->get_site_params( $this->dest );
-		if( !$this->dest_params ) die("Unknown site config '{$this->dest}'.\n");
-
-		//set $source_path & $dest_path from config file parameter
-		$this->source_path = $this->source_params['web_path'];
-		$this->dest_path = $this->dest_params['web_path'];
-
-		//make sure dest['remote'] is set, and force remote dest to server specified by remote param
-		if( isset($this->dest_params['remote']) && $this->dest_params['remote'] )
-		{
-			$this->dest_params['domain'] = $this->dest_params['remote'];
-			$this->dest_params['remote'] = TRUE;
-		}
-		else
-		{
-			$this->dest_params['remote'] = FALSE;
-		}
-
-		if( isset($this->source_params['remote']) && $this->source_params['remote'] )
-		{
-			die("Remote source isn't currently supported.\n");
-		}
-		
-		//set up remote shell command
-		$this->remote_shell = $this->dest_params['remote'] ? "ssh -i {$this->ssh_key_dir}{$this->dest_params['domain']} {$this->remote_user}@{$this->dest_params['domain']} " : '';
-
-		//set source/dest backup path from backup_path parameter if explicit source/dest paths not set
-		if( empty($this->source_backup_path) ) $this->source_backup_path = $this->backup_path;
-		if( empty($this->dest_backup_path) ) $this->dest_backup_path = $this->backup_path;
-
-		if( $this->source_backup_path )
-		{
-			$this->source_backup_path = $this->trailing_slashit($this->source_backup_path);
-			$this->source_backup_dir = $this->source_backup_path;
-			if( ! file_exists($this->source_backup_dir) ) mkdir($this->source_backup_dir,0700,TRUE);
-		}
-
-		if( $this->dest_backup_path )
-		{
-			$this->dest_backup_path = $this->trailing_slashit($this->dest_backup_path);
-			$this->dest_backup_dir = $this->dest_backup_path;
-			if( $this->dest_params['remote'] )
-			{
-				$command = $this->make_remote("mkdir -p {$this->dest_backup_dir}");
-				$this->my_exec($command);
-			}
-			else
-			{
-				if( ! file_exists($this->dest_backup_dir) ) mkdir($this->dest_backup_dir,0700,TRUE);
-			}
-		}
-	}
 	
 	/**
 	 * file_backup
@@ -1112,5 +896,68 @@ class SitePushCore
 	}
 	
 }
+
+
+/*
+METHODS FOR FUTURE DEVELOPMENT
+
+	/**
+	 * undo function.
+	 * 
+	 * undo either the last push, or a specific one if specified
+	 * 
+	 * @access public
+	 * @return string :what happened
+	 *
+	public function undo()
+	{
+		$this->set_all_params();
+
+		$result = '';
+
+		if( $this->undo && strlen($this->undo) <= 1 )
+		{
+			//get the last push undo file if no file was specified
+			//this will have full path
+			$this->undo = file_get_contents("{$this->source_backup_dir}last");
+		}
+		else
+		{
+			//don't expect user to enter full path, so add it
+			$this->undo = "{$this->source_backup_dir}/{$this->undo}";
+		}
+		
+		if( $this->undo )	
+		{
+			$result = "Running backup {$this->undo}:\n";
+			$commands = file($this->undo);
+			//run all commands in the undo file
+			foreach( $commands as $command )
+			{
+				$result .= trim($command)."\n";
+				if( $command ) $this->my_exec($command);
+			}
+		}
+	return $result;
+	}
+
+	//return the undo file
+	//reads from the 'last' file so will get last undo even on later instantiation
+	public function get_last_undo_file()
+	{
+		return file_exists($this->source_backup_path . 'last') ? file_get_contents($this->source_backup_path . 'last') : FALSE;
+	}
+
+	//parses last undo filename and returns udate of last undo
+	public function get_last_undo_time()
+	{
+		$undo_file = $this->get_last_undo_file();
+		$last_time = substr( $undo_file, -11, 6);
+		$last_date = substr( $undo_file, -20, 8);
+		return strtotime("{$last_date}T{$last_time}");
+	}
+
+
+*/
 
 /* EOF */

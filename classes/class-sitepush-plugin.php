@@ -2,11 +2,7 @@
 
 class SitePushPlugin
 {
-	//default capabilities required to use SitePush
-	public static $default_capability = 'delete_plugins';
-	public static $default_admin_capability = 'delete_plugins';
-	public static $fallback_capability = 'delete_users'; //user with this capability will always be able to access options
-	
+
 	//major errors in initialisation will stop even options screen showing
 	public $abort = FALSE;
 	
@@ -82,6 +78,7 @@ class SitePushPlugin
 		return $links;
 	}
 	
+	//@todo collate notices better
 	private function check_query_vars()
 	{
 		if( isset($_GET['settings-updated']) && $_GET['settings-updated'] )
@@ -89,55 +86,6 @@ class SitePushPlugin
 	}
 	
 	/* -------------------------------------------------------------- */	/* !INITIALISATION FUNCTIONS */	/* -------------------------------------------------------------- */
-	
-	//make sure we have all options set and valid
-	function options_init()
-	{
-		//get options from DB
-		$this->options = array_merge( (array) get_option( 'mra_sitepush_options' ), $this->options );
-	
-		//activate/deactivate plugin options for live site(s)
-		//for non-live sites plugins are switched to the opposite state
-		if( !empty($this->options['plugin_activates']) )
-			$this->options['plugins']['activate'] = explode("\n",trim($this->options['plugin_activates']));
-		else
-			$this->options['plugins']['activate'] = array();
-
-		if( !empty($this->options['plugin_deactivates']) )
-			$this->options['plugins']['deactivate'] = explode("\n",trim($this->options['plugin_deactivates']));
-		else
-			$this->options['plugins']['deactivate'] = array();			
-		
-		//never manage these plugins
-		$this->options['plugins']['never_manage'] = array();
-		
-		
-		//get options from WP_DB & validate all user set params
-		$this->options = $this->validate_options( $this->options );
-		$this->validate_conf_files();
-		if( !empty( $this->options['notices']['errors'] ) )
-		{
-			//one or more options not OK, so stop here and leave SitePush inactive
-			$this->options['ok'] = FALSE;
-			return FALSE;
-		}
-	
-		//make sure certain sites options set correctly
-		foreach( $this->options['sites'] as $site=>$params )
-		{
-			$this->options['sites'][ $site ]['label'] = empty( $params['label'] ) ? $site : $params['label'];
-			$this->options['sites'][ $site ]['default'] = empty( $this->options['default_push'] ) ? $params['default'] : $this->options['default_push'];
-			$this->options['sites'][ $site ]['admin_only'] =  empty( $params['sitepush_admin_only'] ) ? FALSE : $params['sitepush_admin_only'];
-			$this->options['sites'][ $site ]['name'] =  $site;
-		}
-	
-		$this->options['current_site'] = $this->options['sites'][ $this->get_current_site() ];
-	
-		//all options OK, so plugin can do its stuff!
-		$this->options['ok'] = TRUE;
-		
-		return $this->options;
-	}
 	
 	//set up the plugin options, plugin menus and help screens
 	//called by admin_menu action
@@ -283,6 +231,7 @@ class SitePushPlugin
 	
 	/* -------------------------------------------------------------- */	/* !CONTENT FILTERS */	/* -------------------------------------------------------------- */
 	
+	//@todo is this used??
 	/**
 	 * relative_urls
 	 * 
@@ -338,7 +287,7 @@ class SitePushPlugin
 	
 	function can_admin()
 	{
-	return TRUE;
+	return TRUE; //@todo @debug
 		return current_user_can( $this->options['admin_capability'] )
 				|| current_user_can( 'delete_users' )
 				|| current_user_can( self::$default_admin_capability );
@@ -346,7 +295,7 @@ class SitePushPlugin
 	
 	function can_use()
 	{
-	return TRUE;
+	return TRUE; //@todo @debug
 		return current_user_can( $this->options['capability'] ) || current_user_can( self::$default_capability );
 	}
 	
@@ -700,44 +649,7 @@ class SitePushPlugin
 		return $links;
 	}
 	
-	//figure out which of our sites is currently running
-	function get_current_site()
-	{
-		$this_site = '';
-		$default = '';
-		
-		foreach( $this->options['sites'] as $site=>$site_conf )
-		{
-			if( !empty( $site_conf['domain'] ) )
-				$site_conf['domains'][] = $site_conf['domain'];
-			
-			//check if this site is the default and remember if it is
-			if( $site_conf['default'] )
-				$default = $site;
-		
-			if( in_array( $_SERVER['SERVER_NAME'], $site_conf['domains'] ) )
-			{
-				//we found a match so we know what site we are on
-				$this_site = $site;
-				break;
-			}
-		}
-		
-		//we didn't recognise the URL, so assume we are in the default site
-		if( !$this_site )
-			$this_site = $default;
-		
-		if( $this_site )
-		{
-			return $this_site;
-		}
-		else
-		{
-			$this->errors[]="<div id='mra_sitepush_site_error' class='error settings-error'>This site ({$_SERVER['SERVER_NAME']}) is not recognised and you have not set a default in sites.conf. Please configure sites.conf with the domain of this site, or set a default.</div>";
-			$this->options['ok'] = FALSE;
-		}
-	}
-	
+	//@todo check admin only works
 	//get all sites which are valid given current capability
 	function get_sites( $exclude_current='no' )
 	{
@@ -759,190 +671,6 @@ class SitePushPlugin
 		return empty( $_REQUEST[ $var ] ) ? FALSE : $_REQUEST[ $var ];
 	}
 	
-	/* -------------------------------------------------------------- */	/* SitePush options field validation */
-	function validate_options( $options )
-	{
-		$errors = array();
-		
-		if( empty( $options ) )
-		{
-			//no options have been set, so this is a fresh config
-			$options['ok'] = FALSE;
-			$options['notices']['errors'][] = '<b>Please configure SitePush</b>';
-			return $options;
-		}
-
-		if( ! array_key_exists('accept', $options) )
-			$errors['accept'] = 'You must accept the warning before using SitePush.';
-		
-		if( array_key_exists('sites_conf', $options) ) $options['sites_conf'] = trim( $options['sites_conf'] );
-		if( empty( $options['sites_conf'] ) || !file_exists( $options['sites_conf'] ) )
-			$errors['sites_conf'] = 'Path not valid - sites config file not found.';
-			
-		if( array_key_exists('dbs_conf', $options) ) $options['dbs_conf'] = trim( $options['dbs_conf'] );
-		if( empty( $options['dbs_conf'] ) ||  !file_exists( $options['dbs_conf'] ) )
-			$errors['dbs_conf'] = 'Path not valid - DB config file not found.';
-		
-		if( !empty($options['sites_conf']) && !empty($options['dbs_conf']) && $options['dbs_conf'] == $options['sites_conf'] )
-			$errors['dbs_conf'] = 'Sites and DBs config files cannot be the same file!';
-	
-		if( array_key_exists('backup_path', $options) ) $options['backup_path'] = trim( $options['backup_path'] );
-		if( !empty($options['backup_path']) && !file_exists( $options['backup_path'] ) )
-			$errors['backup_path'] = 'Path not valid - backup directory not found.';
-
-		if( array_key_exists('backup_keep_time', $options) ) $options['backup_keep_time'] = trim( $options['backup_keep_time'] );
-		if( array_key_exists('backup_keep_time', $options) && ''==$options['backup_keep_time'] )
-			$options['backup_keep_time'] = 10;
-
-		if( array_key_exists('rsync_path', $options) ) $options['rsync_path'] = trim( $options['rsync_path'] );
-		if( !empty($options['rsync_path']) && !file_exists( $options['rsync_path'] ) )
-			$errors['rsync_path'] = 'Path not valid - rsync not found.';
-		if( empty($options['rsync_path']) )
-		{
-			$whereis_path = trim( str_ireplace('rsync:', '', `whereis -b rsync`) );
-			$rsync_paths = array($whereis_path, '/usr/bin/rsync', '/usr/local/bin/rsync' );
-			foreach( $rsync_paths as $rsync_path )
-			{
-				if( file_exists($rsync_path) )
-				{
-					$options['rsync_path'] = $rsync_path;
-					break;
-				}
-			}
-		}
-		
-		if( array_key_exists('dont_sync', $options) ) $options['dont_sync'] = trim( $options['dont_sync'] );
-		if( empty($options['dont_sync']) )
-			$options['dont_sync'] = '.git, .svn, .htaccess, tmp/, wp-config.php';
-		
-		if( !empty( $options['timezone'] ) )
-		{
-			@$tz=timezone_open( $options['timezone'] );
-			if( FALSE===$tz )
-			{
-				$errors['timezone'] = "{$options['timezone']} is not a valid timezone. See <a href='http://php.net/manual/en/timezones.php' target='_blank'>list of supported timezones</a> for valid values.";
-			}
-		}
-	
-		if( !empty($options['plugin_activates']) )
-		{
-			$plugin_activates = array();
-			foreach( explode("\n",$options['plugin_activates']) as $plugin )
-			{
-				$plugin = trim( $plugin );
-				if( !$plugin || in_array($plugin, $plugin_activates) || in_array($plugin, $this->options['plugins']['never_manage']) ) continue; //empty line or duplicate
-				$plugin_activates[] = $plugin;
-			}
-			asort($plugin_activates);
-			$options['plugin_activates'] = implode("\n", $plugin_activates);		
-		}
-
-		if( !empty($options['plugin_deactivates']) )
-		{
-			$plugin_deactivates = array();
-			foreach( explode("\n",$options['plugin_deactivates']) as $plugin )
-			{
-				$plugin = trim( $plugin );
-				if( !$plugin || in_array($plugin, $plugin_deactivates) || in_array($plugin, $plugin_activates) || in_array($plugin, $this->options['plugins']['never_manage']) ) continue; //empty line or duplicate
-				$plugin_deactivates[] = $plugin;
-			}
-			asort($plugin_deactivates);
-			$options['plugin_deactivates'] = implode("\n", $plugin_deactivates);		
-		}
-	
-	
-		if( empty($options['capability']) )
-			$options['capability'] = SitePushPlugin::$default_capability;
-	
-		if( empty($options['admin_capability']) )
-			$options['admin_capability'] = SitePushPlugin::$default_admin_capability;
-
-	
-		if( empty($options['cache_key']) )
-			$options['cache_key'] = '';
-	
-		
-		if( $errors )
-		{
-			$options['ok'] = FALSE;
-			$options['notices']['errors'] = $errors;
-		}
-		else
-		{
-			$options['ok'] = TRUE;
-			$options['notices']['errors'] = array();
-		}
-	
-		return $options;
-	}
-
-	/**
-	 * validate_conf_files
-	 * 
-	 * Validate config files. Should be run after options have been validated.
-	 *
-	 * @sets array $this->options['notices']['errors'] with any errors
-	 * @return bool TRUE if valid, FALSE otherwise.
-	 */
-	private function validate_conf_files()
-	{
-		$errors = array();
-		
-		$required_site_params = array( 'db', 'web_path' );
-		$required_db_params = array( 'name', 'user', 'pw' );
-		
-		//get site info from the sites.conf file
-		$sites_conf = parse_ini_file($this->options['sites_conf'],TRUE);
-		$dbs_conf = parse_ini_file($this->options['dbs_conf'],TRUE);
-		
-		//check if conf file has 'all' section and if so merge that config with config for each site	
-		if( !empty( $sites_conf['all'] ) )
-		{
-			$sites_conf_all = $sites_conf['all'];
-			unset( $sites_conf['all'] );
-			
-			foreach( $sites_conf  as $site=>$site_conf )
-			{
-				$sites_conf[$site] = array_merge( $sites_conf_all, $sites_conf[$site] );
-			}
-		}
-
-		if( count( $sites_conf ) < 2 )
-			$errors[] = "You must have at least 2 sites defined in your sites config file.";
-		
-		foreach( $sites_conf as $site=>$site_conf )
-		{
-			foreach( $required_site_params as $req )
-			{
-				if( empty( $site_conf[$req] ) )
-					$errors[] = "Required parameter {$req} missing in site config for {$site}";
-			}
-				
-			if( !array_key_exists($site_conf['db'], $dbs_conf) )
-				$errors[] = "Database {$site_conf['db']} in config for {$site} is not defined in database config file.";
-			
-		
-		
-		}
-
-		foreach( $dbs_conf as $db=>$db_conf )
-		{
-			foreach( $required_db_params as $req )
-			{
-				if( empty( $db_conf[$req] ) )
-					$errors[] = "Required parameter {$req} missing in database config for {$db}";
-			}
-		}
-		
-		if( $errors )
-		{
-			$this->options['notices']['errors'] = array_merge( $this->options['notices']['errors'], $errors );
-			return FALSE;
-		}
-		$this->options['sites'] = $sites_conf;
-		$this->options['dbs'] = $dbs_conf;
-		return TRUE;
-	}
 
 	//register all the settings
 	//must be passed object for screen these settings are on
@@ -1164,6 +892,13 @@ class SitePushPlugin
 		else
 			return FALSE;
 	}
+
+
+
+
+
+
+
 
 }
 
