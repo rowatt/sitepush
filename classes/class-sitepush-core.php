@@ -245,68 +245,6 @@ class SitePushCore
 /* !PUBLIC METHODS */
 /* -------------------------------------------------------------- */
 
-	//returns text listing values of all key params
-	//primarily for debugging
-	public function show_params( $set_params=TRUE )
-	{
-		if( $set_params ) $this->set_all_params();
-		
-		$params = array(
-				  'source'				=>	'string'
-				, 'dest'				=>	'string'
-				, 'db_source'			=>	'string'
-				, 'db_dest'				=>	'string'
-				, 'theme'				=>	'string'
-				, 'db_prefix'			=>	'string'
-				, 'undo'				=>	'string'
-				
-				, 'push_plugins'		=>	'bool'
-				, 'push_uploads'		=>	'bool'
-				, 'push_themes'			=>	'bool'
-				, 'push_wp_files'		=>	'bool'
-				, 'do_backup'			=>	'bool'
-				
-				, 'dry_run'				=>	'bool'
-				, 'debug'				=>	'bool'
-				
-				, 'source_params'		=>	'array'
-				, 'dest_params'			=>	'array'
-				
-				, 'sites_conf_path'		=>	'string'
-				, 'dbs_conf_path'		=>	'string'
-				, 'save_undo'			=>	'bool'
-				, 'undo_file'			=>	'string'
-				
-				, 'source_path'			=>	'string'
-				, 'dest_path'			=>	'string'
-				
-				, 'backup_path'			=>	'string'
-				, 'source_backup_path'	=>	'string'
-				, 'dest_backup_path'	=>	'string'
-		);
-		
-		$output = "PARAMETER DUMP:\n";
-		foreach( $params as $param_name=>$type )
-		{
-			switch( $type )
-			{
-				case 'string':
-					$param = (string) $this->$param_name;
-					break;
-				
-				case 'array':
-					$param = print_r($this->$param_name, TRUE);
-					break;
-				
-				case 'bool':
-					$param = $this->$param_name ? 'TRUE' : 'FALSE';
-					break;
-			}               
-			$output .= "{$param_name} ({$type}): {$param}\n";
-		}
-		return $output;
-	}
-
 	//push everything as per parameters
 	public function push_files()
 	{
