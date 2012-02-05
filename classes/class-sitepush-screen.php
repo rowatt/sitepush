@@ -6,10 +6,10 @@ class SitePush_Screen
 	protected $options; //array with all options
 	protected $plugin; //obj for main plugin
 	
-	public function __construct( $plugin, $options )
+	public function __construct( $plugin )
 	{
 		$this->plugin = $plugin;	
-		$this->options = $options;	
+		$this->options = $plugin->options;	
 	}
 
 }

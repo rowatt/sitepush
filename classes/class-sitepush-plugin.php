@@ -8,19 +8,25 @@ class SitePushPlugin
 	
 	//holds any errors from push
 	public $errors = array();
+	public $notices = array();
 	
-	//holds all options
-	private $options=array();
+	//holds SitePushOptions object
+	public $options;
 	
 	private $min_wp_version = '3.3';
 	
 	public function __construct()
 	{
-		/* -------------------------------------------------------------- */		/* !SETUP HOOKS */		/* -------------------------------------------------------------- */
-		
-		//initialisation
-		add_action('init', array( &$this, 'activate_plugins_for_site') ); //makes sure correct plugins activated/deactivated for site
-		add_action('init', array( &$this, 'clear_cache') ); //clears cache if proper $_GET params set, otherwise does nothing
+		//include required files & instantiate classes
+		require_once('class-sitepush-options.php');
+		$this->options = new SitePushOptions;
+
+//echo "<pre>".var_export($this->options,TRUE)."</pre>";
+//die();
+
+		$this->check_requirements();
+
+		/* --------------------------------------------------------------		/* !SETUP HOOKS		/* -------------------------------------------------------------- */
 		
 		//register scripts, styles & menus
 		add_action('admin_init', array( __CLASS__, 'admin_init') );
@@ -31,20 +37,24 @@ class SitePushPlugin
 
 		//uninstall
 		register_uninstall_hook(__FILE__, array( __CLASS__, 'uninstall') );
-		
-		//add settings to plugin listing page
-		add_filter( 'plugin_action_links', array( __CLASS__, 'plugin_links'), 10, 2 );
-		add_filter( 'plugin_action_links', array( &$this, 'plugin_admin_override'), 10, 2 );
-		
-		//content filters
-		add_filter('the_content', array( &$this, 'relative_urls') );
 
-		//check for notices etc
-		$this->check_requirements();
+		if( $this->options->OK & ! $this->abort )
+		{
+			//initialisation
+			add_action('init', array( &$this, 'activate_plugins_for_site') ); //makes sure correct plugins activated/deactivated for site
+			add_action('init', array( &$this, 'clear_cache') ); //clears cache if proper $_GET params set, otherwise does nothing
+			
+			//add settings to plugin listing page
+			add_filter( 'plugin_action_links', array( __CLASS__, 'plugin_links'), 10, 2 );
+			add_filter( 'plugin_action_links', array( &$this, 'plugin_admin_override'), 10, 2 );
+			
+			//content filters
+			add_filter('the_content', array( &$this, 'relative_urls') );
+		}
 	}
 	
 
-	//run when plugin is activated
+	//run during construct
 	public function check_requirements()
 	{
 		if( version_compare( get_bloginfo( 'version' ), $this->min_wp_version, '<') )
@@ -82,7 +92,7 @@ class SitePushPlugin
 	private function check_query_vars()
 	{
 		if( isset($_GET['settings-updated']) && $_GET['settings-updated'] )
-			$this->options['notices']['notices'][] = 'Options updated.';
+			$this->notices[] = 'Options updated.';
 	}
 	
 	/* -------------------------------------------------------------- */	/* !INITIALISATION FUNCTIONS */	/* -------------------------------------------------------------- */
@@ -91,46 +101,32 @@ class SitePushPlugin
 	//called by admin_menu action
 	function register_options_menu_help()
 	{
-		//initialise all options
-		$this->options_init();
-
 		//instantiate menu classes
-		$push_screen = new SitePush_Push_Screen( &$this, $this->options );
-		$options_screen = new SitePush_Options_Screen( &$this, $this->options );
+		$push_screen = new SitePush_Push_Screen( &$this );
+		$options_screen = new SitePush_Options_Screen( &$this );
 		
 		//register the settings
 		$this->register_options( $options_screen );
 	
 		//if options aren't OK and user doesn't have admin capability don't add SitePush menus
-		if( ! $this->can_admin() && ! $this->options['ok'] )
-		{
-			return;
-		}
+		if( ! $this->can_admin() && ! $this->options->OK ) return;
 
 		//make sure menus show for right capabilities, but will always show for admin
-		if( ! current_user_can( $this->options['capability'] ) && current_user_can( self::$fallback_capability ) )
-		{
-			$capability = self::$fallback_capability;
-		}
+		if( ! current_user_can( $this->options->capability ) && current_user_can( SitePushOptions::$fallback_capability ) )
+			$capability = SitePushOptions::$fallback_capability;
 		else
-		{
-			$capability = $this->options['capability'];
-		}
+			$capability = $this->options->capability;
 		
-		if( ! current_user_can( $this->options['admin_capability'] ) && current_user_can( self::$fallback_capability ) )
-		{
-			$admin_capability = self::$fallback_capability;
-		}
+		if( ! current_user_can( $this->options->admin_capability ) && current_user_can( SitePushOptions::$fallback_capability ) )
+			$admin_capability = SitePushOptions::$fallback_capability;
 		else
-		{
-			$capability = $this->options['admin_capability'];
-		}
+			$capability = $this->options->admin_capability;
 		
 		//add menu(s) - only options page is shown if not configured properly
 		$page_title = 'SitePush';
 		$menu_title = 'SitePush';
-		$menu_slug = ($this->options['ok'] && ! $this->abort) ? 'mra_sitepush' : 'mra_sitepush_options';
-		$function = ($this->options['ok'] && ! $this->abort) ? array( $push_screen, 'display_screen') : array( $options_screen, 'display_screen');
+		$menu_slug = ($this->options->OK && ! $this->abort) ? 'mra_sitepush' : 'mra_sitepush_options';
+		$function = ($this->options->OK && ! $this->abort) ? array( $push_screen, 'display_screen') : array( $options_screen, 'display_screen');
 		$icon_url = '';
 		$position = 3;
 		add_menu_page( $page_title, $menu_title, $capability, $menu_slug, $function, $icon_url, $position );
@@ -138,7 +134,7 @@ class SitePushPlugin
 		$parent_slug = $menu_slug;
 		
 		//add SitePush if options are OK
-		if( $this->options['ok'] && !$this->abort)
+		if( $this->options->OK && !$this->abort)
 		{	
 			$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $function);
 			add_action('admin_print_styles-' . $page, array( __CLASS__, 'admin_styles' ) ); //add custom stylesheet
@@ -183,11 +179,11 @@ class SitePushPlugin
 	//jq_update_source_dest - update various things when user changes source/dest
 	private function jq_update_source_dest()
 	{
-		if( empty($this->options['sites']) ) return '';
+		if( empty($this->options->sites) ) return '';
 		
 		//create JS array of live sites for script below
 		$live_sites = array();
-		foreach( $this->options['sites'] as $site )
+		foreach( $this->options->sites as $site )
 		{
 			if( !empty($site['live']) ) $live_sites[] = "'{$site['name']}'";
 		}
@@ -202,7 +198,7 @@ class SitePushPlugin
 				warnText = 'Caution - live site!';
 
 		<?php //change button from Push<->Pull depending on destination ?>
-			if( $("#mra_sitepush_dest").find("option:selected").val() == "<?php echo $this->options['current_site']['name']; ?>" )
+			if( $("#mra_sitepush_dest").find("option:selected").val() == "<?php echo $this->options->get_current_site(); ?>" )
 				$('#push-button').val('Pull Content');
 			else
 				$('#push-button').val('Push Content');
@@ -231,7 +227,7 @@ class SitePushPlugin
 	
 	/* -------------------------------------------------------------- */	/* !CONTENT FILTERS */	/* -------------------------------------------------------------- */
 	
-	//@todo is this used??
+	//@todo add to options screen
 	/**
 	 * relative_urls
 	 * 
@@ -242,11 +238,9 @@ class SitePushPlugin
 	 */
 	function relative_urls( $content='' )
 	{
-		if( empty($this->options['make_relative_urls']) ) return $content;
+		if( !$this->options->make_relative_urls ) return $content;
 		
-		$make_relative_urls = explode( ',', $this->options['make_relative_urls'] );
-		
-		foreach( $make_relative_urls as $domain )
+		foreach( $this->options->all_domains as $domain )
 		{
 			$search = array( "http://{$domain}", "https://{$domain}" );
 			$content = str_ireplace( $search, '', $content );	
@@ -285,21 +279,26 @@ class SitePushPlugin
 	
 	/* -------------------------------------------------------------- */	/* !SITEPUSH FUNCTIONS */	/* -------------------------------------------------------------- */
 	
-	function can_admin()
+	public function can_admin()
 	{
-	return TRUE; //@todo @debug
-		return current_user_can( $this->options['admin_capability'] )
-				|| current_user_can( 'delete_users' )
-				|| current_user_can( self::$default_admin_capability );
+		if( !empty($this->options->admin_capability) && current_user_can( $this->options->admin_capability ) )
+			return TRUE;
+		else
+			return current_user_can( SitePushOptions::$fallback_capability )
+					|| current_user_can( SitePushOptions::$default_admin_capability );
 	}
 	
-	function can_use()
+	public function can_use()
 	{
-	return TRUE; //@todo @debug
-		return current_user_can( $this->options['capability'] ) || current_user_can( self::$default_capability );
+		if( $this->can_admin() )
+			return TRUE;
+		elseif( !empty($this->options->capability) && current_user_can( $this->options->capability ) )
+			return TRUE;
+		else
+			return current_user_can( SitePushOptions::$default_capability );
 	}
 	
-	function do_the_push( $my_push, $push_options )
+	public function do_the_push( $my_push, $push_options )
 	{
 		//if we are going to do a push, check that we were referred from options page as expected
 		check_admin_referer('sitepush-dopush','sitepush-nonce');
@@ -314,15 +313,15 @@ class SitePushPlugin
 		//track if we have actually tried to push anything
 		$done_push = FALSE;
 		
-		$my_push->sites_conf_path = $this->options['sites_conf'];
-		$my_push->dbs_conf_path = $this->options['dbs_conf'];
+		$my_push->sites_conf_path = $this->options->sites_conf;
+		$my_push->dbs_conf_path = $this->options->dbs_conf;
 		
 		$my_push->source = $push_options['source'];
 		$my_push->dest = $push_options['dest'];
 		
 		$my_push->dry_run = $push_options['dry_run'] ? TRUE : FALSE;
 		$my_push->do_backup = $push_options['do_backup'] ? TRUE : FALSE;
-		$my_push->backup_path = $this->options['backup_path'];
+		$my_push->backup_path = $this->options->backup_path;
 		
 		$my_push->echo_output = TRUE;
 		$my_push->output_level = defined('MRA_SITEPUSH_OUTPUT_LEVEL') ? MRA_SITEPUSH_OUTPUT_LEVEL : 0;
@@ -408,12 +407,12 @@ class SitePushPlugin
 	/* !Clear Cache */
 	/* -------------------------------------------------------------- */
 	
-		if( $push_options['clear_cache'] && !empty($this->options['cache_key']) )
+		if( $push_options['clear_cache'] && $this->options->cache_key )
 		{
-			$my_push->cache_key = urlencode( $this->options['cache_key'] );
+			$my_push->cache_key = urlencode( $this->options->cache_key );
 			$my_push->clear_cache();
 		}
-		elseif( $push_options['clear_cache'] && empty($this->options['cache_key']) )
+		elseif( $push_options['clear_cache'] && ! $this->options->cache_key )
 		{
 			if( !$this->errors )
 				$this->errors[] = "Push complete, but you tried to clear the destination cache and the cache secret key is not set.";
@@ -432,11 +431,9 @@ class SitePushPlugin
 		}
 	
 		//save current site & user options back to DB so options on site we are pulling from won't overwrite
-		if( $db_push && $this->options['current_site']['name'] == $push_options['dest'] )
+		if( $db_push && $this->options->get_current_site() == $push_options['dest'] )
 		{
-			//microtime ensures that options are written and don't use cached value
-			$current_options['last_pull'] = microtime(TRUE);
-			update_option( 'mra_sitepush_options', $current_options);
+			$this->options->update( $current_options);
 
 			$this->save_all_user_options( $current_user_options );
 
@@ -571,22 +568,20 @@ class SitePushPlugin
 	 */
 	function activate_plugins_for_site()
 	{
-		//initialise vars if we haven't run plugin init already
-		if( empty($this->options) ) $this->options_init();
-				
+
 		//check if settings OK
-		if( empty($this->options['ok']) ) return FALSE;
+		if( ! $this->options->OK ) return FALSE;
 		
 		//make sure WP plugin code is loaded
 		require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
 
-		if( !empty($this->options['current_site']['live']) )
+		if( !empty($this->options->current_site_conf['live']) )
 		{
 			//site is live so activate/deactivate plugins for live site(s) as per options
-			foreach( $this->options['plugins']['activate'] as $plugin )
+			foreach( $this->options->plugins['activate'] as $plugin )
 			{
 				//deactivate if it's a cache plugin but caching is turned off for this site
-				if( $this->is_cache_plugin( $plugin ) && empty($this->options['current_site']['cache']) )
+				if( $this->is_cache_plugin( $plugin ) && empty($this->options->current_site_conf['cache']) )
 				{
 					if( is_plugin_active($plugin) ) deactivate_plugins($plugin);
 					continue;
@@ -596,7 +591,7 @@ class SitePushPlugin
 				if( !is_plugin_active($plugin) ) activate_plugin($plugin);
 			}
 	
-			foreach( $this->options['plugins']['deactivate'] as $plugin )
+			foreach( $this->options->plugins['deactivate'] as $plugin )
 			{
 				if( is_plugin_active($plugin) ) deactivate_plugins($plugin);
 			}
@@ -604,10 +599,10 @@ class SitePushPlugin
 		else
 		{
 			//activate/deactivate plugins for non-live site(s) as per opposite of options for live site(s)
-			foreach( $this->options['plugins']['deactivate'] as $plugin )
+			foreach( $this->options->plugins['deactivate'] as $plugin )
 			{
 				//deactivate if it's a cache plugin but caching is turned off for this site
-				if( $this->is_cache_plugin( $plugin ) && empty($this->options['current_site']['cache']) )
+				if( $this->is_cache_plugin( $plugin ) && empty($this->options->current_site_conf['cache']) )
 				{
 					if( is_plugin_active($plugin) ) deactivate_plugins($plugin);
 					continue;
@@ -617,7 +612,7 @@ class SitePushPlugin
 				if( !is_plugin_active($plugin) ) activate_plugin($plugin);
 			}
 	
-			foreach( $this->options['plugins']['activate'] as $plugin )
+			foreach( $this->options->plugins['activate'] as $plugin )
 			{
 				if( is_plugin_active($plugin) ) deactivate_plugins($plugin);
 			}
@@ -629,9 +624,9 @@ class SitePushPlugin
 	function plugin_admin_override( $links, $file )
 	{
 		//check if settings OK
-		if( !$this->options['ok'] ) return $links;
+		if( !$this->options->OK ) return $links;
 		
-		$plugins = array_merge( $this->options['plugins']['activate'], $this->options['plugins']['deactivate'] );
+		$plugins = array_merge( $this->options->plugins['activate'], $this->options->plugins['deactivate'] );
 		
 		foreach( $plugins as $plugin )
 		{
@@ -657,7 +652,7 @@ class SitePushPlugin
 		
 		$exclude = ('exclude_current'==$exclude_current) ? $this->get_current_site() : '';
 	
-		foreach( $this->options['sites'] as $site=>$site_conf )
+		foreach( $this->options->sites as $site=>$site_conf )
 		{
 			if( $site<>$exclude && ($this->can_admin() || !$site_conf['admin_only']) )
 				$sites_list[] = $site;
@@ -705,7 +700,7 @@ class SitePushPlugin
 		
 		add_settings_field(
 			'mra_sitepush_field_sites_conf',
-			'Full path to sites.conf file',
+			'Full path to sites config file',
 			array( $options_screen, 'field_sites_conf' ),
 			'sitepush_options',
 			'mra_sitepush_section_config'
@@ -713,7 +708,7 @@ class SitePushPlugin
 		
 		add_settings_field(
 			'mra_sitepush_field_dbs_conf',
-			'Full path to dbs.conf file',
+			'Full path to dbs config file',
 			array( $options_screen, 'field_dbs_conf' ),
 			'sitepush_options',
 			'mra_sitepush_section_config'
@@ -856,7 +851,7 @@ class SitePushPlugin
 		$errors = array();
 
 		//don't show warnings if user can't admin SitePush
-		if( ! current_user_can( $this->options['admin_capability'] ) ) return '';
+		if( ! current_user_can( $this->options->admin_capability ) ) return '';
 
 		if( $error = $this->check_wp_config() )
 			$errors[] = $error;
@@ -868,10 +863,10 @@ class SitePushPlugin
 	private function check_wp_config()
 	{
 		$error = FALSE;
-		if( empty($this->options['current_site']['cache']) && ( defined('WP_CACHE') && WP_CACHE ) )
-				$error = "<b>SitePush Warning</b> - caching is turned off in your config file for this site, but WP_CACHE is defined as TRUE in your wp-config.php file. You should either change the setting in your config file ({$this->options['sites_conf']}), or update wp-config.php.";
-		elseif( !empty($this->options['current_site']['cache']) && ( !defined('WP_CACHE') || !WP_CACHE ) )
-			$error = "<b>SitePush Warning</b> - caching is turned on in your config file for this site, but WP_CACHE is defined as FALSE or not defined in your wp-config.php file. You should either change the setting in your config file ({$this->options['sites_conf']}), or update wp-config.php.";
+		if( empty($this->options->current_site_conf['cache']) && ( defined('WP_CACHE') && WP_CACHE ) )
+				$error = "<b>SitePush Warning</b> - caching is turned off in your config file for this site, but WP_CACHE is defined as TRUE in your wp-config.php file. You should either change the setting in your config file ({$this->options->sites_conf}), or update wp-config.php.";
+		elseif( !empty($this->options->current_site_conf['cache']) && ( !defined('WP_CACHE') || !WP_CACHE ) )
+			$error = "<b>SitePush Warning</b> - caching is turned on in your config file for this site, but WP_CACHE is defined as FALSE or not defined in your wp-config.php file. You should either change the setting in your config file ({$this->options->sites_conf}), or update wp-config.php.";
 
 		return $error;
 	}

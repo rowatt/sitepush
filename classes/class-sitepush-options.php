@@ -6,65 +6,81 @@ class SitePushOptions
 	//set to true once we have enough options set OK
 	public $OK = FALSE;
 	public $errors = array();
-	public $options = array();
 	public $sites = array();
 	public $dbs = array();
 	private $current_site = ''; //access through get_current_site method
+	public $current_site_conf = array();
+	public $all_domains = array();
 
 	//default capabilities required to use SitePush
 	public static $default_capability = 'delete_plugins';
 	public static $default_admin_capability = 'delete_plugins';
 	public static $fallback_capability = 'delete_users'; //user with this capability will always be able to access options
 
-
-
-	function __construct( $options=array() )
-	{
-		if( !$options ) wp_die('Class SitePushOptions was instantiated without any parameters.');
+	private $init_params = array('accept', 'plugin_activates', 'plugin_deactivates', 'sites_conf', 'dbs_conf', 'backup_path', 'backup_keep_time', 'rsync_path', 'capability', 'admin_capability', 'cache_key', 'make_relative_urls', 'timezone');
 	
+	function __construct()
+	{
+		$options = get_option( 'mra_sitepush_options' ) )
+		
 		//initialise arrays
 		$sites_conf = array();
 		$dbs_conf = array();
 		
 		//make sure all options set and validated
-		$this->options = $this->options_init( $options );
+		$options = $this->options_init( $options );
+		foreach( $options as $option=>$value)
+		{
+			$this->$option = $value;
+		}
 		if( $this->errors ) return FALSE;
 
 		//initialise & validate db configs
-		$dbs_conf = $this->get_conf( $options['dbs_conf'], 'DB ' );
+		$dbs_conf = $this->get_conf( $this->dbs_conf, 'DB ' );
 		$this->dbs = $this->dbs_init( $dbs_conf );
 		if( $this->errors ) return FALSE;
 	
 		//initialise & validate site configs
-		$sites_conf = $this->get_conf( $options['sites_conf'], 'Sites ' );
+		$sites_conf = $this->get_conf( $this->sites_conf, 'Sites ' );
 		$this->sites = $this->sites_init( $sites_conf );
 		if( $this->errors ) return FALSE;
 		
 		//set current site
-		$this->current_site = $this->get_current_site();
+		$this->current_site_init();
 		if( $this->errors ) return FALSE;
 
-		
-		echo "<pre>".var_export($this->current_site,TRUE)."</pre>";
-		echo "<pre>".var_export($this->options,TRUE)."</pre>";
-		echo "<pre>".var_export($this->sites,TRUE)."</pre>";
-		echo "<pre>".var_export($this->dbs,TRUE)."</pre>";
-
-		//$this->validate_options( $options );
-		// add to above...	$this->OK = FALSE;
-
-		//if one or more options not OK then stop here
-		//if( !empty( $this->errors ) )
-		//	return FALSE;
-	
-
-		//all options OK, so plugin can do its stuff!
-		//$this->options['ok'] = TRUE;
-
-
-		wp_die('end');
+		//no errors so everything appears to be OK
+		$this->OK = TRUE;
 	}
 	
+	/**
+	 * update
+	 * 
+	 * Updates plugin options in WP DB.
+	 *
+	 * @param array $options
+	 * @return void
+	 */
+	public function update( $options=array() )
+	{
+		if( is_object($options) )
+			$options = (array) $options;
+	
+		//microtime ensures that options are written and don't use cached value
+		$update_options['last_pull'] = microtime(TRUE);
+		
+		foreach( $this->init_params as $param )
+		{
+			$update_options[ $param ] = $options[ $param ];
+		}
+		
+		$update_option['plugin_activates'] = implode( "\n", $options['plugins']['activate'] );
+		$update_option['plugin_deactivates'] = implode( "\n", $options['plugins']['deactivate'] );
+		
+		update_option( 'mra_sitepush_options', $update_options );
+	}
+	
+	xxxxx check this!!!
 	
 /* --------------------------------------------------------------/* !INITIALISE & VALIDATE OPTIONS/* -------------------------------------------------------------- */
 		
@@ -78,6 +94,9 @@ class SitePushOptions
 	 */
 	private function options_init( $options )
 	{
+		//make sure all options initialised and non-options removed
+		$options = $this->init_params( $options, $this->init_params );
+
 		if( !array_key_exists('plugins',      $options) )            $options['plugins']                 = array();	
 		if( !array_key_exists('activate',     $options['plugins']) ) $options['plugins']['activate']     = array();	
 		if( !array_key_exists('deactivate',   $options['plugins']) ) $options['plugins']['deactivate']   = array();	
@@ -90,7 +109,7 @@ class SitePushOptions
 		//clean and initialise everything else
 		$options = $this->options_clean( $options );
 		$this->options_validate( $options );
-		
+				
 		return $options;
 	}
 
@@ -108,10 +127,7 @@ class SitePushOptions
 		$trims = array('plugin_activates', 'plugin_deactivates', 'sites_conf', 'dbs_conf', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'capability', 'admin_capability', 'cache_key');
 		foreach( $trims as $trim_opt )
 		{
-			if( array_key_exists($trim_opt, $options) )
-				$options[$trim_opt] = trim( $options[$trim_opt] );
-			else
-				$options[$trim_opt] = '';
+			$options[$trim_opt] = trim( $options[$trim_opt] );
 		}
 
 		//set options for plugins to activate on live sites
@@ -283,6 +299,9 @@ class SitePushOptions
 
 		$this->sites_validate( $sites );
 
+		//make sure we only have one of each domain
+		$this->all_domains = array_unique( $this->all_domains, SORT_STRING);
+
 		return $sites;
 	}
 
@@ -296,8 +315,14 @@ class SitePushOptions
 	 */
 	public function site_init( $params=array() )
 	{
-		if( array_key_exists('domains',$params) )
+		//make sure all params initialised, and non-params removed
+		$params = $this->init_params( $params, array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'domain', 'domains', 'wp_dir' ) );
+
+		if( array_key_exists('domains',$params) && empty($params['domain']) )
 			$params['domain'] = $params['domains'][0];
+
+		//save all domains in array
+		$this->all_domains = array_merge( $this->all_domains, $params['domains'], (array) $params['domain'] );
 
 		//make sure certain optional params are set correctly
 		if( empty($params['wp_dir']) ) $params['wp_dir'] = ''; //make sure it is set
@@ -310,24 +335,6 @@ class SitePushOptions
 	}
 	
 
-	/**
-	 * current_site_init
-	 * 
-	 * determine current site and set the 'current_site' array
-	 *
-	 * @return bool TRUE if current site set OK, FALSE otherwise
-	 */
-	private function current_site_init()
-	{
-		$current_site = $this->get_current_site();
-		if( $current_site )
-			$sites['current_site'] = $sites[ $this->get_current_site() ];
-		else
-			$sites['current_site'] = FALSE;
-	
-		return (bool) $sites['current_site'];
-	}
-
 
 	/**
 	 * set_current_site
@@ -337,7 +344,7 @@ class SitePushOptions
 	 * @param array $sites configs for all sites. Defaults to $this->sites.
 	 * @return bool TRUE if current site set OK, FALSE otherwise.
 	 */
-	private function set_current_site( $sites=array() )
+	private function current_site_init( $sites=array() )
 	{
 		if( !$sites )
 			$sites = $this->sites;
@@ -378,7 +385,9 @@ class SitePushOptions
 
 		$this->current_site = $current_site;
 
-		return $current_site;
+		$this->current_site_conf = $this->sites[ $current_site ];
+
+		return (bool) $current_site;
 	}
 
 	/**
@@ -539,6 +548,24 @@ class SitePushOptions
 	}
 
 	
+			//make sure all options initialised and non-options removed
+	/**
+	 * init_params
+	 * 
+	 * Initialises a parameter array, making sure required keys exist, and others are removed
+	 *
+	 * @param array $options the options array to initialise
+	 * @param array $params list of required parameters
+	 * @return array initialised parameters
+	 */
+	private function init_params( $options=array(), $params=array() )
+	{
+		foreach( $params as $param )
+		{
+			$options_initialised[ $param ] = array_key_exists($param, $options) ? $options[ $param ] : '';
+		}
+		return $options_initialised;
+	}
 	
 /* -------------------------------------------------------------- *//* !	ORIG METHOS *//* -------------------------------------------------------------- */
 

@@ -6,9 +6,9 @@ class SitePush_Push_Screen extends SitePush_Screen
 	private $user_last_source = '';
 	private $user_last_dest = '';
 
-	public function __construct( $plugin, $options )
+	public function __construct( $plugin )
 	{
-		parent::__construct( $plugin, $options );
+		parent::__construct( $plugin );
 	}
 
 	//display the admin options/SitePush page
@@ -19,7 +19,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 			wp_die( __('You do not have sufficient permissions to access this page.') );
 	
 		//define sites which we can push to
-		$sites = $this->options['sites'];
+		$sites = $this->options->sites;
 	
 		//initialise options from form data
 		$push_options['db_all_tables'] =  SitePushPlugin::get_query_var('mra_sitepush_push_db_all_tables') ? TRUE : FALSE;
@@ -47,16 +47,16 @@ class SitePush_Push_Screen extends SitePush_Screen
 	
 		//instantiate a new push object
 		$args = array(
-				  'timezone' => $this->options['timezone']
-				, 'sites_conf' => $this->options['sites_conf']
+				  'timezone' => $this->options->timezone
+				, 'sites_conf' => $this->options->sites_conf //@todo update
 		);
 	
 		set_time_limit( 6000 );
 	
-		$my_sitepush = new SitePushCore( $this->options['sites_conf'] );
-		$my_sitepush->rsync_cmd = $this->options['rsync_path'];
-		$my_sitepush->excludes = $this->options['dont_sync'];
-		$my_sitepush->backup_keep_time = $this->options['backup_keep_time'];
+		$my_sitepush = new SitePushCore( $this->options->sites_conf );
+		$my_sitepush->rsync_cmd = $this->options->rsync_path;
+		$my_sitepush->excludes = $this->options->dont_sync;
+		$my_sitepush->backup_keep_time = $this->options->backup_keep_time;
 	?>
 		<div class="wrap">
 			<h2>SitePush</h2>	
@@ -100,33 +100,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 				echo "<div class='error'><p>Nothing selected to push.</p></div>";
 			}
 		}
-		else
-		{
-			$last_push_result_file = $my_sitepush->get_last_undo_file();
-			$last_push_results = $last_push_result_file ? file( $last_push_result_file ) : '';
-			
-			if( $last_push_results )
-			{
-				echo "<pre style='white-space: pre-wrap; margin: 20px 0; padding: 5px; border: 1px solid grey;'>";
-				echo "Last push at ".date( 'D j F, Y \a\t H:i:s e O T',$my_sitepush->get_last_undo_time() )."\n";
-				
-				//show more detail if administator
-				if( $this->plugin->can_admin() )
-				{
-					foreach( $last_push_results as $result )
-					{
-						if( stripos($result, 'original')===0 )
-						{
-							$result = str_ireplace("original\t", '', $result);
-							$result = preg_replace('/ -p[^ ]*/', ' -p*****', $result);
-							echo $result;
-						}
-					}
-				}
-				echo "</pre>";
-			}
-		
-		}
+
 		
 		//set up what menu options are selected by default
 		if( !empty($_REQUEST['sitepush-nonce']) )
@@ -154,7 +128,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 								{
 									echo "<option value='{$site}'";
 									if( $default_source == $site ) echo " selected='selected'";
-									echo ">{$this->options['sites'][$site]['label']}</option>";
+									echo ">{$this->options->sites[$site]['label']}</option>";
 								}
 							?>
 							</select>
@@ -170,7 +144,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 								{
 									echo "<option value='{$site}'";
 									if( $default_dest == $site ) echo " selected='selected'";
-									echo ">{$this->options['sites'][$site]['label']}</option>";
+									echo ">{$this->options->sites[$site]['label']}</option>";
 								}
 							?>
 							</select>
@@ -202,10 +176,10 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<?php
 						$output = '';
 
-						if( 'none'<>$this->options['cache_key'] )
+						if( 'none'<>$this->options->cache_key )
 							$output .= $this->option_html('clear_cache','Clear WordPress cache on destination','user','checked');
 
-						if( !empty( $this->options['backup_path'] ) )
+						if( $this->options->backup_path )
 							$output .= $this->option_html('mra_sitepush_push_backup','Backup push (note - restoring from a backup is currently a manual process and requires command line access)','user','checked');
 
 					/* No undo till we get it working properly!

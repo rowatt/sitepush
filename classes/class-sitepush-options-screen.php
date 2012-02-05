@@ -3,9 +3,11 @@
 class SitePush_Options_Screen extends SitePush_Screen
 {
 
-	public function __construct( $plugin, $options )
+	public $notices = array();
+
+	public function __construct( $plugin )
 	{
-		parent::__construct( $plugin, $options );
+		parent::__construct( $plugin );
 	}
 
 	// output HTML for the SitePush options screen
@@ -16,10 +18,10 @@ class SitePush_Options_Screen extends SitePush_Screen
 			<?php screen_icon( 'options-general' ); ?>
 			<h2>SitePush Options</h2>
 			
-			<?php if( !empty($this->options['notices']) ) echo $this->settings_notices(); ?>
+			<?php
+				if( $this->notices ) echo $this->settings_notices(); 
 			
-			<?php 
-					if( $this->plugin->abort )
+				if( $this->plugin->abort )
 					{
 						foreach( $this->plugin->errors as $error )
 						{
@@ -46,11 +48,11 @@ class SitePush_Options_Screen extends SitePush_Screen
 		//don't display notices if we haven't submitted options form
 		if( empty( $_REQUEST['settings-updated'] ) ) return FALSE;
 
-		if( empty( $this->options['notices'] ) ) return FALSE; //nothing to display
+		if( $this->notices ) return FALSE; //nothing to display
 		
 		$output = '';
 		
-		foreach( $this->options['notices'] as $type=>$notices )
+		foreach( $this->notices as $type=>$notices )
 		{
 			foreach( $notices as $field=>$msg )
 			{
@@ -126,7 +128,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 	
 	function field_accept()
 	{
-		echo $this->input_checkbox('accept',' I have read the instructions, backed up my site and accept the risks.', empty($this->options['accept']) ? '' : 'hide-field' );
+		echo $this->input_checkbox('accept',' I have read the instructions, backed up my site and accept the risks.', empty($this->options->accept) ? '' : 'hide-field' );
 	}
 	
 	function field_sites_conf()
@@ -153,9 +155,9 @@ class SitePush_Options_Screen extends SitePush_Screen
 	function field_rsync_path()
 	{
 		$rsync_help = 'Path to rsync on this server. ';
-		if( !empty($this->options['rsync_path']) && file_exists($this->options['rsync_path']) )
+		if( $this->options->rsync_path && file_exists($this->options->rsync_path) )
 			$rsync_help .= 'The current path appears to be OK.';
-		elseif( !empty($this->options['rsync_path']) && ! file_exists($this->options['rsync_path']) )
+		elseif( $this->options->rsync_path && ! file_exists($this->options->rsync_path) )
 			$rsync_help .= '<b>Rsync was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/rsync.';
 		else
 			$rsync_help .= ' Please enter a path to rsync, e.g. /usr/bin/rsync';
@@ -186,33 +188,29 @@ class SitePush_Options_Screen extends SitePush_Screen
 	
 	function field_cache_key()
 	{
-		$extra_text = empty( $this->options['cache_key'] ) ? "<br />A random string you could use: " .  md5( microtime() ) : '';
+		$extra_text = empty( $this->options->cache_key ) ? "<br />A random string you could use: " .  md5( microtime() ) : '';
 	
 		echo $this->input_text('cache_key', "A hard to guess secret key. This ensures that the cache is only cleared on a destination site when you want it to. This key must be the same on all sites which you push to from this site.{$extra_text}");
 	}
 	
 	function field_plugin_activates()
 	{
-		$activates = '';
-	
-		foreach( $this->options['plugins']['activate'] as $name=>$path )
-		{
-			$activates .= "{$name}\n";
-		}
-
-		echo $this->input_textarea('plugin_activates','Plugins which are to be automatically activated for any site which is classed as live, and deactivated on all others. One plugin per line, use the full path to the plugin from your plugins directory, e.g. "myplugin/myplugin.php"',max(3,2+count($this->options['plugins']['activate'])) );
+		echo $this->input_textarea(	array(
+					  'field' => 'plugin_activates'
+					, 'value' => implode( "\n", $this->options->plugins['activate'] )
+					, 'description' => 'Plugins which are to be automatically activated for any site which is classed as live, and deactivated on all others. One plugin per line, use the full path to the plugin from your plugins directory, e.g. "myplugin/myplugin.php"'
+					, 'rows' => max( 3, 2+count($this->options->plugins['activate']) )
+		));
 	}
 		
 	function field_plugin_deactivates()
 	{
-		$deactivates = '';
-
-		foreach( $this->options['plugins']['deactivate'] as $name=>$path )
-		{
-			$deactivates .= "{$name}\n";
-		}
-
-		echo $this->input_textarea('plugin_deactivates','Plugins which are to be automatically deactivated for any site which is not classed as live, and activated on all others. One plugin per line, use the full path to the plugin from your plugins directory, e.g. "myplugin/myplugin.php"',max(3,2+count($this->options['plugins']['deactivate'])) );
+		echo $this->input_textarea(	array(
+					  'field' => 'plugin_deactivates'
+					, 'value' => implode( "\n", $this->options->plugins['deactivate'] )
+					, 'description' => 'Plugins which are to be automatically deactivated for any site which is not classed as live, and activated on all others. One plugin per line, use the full path to the plugin from your plugins directory, e.g. "myplugin/myplugin.php"'
+					, 'rows' => max( 3, 2+count($this->options->plugins['deactivate']) )
+		));
 	}
 	
 	// actual HTML creator
@@ -220,19 +218,30 @@ class SitePush_Options_Screen extends SitePush_Screen
 	{
 		if( $class ) $class=" class='{$class}'";
 
-		$value = empty( $this->options[$field] ) ? '' : $this->options[$field];
+		$value = $this->options->$field ? $this->options->$field : '';
 		$output = "<input id='mra_sitepush_field_{$field}' name='mra_sitepush_options[{$field}]' type='text' value='{$value}'{$class} />";
 		if( $description )
 			$output .= "<span class='description' style='display:block;'>{$description}</span>";
 		return $output;
 	}
 
-	function input_textarea( $field, $description='', $rows='', $class='large-text' )
+	function input_textarea( $vars=array() )
 	{
+		$defaults = array(
+			    'field'	=>	''
+			  , 'description' => ''
+			  , 'rows' => ''
+			  , 'class' => 'large-text'
+			  , 'value' => ''
+		);
+		extract( wp_parse_args( $vars , $defaults ) );
+
 		if( $class ) $class = " class='{$class}'";
 		if( $rows ) $rows = " rows='{$rows}'";
 
-		$value = empty( $this->options[$field] ) ? '' : $this->options[$field];
+		if( !$value )
+			$value = $this->options->$field ? $this->options->$field : '';
+		
 		$output = "<textarea id='mra_sitepush_field_{$field}' name='mra_sitepush_options[{$field}]' type='text'{$class}{$rows}>{$value}</textarea>";
 		if( $description )
 			$output .= "<span class='description' style='display:block;'>{$description}</span>";
@@ -246,7 +255,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		
 		foreach( $radio_options as $radio_option=>$label )
 		{
-			$output .= "<label><input name='mra_sitepush_options[{$field}]' type='radio' value='{$radio_option}'" . checked($radio_option, $this->options[$field], FALSE) . " /> {$label}</label><br />\n";
+			$output .= "<label><input name='mra_sitepush_options[{$field}]' type='radio' value='{$radio_option}'" . checked($radio_option, $this->options->$field, FALSE) . " /> {$label}</label><br />\n";
 		}
 			
 		if( $description )
@@ -259,7 +268,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 	{
 		if( $class ) $class=" class='{$class}'";
 
-		$checked = empty( $this->options[$field] ) ? '' : ' checked="checked"';
+		$checked = empty( $this->options->$field ) ? '' : ' checked="checked"';
 		$output = "<label for='mra_sitepush_field_{$field}'{$class}>";
 		$output .= "<input id='mra_sitepush_field_{$field}' name='mra_sitepush_options[{$field}]' type='checkbox'{$checked} />";
 		$output .= "{$description}</label>";
@@ -273,9 +282,9 @@ class SitePush_Options_Screen extends SitePush_Screen
 		$plugins = get_plugins();
 		
 		$other_plugins = array();
-		
+
 		//gather plugins we are already managing or can't manage
-		$managed_plugins = array_merge($this->options['plugins']['activate'],$this->options['plugins']['deactivate'],$this->options['plugins']['never_manage']);
+		$managed_plugins = array_merge($this->options->plugins['activate'],$this->options->plugins['deactivate'],$this->options->plugins['never_manage']);
 		$managed_plugins[] = MRA_SITEPUSH_BASENAME;
 		
 		//create list of plugins we could manage
