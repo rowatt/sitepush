@@ -25,6 +25,7 @@ License: GPL2
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+
 require_once('classes/class-sitepush-plugin.php');
 new SitePushPlugin;
 
@@ -33,9 +34,19 @@ require_once('classes/class-sitepush-screen.php');
 require_once('classes/class-sitepush-options-screen.php');
 require_once('classes/class-sitepush-push-screen.php');
 
-define( 'MRA_SITEPUSH_PLUGIN_DIR_URL', plugins_url( '', __FILE__ ) );
-define( 'MRA_SITEPUSH_PLUGIN_DIR', dirname(__FILE__) );
-define( 'MRA_SITEPUSH_BASENAME', plugin_basename(__FILE__) );
+//get the plugin basename and abs path to plugin directory
+//__FILE__ won't work for basename if path has symlinks
+//if basename using __FILE__ has more than one '/' we probably
+//have symlinks, in which case we have to assume that plugin is at
+//sitepush/sitepush.php - so don't change dir if using symlinks!
+if( substr_count(plugin_basename(__FILE__), '/') <= 1 )
+	define('MRA_SITEPUSH__FILE', __FILE__);
+else
+	define('MRA_SITEPUSH__FILE', WP_PLUGIN_DIR . '/' . 'sitepush/sitepush.php' );
+
+define( 'MRA_SITEPUSH_PLUGIN_DIR_URL', plugins_url( '', MRA_SITEPUSH__FILE ) );
+define( 'MRA_SITEPUSH_PLUGIN_DIR', dirname(MRA_SITEPUSH__FILE) );
+define( 'MRA_SITEPUSH_BASENAME', plugin_basename(MRA_SITEPUSH__FILE) );
 
 define( 'MRA_SITEPUSH_OUTPUT_LEVEL', 3 ); //@debug
 

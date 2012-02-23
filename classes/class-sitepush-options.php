@@ -5,35 +5,66 @@ class SitePushOptions
 
 	//set to true once we have enough options set OK
 	public $OK = FALSE;
+
 	public $errors = array();
 	public $sites = array();
 	public $dbs = array();
 	private $current_site = ''; //access through get_current_site method
 	public $current_site_conf = array();
 	public $all_domains = array();
+	public $sites_conf = '';
+	public $dbs_conf = '';
+	private $source_params = array();
+	private $dest_params = array();
 
 	//default capabilities required to use SitePush
-	public static $default_capability = 'delete_plugins';
-	public static $default_admin_capability = 'delete_plugins';
-	public static $fallback_capability = 'delete_users'; //user with this capability will always be able to access options
+	public static $default_capability = 'manage_options';
+	public static $default_admin_capability = 'manage_options';
+	public static $fallback_capability = 'manage_options'; //user with this capability will always be able to access options
 
-	private $init_params = array('accept', 'plugin_activates', 'plugin_deactivates', 'sites_conf', 'dbs_conf', 'backup_path', 'backup_keep_time', 'rsync_path', 'capability', 'admin_capability', 'cache_key', 'make_relative_urls', 'timezone');
-	
+	//options which need keeping when user updates options
+	private $keep_options = array( 'accept', 'last_update' );
+	//parameters which get initialised and get whitespace trimmed
+	private $trim_params = array('plugin_activates', 'plugin_deactivates', 'sites_conf', 'dbs_conf', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'capability', 'admin_capability', 'cache_key', 'timezone');
+	//parameters which just get initialised
+	private $no_trim_params = array('accept', 'make_relative_urls');
+	private $init_params; //set in __construct
+
+	//options - these come from WP option mra_sitepush_options
+	public $accept;
+	public $capability;
+	public $admin_capability;
+	public $backup_path;
+	public $cache_key;
+	public $plugins;
+	public $make_relative_urls; //@todo to add to WP options
+	public $rsync_path;
+	public $dont_sync;
+	public $backup_keep_time;
+	public $timezone;
+
 	function __construct()
 	{
-		$options = get_option( 'mra_sitepush_options' ) )
-		
-		//initialise arrays
-		$sites_conf = array();
-		$dbs_conf = array();
-		
-		//make sure all options set and validated
-		$options = $this->options_init( $options );
+		$this->init_params = array_merge( $this->trim_params, $this->no_trim_params );
+
+		$options = get_option( 'mra_sitepush_options' );
+
+		//make sure all options set & initialise WP options if necessary
+		if( !$options || !is_array($options) )
+		{
+			$options = $this->options_init();
+			$this->update( $options );
+		}
+
+		$options = $this->options_clean( $options );
+
+		//set object properties according to options
 		foreach( $options as $option=>$value)
 		{
 			$this->$option = $value;
 		}
-		if( $this->errors ) return FALSE;
+
+		if( !$this->options_validate( $options ) ) return FALSE;
 
 		//initialise & validate db configs
 		$dbs_conf = $this->get_conf( $this->dbs_conf, 'DB ' );
@@ -51,6 +82,7 @@ class SitePushOptions
 
 		//no errors so everything appears to be OK
 		$this->OK = TRUE;
+		return TRUE;
 	}
 	
 	/**
@@ -67,73 +99,94 @@ class SitePushOptions
 			$options = (array) $options;
 	
 		//microtime ensures that options are written and don't use cached value
-		$update_options['last_pull'] = microtime(TRUE);
+		$update_options['last_update'] = microtime(TRUE);
 		
 		foreach( $this->init_params as $param )
 		{
 			$update_options[ $param ] = $options[ $param ];
 		}
-		
-		$update_option['plugin_activates'] = implode( "\n", $options['plugins']['activate'] );
-		$update_option['plugin_deactivates'] = implode( "\n", $options['plugins']['deactivate'] );
-		
+
+		if( !empty($options['plugins']['activate']) )
+			$update_option['plugin_activates'] = implode( "\n", $options['plugins']['activate'] );
+		if( !empty($options['plugins']['deactivate']) )
+			$update_option['plugin_deactivates'] = implode( "\n", $options['plugins']['deactivate'] );
+
 		update_option( 'mra_sitepush_options', $update_options );
 	}
 	
-	xxxxx check this!!!
+	//xxxxx check this!!!
 	
-/* --------------------------------------------------------------/* !INITIALISE & VALIDATE OPTIONS/* -------------------------------------------------------------- */
+/* --------------------------------------------------------------
+/* !INITIALISE & VALIDATE OPTIONS
+/* -------------------------------------------------------------- */
 		
 	/**
 	 * options_init
 	 * 
-	 * Initialise options so that all array keys present. Also cleans options by running options_clean
+	 * Initialise options so that all array keys present.
+	 * Will not overwrite any options which already exist.
 	 *
 	 * @param array $options
-	 * @return array $options initialised & cleaned options
+	 * @return array $options initialised options
 	 */
-	private function options_init( $options )
+	private function options_init( $options=array() )
 	{
-		//make sure all options initialised and non-options removed
-		$options = $this->init_params( $options, $this->init_params );
+		//plugin defaults
+		if( !array_key_exists('plugins',          $options) )            $options['plugins']                     = array();
+		if( !array_key_exists('activate',         $options['plugins']) ) $options['plugins']['activate']         = array();
+		if( !array_key_exists('deactivate',       $options['plugins']) ) $options['plugins']['deactivate']       = array();
+		if( !array_key_exists('never_manage',     $options['plugins']) ) $options['plugins']['never_manage']     = array();
 
-		if( !array_key_exists('plugins',      $options) )            $options['plugins']                 = array();	
-		if( !array_key_exists('activate',     $options['plugins']) ) $options['plugins']['activate']     = array();	
-		if( !array_key_exists('deactivate',   $options['plugins']) ) $options['plugins']['deactivate']   = array();	
-		if( !array_key_exists('never_manage', $options['plugins']) ) $options['plugins']['never_manage'] = array();
+		//other defaults
+		if( !array_key_exists('backup_keep_time', $options) || ''==$options['backup_keep_time'] ) $options['backup_keep_time'] = 10;
+		if( empty($options['capability']) ) $options['capability'] = self::$default_capability;
+		if( empty($options['admin_capability']) ) $options['admin_capability'] = self::$default_admin_capability;
 
-		//defaults for what not to sync - set this first because '' is a valid value
+		//defaults for what not to sync
 		if( !array_key_exists('dont_sync', $options) )
 			$options['dont_sync'] = '.git, .svn, .htaccess, tmp/, wp-config.php';
 
-		//clean and initialise everything else
-		$options = $this->options_clean( $options );
-		$this->options_validate( $options );
-				
+		if( empty($options['rsync_path']) )
+			$options['rsync_path'] = $this->guess_rsync_path();
+
+		//make sure any other parameters exist
+		$options = $this->init_params( $options, $this->init_params );
+
 		return $options;
 	}
 
 	/**
 	 * options_clean
 	 * 
-	 * Clean options, and make sure some keys are set.
+	 * Clean options, and make sure some keys are set,
+	 * convert string options (from user options) to arrays
 	 *
 	 * @param array $options
 	 * @return array $options cleaned options
 	 */
 	private function options_clean( $options=array() )
 	{
-		//trim whitespace etc from options and make sure option key exists
-		$trims = array('plugin_activates', 'plugin_deactivates', 'sites_conf', 'dbs_conf', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'capability', 'admin_capability', 'cache_key');
-		foreach( $trims as $trim_opt )
+		foreach( $this->trim_params as $trim_opt )
 		{
 			$options[$trim_opt] = trim( $options[$trim_opt] );
 		}
 
+		$plugin_activates = array();
+		$plugin_deactivates = array();
+
+		//make sure plugin options arrays exist
+		if( empty($options['plugins']) )
+			$options['plugins'] = array();
+		if( empty($options['plugins']['activate']) )
+			$options['plugins']['activate'] = array();
+		if( empty($options['plugins']['deactivate']) )
+			$options['plugins']['deactivate'] = array();
+		if( empty($options['plugins']['never_manage']) )
+			$options['plugins']['never_manage'] = array();
+
 		//set options for plugins to activate on live sites
 		if( !empty($options['plugin_activates']) )
 		{
-			$plugin_activates = array();
 			foreach( explode("\n",$options['plugin_activates']) as $plugin )
 			{
 				$plugin = trim( $plugin );
@@ -148,7 +201,6 @@ class SitePushOptions
 		//set options for plugins to deactivate on live sites
 		if( !empty($options['plugin_deactivates']) )
 		{
-			$plugin_deactivates = array();
 			foreach( explode("\n",$options['plugin_deactivates']) as $plugin )
 			{
 				$plugin = trim( $plugin );
@@ -160,60 +212,57 @@ class SitePushOptions
 			$options['plugins']['deactivate'] = $plugin_deactivates;
 		}
 
-		//set default backup keep time
-		if( '' == $options['backup_keep_time'] )
-			$options['backup_keep_time'] = 10;
-
-		//figure out default rsync path
 		if( empty($options['rsync_path']) )
-		{
-			$whereis_path = trim( str_ireplace('rsync:', '', `whereis -b rsync`) );
-			$rsync_paths = array($whereis_path, '/usr/local/bin/rsync', '/usr/bin/rsync' );
-			foreach( $rsync_paths as $rsync_path )
-			{
-				if( file_exists($rsync_path) )
-				{
-					$options['rsync_path'] = $rsync_path;
-					break;
-				}
-			}
-			if( empty($options['rsync_path']) ) $options['rsync_path'] = $rsync_path; //something as a starting point if nothing else works
-		}
-		
-		//defaults for capabilities
-		if( empty($options['capability']) )
-			$options['capability'] = self::$default_capability;
-		if( empty($options['admin_capability']) )
-			$options['admin_capability'] = self::$default_admin_capability;
+			$options['rsync_path'] = $this->guess_rsync_path();
 
-		
 		return $options;
 	}
-	
-	
+
+	/**
+	 * guess_rsync_path
+	 *
+	 * Tries to determine where rsync is on this system.
+	 *
+	 * @return string best guess for rsync patgh
+	 */
+	private function guess_rsync_path()
+	{
+		$whereis_path = trim( str_ireplace('rsync:', '', `whereis -b rsync`) );
+		$rsync_paths = array($whereis_path, '/usr/local/bin/rsync', '/usr/bin/rsync' );
+		$rsync_path = '';
+		foreach( $rsync_paths as $rsync_path )
+		{
+			if( file_exists($rsync_path) ) break;
+		}
+
+		return $rsync_path;
+	}
+
+
 	/**
 	 * options_validate
 	 * 
-	 * Validate config options, setting errors as appropriate
+	 * Validate config options, setting errors as appropriate. This is called when options are updated
+	 * from settings screen.
 	 *
 	 * @param array $options options to validated
 	 * @sets array $this->errors adds any error messages to array
 	 * @return bool TRUE if options OK, FALSE otherwise
 	 */
-	function options_validate( $options=array() )
+	function options_validate( &$options=array() )
 	{
-		$errors = array();
-		
 		//if nothing is configured we don't validate, but no error generated
 		if( empty( $options ) )
 			return FALSE;
 
+		$errors = array();
+
 		if( empty($options['accept']) )
 			$errors['accept'] = 'You must accept the warning before using SitePush.';
-		
+
 		if( empty( $options['sites_conf'] ) || !file_exists( $options['sites_conf'] ) )
 			$errors['sites_conf'] = 'Path not valid - sites config file not found.';
-			
+
 		if( empty( $options['dbs_conf'] ) ||  !file_exists( $options['dbs_conf'] ) )
 			$errors['dbs_conf'] = 'Path not valid - DB config file not found.';
 		
@@ -234,14 +283,75 @@ class SitePushOptions
 				$errors['timezone'] = "{$options['timezone']} is not a valid timezone. See <a href='http://php.net/manual/en/timezones.php' target='_blank'>list of supported timezones</a> for valid values.";
 			}
 		}
-		
-		if( $errors )
-			$this->errors = array_merge( $this->errors, $errors );
+
+		//Make sure current admin has whatever capabilities are required for SitePush
+		if( !current_user_can( $options['capability']) )
+		{
+			$errors['capability'] = "SitePush capability ({$options['capability']}) cannot be a capability which you do not have.";
+			$options['capability'] = self::$default_capability;
+		}
+		if( !current_user_can( $options['admin_capability']) )
+		{
+			$errors['admin_capability'] = "SitePush admin capability ({$options['admin_capability']}) cannot be a capability which you do not have.";
+			$options['admin_capability'] = self::$default_capability;
+		}
+
+		$this->errors = $errors;
+
+		return ! (bool) $errors;
+	}
+
+	/**
+	 * options sanitize
+	 *
+	 * called by register_setting when options are updated
+	 *
+	 * @param array $options
+	 * @return array sanitized options
+	 */
+	public function options_sanitize( $options=array() )
+	{
+		$options = $this->options_keep( $options ); //keep options which would otherwise be lost when settings api updates options
+		$options = $this->options_clean( $options );
+		$options = $this->options_init( $options ); //makes sure certain array keys are set
+		$this->options_validate( $options );
+
+		//add any errors to WP settings errors
+		//the function hasn't loaded when plugin initialises, so only add if function exists
+		if( $this->errors )
+		{
+			//$this->errors = array_merge( $this->errors, $errors );
+			foreach( $this->errors as $field=>$error )
+			{
+				add_settings_error('mra-sitepush', "{$field}-error", $error, 'error');
+			}
+
+			$this->errors = array();
+		}
+
+		return $options;
+	}
+
+	/**
+	 * Make sure any options we want kept aren't removed when options updated by settings API
+	 * (i.e. when admin saves options)
+	 *
+	 * @param array $options
+	 * @return array
+	 */
+	private function options_keep( $options=array() )
+	{
+		foreach( $this->keep_options as $option )
+		{
+			if( !array_key_exists( $option, $options ) && isset($this->$option) )
+				$options[ $option ] = $this->$option;
+		}
+		return $options;
+	}
 	
-		return (bool) $errors;
-	}	
-	
-/* -------------------------------------------------------------- /* !INITIALISE & VALIDATE SITE CONFIGS /* -------------------------------------------------------------- */
+/* -------------------------------------------------------------- 
+/* !INITIALISE & VALIDATE SITE CONFIGS 
+/* -------------------------------------------------------------- */
 	
 	/**
 	 * get_conf
@@ -255,9 +365,14 @@ class SitePushOptions
 	 */
 	private function get_conf( $conf_file='', $type='' )
 	{
-		if( !file_exists($conf_file) )
-			wp_die("{$type} config file not found at {$conf_file}\n");
+		if( !$conf_file ) return array();
 
+		if( !file_exists($conf_file) )
+		{
+			//add_settings_error( 'mra-sitepush', '{$type}-config-error', "{$type} config file not found at {$conf_file}\n");
+			$this->OK = FALSE;
+			return array();
+		}
 		//get site info from the sites.conf file
 		$configs = parse_ini_file($conf_file,TRUE);
 		
@@ -288,9 +403,13 @@ class SitePushOptions
 	private function sites_init( $sites=array() )
 	{
 		if( !$sites )
-			wp_die('No sites defined.');
-	
-			//make sure certain sites options set correctly
+		{
+			//add_settings_error( 'mra-sitepush', 'sites-config-error', "No sites defined.\n");
+			$this->OK = FALSE;
+			return array();
+		}
+
+		//make sure certain sites options set correctly
 		foreach( $sites as $site=>$params )
 		{
 			$params['name'] = $site;
@@ -325,7 +444,7 @@ class SitePushOptions
 		$this->all_domains = array_merge( $this->all_domains, $params['domains'], (array) $params['domain'] );
 
 		//make sure certain optional params are set correctly
-		if( empty($params['wp_dir']) ) $params['wp_dir'] = ''; //make sure it is set
+		if( !$params['label'] ) $params['label'] = $params['name'];
 		if( empty($params['wp_content_dir']) ) $params['wp_content_dir'] = '/wp-content';
 		if( empty($params['wp_plugins_dir']) ) $params['wp_plugins_dir'] = $params['wp_content_dir'] . '/plugins';
 		if( empty($params['wp_uploads_dir']) ) $params['wp_uploads_dir'] = $params['wp_content_dir'] . '/uploads';
@@ -337,7 +456,7 @@ class SitePushOptions
 
 
 	/**
-	 * set_current_site
+	 * current_site_init
 	 * 
 	 * Determine which site we are currently running on and set $this->current site accordingly
 	 *
@@ -350,7 +469,11 @@ class SitePushOptions
 			$sites = $this->sites;
 		
 		if( !$sites )
-			wp_die('No sites defined.');
+		{
+			//add_settings_error( 'mra-sitepush', 'sites-config-error', "No sites defined.\n");
+			$this->OK = FALSE;
+			return array();
+		}
 
 		$current_site = '';
 		$default = '';
@@ -400,7 +523,7 @@ class SitePushOptions
 	public function get_current_site()
 	{
 		if( !$this->current_site )
-			$this->set_current_site();
+			$this->current_site_init();
 			
 		return $this->current_site;
 	}
@@ -416,8 +539,11 @@ class SitePushOptions
 	private function sites_validate( $sites=array() )
 	{
 		if( !$sites )
-			wp_die('No sites defined.');
-	
+		{
+			//add_settings_error( 'mra-sitepush', 'sites-config-error', "No sites defined.\n");
+			$this->OK = FALSE;
+			return array();
+		}
 		$validated = TRUE;
 	
 		foreach( $sites as $site )
@@ -449,6 +575,7 @@ class SitePushOptions
 		if( empty($params['web_path']) )
 			$errors[] = "Required parameter web_path is missing from config for site {$params['name']}.";
 
+		//@later this will need changing when we add remote sites
 		if( !file_exists($params['web_path']) )
 			$errors[] = "The web path for site {$params['name']} ({$params['web_path']}) does not exist or is not accessible.";
 
@@ -464,7 +591,9 @@ class SitePushOptions
 		return (bool) $errors;
 	}
 
-/* --------------------------------------------------------------/* !INITIALISE & VALIDATE DB CONFIGS/* -------------------------------------------------------------- */
+/* --------------------------------------------------------------
+/* !INITIALISE & VALIDATE DB CONFIGS
+/* -------------------------------------------------------------- */
 
 	/**
 	 * dbs_init
@@ -477,7 +606,11 @@ class SitePushOptions
 	private function dbs_init( $dbs=array() )
 	{
 		if( !$dbs )
-			wp_die('No databases defined.');	
+		{
+			//add_settings_error( 'mra-sitepush', 'dbs-config-error', "No databases defined.\n");
+			$this->OK = FALSE;
+			return array();
+		};
 
 		//make sure db options set correctly
 		foreach( $dbs as $db=>$params )
@@ -548,11 +681,10 @@ class SitePushOptions
 	}
 
 	
-			//make sure all options initialised and non-options removed
 	/**
 	 * init_params
 	 * 
-	 * Initialises a parameter array, making sure required keys exist, and others are removed
+	 * Initialises a parameter array, making sure required keys exist
 	 *
 	 * @param array $options the options array to initialise
 	 * @param array $params list of required parameters
@@ -562,12 +694,15 @@ class SitePushOptions
 	{
 		foreach( $params as $param )
 		{
-			$options_initialised[ $param ] = array_key_exists($param, $options) ? $options[ $param ] : '';
+			if( !array_key_exists($param, $options) )
+				$options[ $param ] = '';
 		}
-		return $options_initialised;
+		return $options;
 	}
 	
-/* -------------------------------------------------------------- *//* !	ORIG METHOS *//* -------------------------------------------------------------- */
+/* -------------------------------------------------------------- */
+/* !	ORIG METHOS */
+/* -------------------------------------------------------------- */
 
 	//@todo check this works
 	//figure out which of our sites is currently running
@@ -657,7 +792,8 @@ class SitePushOptions
 		return $this->options;
 	}
 */	
-	/* -------------------------------------------------------------- */	/* SitePush options field validation */
+	/* -------------------------------------------------------------- */
+	/* SitePush options field validation */
 /*	function validate_options( $options )
 	{
 		$errors = array();
@@ -774,7 +910,7 @@ class SitePushOptions
 		return $options;
 	}
 */
-	/**
+	/*
 	 * validate_conf_files
 	 * 
 	 * Validate config files. Should be run after options have been validated.
@@ -843,7 +979,9 @@ class SitePushOptions
 	}
 */
 
-/* -------------------------------------------------------------- *//* !MOVED FROM SITEPUSH CORE *//* -------------------------------------------------------------- */
+/* -------------------------------------------------------------- */
+/* !MOVED FROM SITEPUSH CORE */
+/* -------------------------------------------------------------- */
 
 	//get site config info from sites config file
 /*	private function get_sites()

@@ -18,9 +18,6 @@ class SitePush_Push_Screen extends SitePush_Screen
 		if( !$this->plugin->can_use() )
 			wp_die( __('You do not have sufficient permissions to access this page.') );
 	
-		//define sites which we can push to
-		$sites = $this->options->sites;
-	
 		//initialise options from form data
 		$push_options['db_all_tables'] =  SitePushPlugin::get_query_var('mra_sitepush_push_db_all_tables') ? TRUE : FALSE;
 		$push_options['db_post_content'] =  SitePushPlugin::get_query_var('mra_sitepush_push_db_post_content') ? TRUE : FALSE;
@@ -45,15 +42,11 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$this->user_last_source = empty($user_options['last_source']) ? '' : $user_options['last_source'];
 		$this->user_last_dest = empty($user_options['last_dest']) ? '' : $user_options['last_dest'];
 	
-		//instantiate a new push object
-		$args = array(
-				  'timezone' => $this->options->timezone
-				, 'sites_conf' => $this->options->sites_conf //@todo update
-		);
-	
+		//give push plenty of time to complete
 		set_time_limit( 6000 );
-	
-		$my_sitepush = new SitePushCore( $this->options->sites_conf );
+
+		//instantiate a new push object
+		$my_sitepush = new SitePushCore( $this->options );
 		$my_sitepush->rsync_cmd = $this->options->rsync_path;
 		$my_sitepush->excludes = $this->options->dont_sync;
 		$my_sitepush->backup_keep_time = $this->options->backup_keep_time;
@@ -110,7 +103,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 			$default_dest = empty( $_REQUEST['mra_sitepush_dest'] ) ? '' :  $_REQUEST['mra_sitepush_dest'];
 		}
 		if( empty($default_source) )
-			$default_source = $this->user_last_source ? $this->user_last_source : $this->plugin->get_current_site();
+			$default_source = $this->user_last_source ? $this->user_last_source : $this->options->get_current_site();
 		if( empty($default_dest) )
 			$default_dest = $this->user_last_dest ? $this->user_last_dest : '';
 
@@ -119,8 +112,8 @@ class SitePush_Push_Screen extends SitePush_Screen
 			<form method="post" action="">
 				<?php wp_nonce_field('sitepush-dopush','sitepush-nonce'); ?>
 				<table class="form-table">
-					<tr valign="top">
-						<th scope="row">Source</th>
+					<tr>
+						<th scope="row"><label for="mra_sitepush_source">Source</label></th>
 						<td>
 							<select name="mra_sitepush_source" id="mra_sitepush_source" class="site-selector">
 							<?php
@@ -135,8 +128,8 @@ class SitePush_Push_Screen extends SitePush_Screen
 						</td>
 					</tr>
 	
-					<tr valign="top">
-						<th scope="row">Destination</th>
+					<tr>
+						<th scope="row"><label for="mra_sitepush_dest">Destination</label></th>
 						<td>
 							<select name="mra_sitepush_dest" id="mra_sitepush_dest" class="site-selector">
 							<?php
@@ -152,7 +145,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 						</td>
 					</tr>
 	
-					<tr valign="top">
+					<tr>
 						<th scope="row">Database content</th>
 						<td>
 							<?php echo $this->option_html('mra_sitepush_push_db_all_tables','Entire database (this will overwrite all content and settings)','admin_only');?>
@@ -163,7 +156,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 						</td>
 					</tr>
 	
-					<tr valign="top">
+					<tr>
 						<th scope="row">Files</th>
 						<td>
 							<?php echo $this->option_html('mra_sitepush_push_theme', 'Current theme ('.get_current_theme().')','admin_only');?>
@@ -191,7 +184,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					?>
 	
 				<?php if( ! $this->plugin->can_admin() ) : ?>
-					<tr valign="top">
+					<tr>
 						<th scope="row">&nbsp;</th>
 						<td>
 							<br /><span class="description">To push Wordpress core, plugins, theme code, users or site settings, please ask an administrator.</span>

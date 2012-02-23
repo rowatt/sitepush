@@ -17,17 +17,16 @@ class SitePushPlugin
 	
 	public function __construct()
 	{
-		//include required files & instantiate classes
-		require_once('class-sitepush-options.php');
-		$this->options = new SitePushOptions;
-
-//echo "<pre>".var_export($this->options,TRUE)."</pre>";
-//die();
-
+		//check we have correct versions of WP, PHP etc.
 		$this->check_requirements();
 
-		/* --------------------------------------------------------------		/* !SETUP HOOKS		/* -------------------------------------------------------------- */
-		
+		/* --------------------------------------------------------------
+		/* !SETUP HOOKS
+		/* -------------------------------------------------------------- */
+
+		//initialise plugin
+		add_action('init',array( &$this, 'plugin_init'));
+
 		//register scripts, styles & menus
 		add_action('admin_init', array( __CLASS__, 'admin_init') );
 		add_action('admin_menu', array( &$this, 'register_options_menu_help') );
@@ -37,29 +36,41 @@ class SitePushPlugin
 
 		//uninstall
 		register_uninstall_hook(__FILE__, array( __CLASS__, 'uninstall') );
+	}
+	/**
+	 * plugin_init
+	 *
+	 * sets up plugin options and adds some hooks
+	 * run by init hook
+	 */
+	public function plugin_init()
+	{
+		//include required files & instantiate classes
+		require_once('class-sitepush-options.php');
+		$this->options = new SitePushOptions;
 
 		if( $this->options->OK & ! $this->abort )
 		{
-			//initialisation
-			add_action('init', array( &$this, 'activate_plugins_for_site') ); //makes sure correct plugins activated/deactivated for site
-			add_action('init', array( &$this, 'clear_cache') ); //clears cache if proper $_GET params set, otherwise does nothing
-			
+			//makes sure correct plugins activated/deactivated for site
+			$this->activate_plugins_for_site();
+
+			//clears cache if proper $_GET params set, otherwise does nothing
+			$this->clear_cache();
+
 			//add settings to plugin listing page
 			add_filter( 'plugin_action_links', array( __CLASS__, 'plugin_links'), 10, 2 );
 			add_filter( 'plugin_action_links', array( &$this, 'plugin_admin_override'), 10, 2 );
-			
+
 			//content filters
 			add_filter('the_content', array( &$this, 'relative_urls') );
 		}
 	}
-	
-
 	//run during construct
 	public function check_requirements()
 	{
 		if( version_compare( get_bloginfo( 'version' ), $this->min_wp_version, '<') )
 			$this->errors[] = "SitePush requires at least WordPress version {$this->min_wp_version}";
-	
+
 		if( (defined('WP_ALLOW_MULTISITE') && WP_ALLOW_MULTISITE) && ! (defined('MRA_SITEPUSH_ALLOW_MULTISITE') && MRA_SITEPUSH_ALLOW_MULTISITE) )
 			$this->errors[] = "SitePush does not support WordPress multisite installs. If you wish to use SitePush on a multisite install, add define('MRA_SITEPUSH_ALLOW_MULTISITE',TRUE) to your wp-config.php file and proceed with caution!";
 
@@ -95,7 +106,9 @@ class SitePushPlugin
 			$this->notices[] = 'Options updated.';
 	}
 	
-	/* -------------------------------------------------------------- */	/* !INITIALISATION FUNCTIONS */	/* -------------------------------------------------------------- */
+	/* -------------------------------------------------------------- */
+	/* !INITIALISATION FUNCTIONS */
+	/* -------------------------------------------------------------- */
 	
 	//set up the plugin options, plugin menus and help screens
 	//called by admin_menu action
@@ -107,7 +120,7 @@ class SitePushPlugin
 		
 		//register the settings
 		$this->register_options( $options_screen );
-	
+
 		//if options aren't OK and user doesn't have admin capability don't add SitePush menus
 		if( ! $this->can_admin() && ! $this->options->OK ) return;
 
@@ -120,7 +133,7 @@ class SitePushPlugin
 		if( ! current_user_can( $this->options->admin_capability ) && current_user_can( SitePushOptions::$fallback_capability ) )
 			$admin_capability = SitePushOptions::$fallback_capability;
 		else
-			$capability = $this->options->admin_capability;
+			$admin_capability = $this->options->admin_capability;
 		
 		//add menu(s) - only options page is shown if not configured properly
 		$page_title = 'SitePush';
@@ -149,7 +162,7 @@ class SitePushPlugin
 			$menu_slug = 'mra_sitepush_options';
 			$function = array( $options_screen, 'display_screen');
 			
-			$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $function);
+			$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $admin_capability, $menu_slug, $function);
 
 			add_action('admin_print_styles-' . $page, array( __CLASS__, 'admin_styles' ) ); //add custom stylesheet
 			add_action('load-' . $page, array( __CLASS__, 'options_help' ) ); //add contextual help for options screen
@@ -176,10 +189,16 @@ class SitePushPlugin
 		echo "</script>\n";
 	}
 
-	//jq_update_source_dest - update various things when user changes source/dest
+	/**
+	 * jq_update_source_dest
+	 *
+	 * Insert Javascript to update various things when user changes source/dest
+	 *
+	 * @return void
+	 */
 	private function jq_update_source_dest()
 	{
-		if( empty($this->options->sites) ) return '';
+		if( empty($this->options->sites) ) return;
 		
 		//create JS array of live sites for script below
 		$live_sites = array();
@@ -225,7 +244,9 @@ class SitePushPlugin
 	}
 
 	
-	/* -------------------------------------------------------------- */	/* !CONTENT FILTERS */	/* -------------------------------------------------------------- */
+	/* -------------------------------------------------------------- */
+	/* !CONTENT FILTERS */
+	/* -------------------------------------------------------------- */
 	
 	//@todo add to options screen
 	/**
@@ -235,6 +256,9 @@ class SitePushPlugin
 	 * Domains to remove is defined in SitePush options
 	 *
 	 * Called by the_content filter
+	 *
+	 * @param string
+	 * @return string
 	 */
 	function relative_urls( $content='' )
 	{
@@ -249,12 +273,17 @@ class SitePushPlugin
 		return $content;
 	}
 	
-	/* -------------------------------------------------------------- */	/* !HELP FUNCTIONS */	/* -------------------------------------------------------------- */
+	/* -------------------------------------------------------------- */
+	/* !HELP FUNCTIONS */
+	/* -------------------------------------------------------------- */
 	
 	//@todo
 	
 	static public function options_help()
 	{
+		/**
+		 * @var WP_Screen
+		 */
 		$screen = get_current_screen();
 		$screen->add_help_tab( array(
 			'id'      => 'mra-sitepush-options-help',
@@ -277,7 +306,9 @@ class SitePushPlugin
 		$screen->set_help_sidebar( "<p>Help sidebar here...</p>" );
 	}
 	
-	/* -------------------------------------------------------------- */	/* !SITEPUSH FUNCTIONS */	/* -------------------------------------------------------------- */
+	/* -------------------------------------------------------------- */
+	/* !SITEPUSH FUNCTIONS */
+	/* -------------------------------------------------------------- */
 	
 	public function can_admin()
 	{
@@ -470,7 +501,7 @@ class SitePushPlugin
 		foreach( $user_opts as $user_id=>$options )
 		{
 			if( !$options ) continue;
-			$options['last_pull'] = microtime(TRUE); //make sure we aren't caching
+			$options['last_update'] = microtime(TRUE); //make sure we aren't caching
 			update_user_option( $user_id, 'mra_sitepush_options', $options );
 		}
 	}
@@ -512,9 +543,13 @@ class SitePushPlugin
 				// Purge the entire w3tc page cache:
 				if( function_exists('w3tc_pgcache_flush') )
 				{
+					/** @noinspection PhpUndefinedFunctionInspection */
 					w3tc_pgcache_flush();
+					/** @noinspection PhpUndefinedFunctionInspection */
 					w3tc_dbcache_flush();
+					/** @noinspection PhpUndefinedFunctionInspection */
 					w3tc_minify_flush();
+					/** @noinspection PhpUndefinedFunctionInspection */
 					w3tc_objectcache_flush();
 					$result .= "[0] W3TC cache cleared\n";
 				}
@@ -522,6 +557,7 @@ class SitePushPlugin
 				// Purge the entire supercache page cache:
 				if( function_exists('wp_cache_clear_cache') )
 				{
+					/** @noinspection PhpUndefinedFunctionInspection */
 					wp_cache_clear_cache();
 					$result .= "[0] Supercache cleared\n";
 				}
@@ -544,7 +580,7 @@ class SitePushPlugin
 	 * 
 	 * is a plugin a cache plugin?
 	 *
-	 * @param string plugin to test
+	 * @param string $plugin to test
 	 * @return bool TRUE if it is a cache plugin
 	 */
 	private function is_cache_plugin( $plugin='' )
@@ -561,10 +597,10 @@ class SitePushPlugin
 	/**
 	 * activate_plugins_for_site
 	 * 
-	 * make sure correct plugins are activated/deactivated for the site we are viewing
-	 * will make sure cache plugin is deactivated irrespective, if WP_CACHE is not TRUE
+	 * Make sure correct plugins are activated/deactivated for the site we are viewing.
+	 * Will make sure cache plugin is always deactivated if WP_CACHE is not TRUE
 	 *
-	 * @return void
+	 * @return bool FALSE if options not set properly, otherwise TRUE
 	 */
 	function activate_plugins_for_site()
 	{
@@ -617,7 +653,8 @@ class SitePushPlugin
 				if( is_plugin_active($plugin) ) deactivate_plugins($plugin);
 			}
 		}
-		
+
+		return TRUE;
 	}
 	
 	//removes activate/deactivate links for plugins controlled by sitepush
@@ -669,26 +706,28 @@ class SitePushPlugin
 
 	//register all the settings
 	//must be passed object for screen these settings are on
-	function register_options( $options_screen )
+	private function register_options( $options_screen )
 	{
-		register_setting('mra_sitepush_options', 'mra_sitepush_options', array( &$this, 'validate_options') );
+		register_setting('mra_sitepush_options', 'mra_sitepush_options', array( &$this->options, 'options_sanitize') );
 
-		/* General settings fields */
-		add_settings_section(
-			'mra_sitepush_section_warning',
-			'Caution!',
-			array( $options_screen, 'section_warning_text' ),
-			'sitepush_options'	
-		);
-		
-		add_settings_field(
-			'mra_sitepush_field_accept',
-			'',
-			array( $options_screen, 'field_accept' ),
-			'sitepush_options',
-			'mra_sitepush_section_warning'
-		);
+		if( empty($this->options->OK) )
+		{
+			/* General settings fields */
+			add_settings_section(
+				'mra_sitepush_section_warning',
+				'Caution!',
+				array( $options_screen, 'section_warning_text' ),
+				'sitepush_options'
+			);
 
+			add_settings_field(
+				'mra_sitepush_field_accept',
+				'',
+				array( $options_screen, 'field_accept' ),
+				'sitepush_options',
+				'mra_sitepush_section_warning'
+			);
+		}
 	
 		/* General settings fields */
 		add_settings_section(
@@ -720,7 +759,7 @@ class SitePushPlugin
 			array( $options_screen, 'field_timezone' ),
 			'sitepush_options',
 			'mra_sitepush_section_config'
-		);	
+		);
 	
 		/*Capability fields */
 		add_settings_section(
@@ -844,14 +883,14 @@ class SitePushPlugin
 	 * Alert user to any SitePush related config errors.
 	 * These errors are displayed anywhere in admin, to any SitePush admin user.
 	 *
-	 * @return bool TRUE if errors to be reported
+	 * @return void
 	 */
 	public function show_warnings()
 	{
 		$errors = array();
 
 		//don't show warnings if user can't admin SitePush
-		if( ! current_user_can( $this->options->admin_capability ) ) return '';
+		if( ! current_user_can( $this->options->admin_capability ) ) return;
 
 		if( $error = $this->check_wp_config() )
 			$errors[] = $error;
