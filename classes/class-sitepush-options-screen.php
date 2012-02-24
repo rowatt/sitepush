@@ -77,6 +77,11 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo '<p class="description">Files are copied between sites using rsync. These options can normally be left as they are.</p>';
 	}
 
+	function section_mysql_text()
+	{
+		echo '<p class="description">Database tables are copied between sites using mysql and mysqldump. These options can normally be left as they are.</p>';
+	}
+
 	function section_backup_text()
 	{
 		echo '<p class="description">Destination files and database will be backed up before being overwritten. Files and database dumps are saved in the directory defined below. Currently SitePush cannot automatically restore - if you need to restore files or database you will need to do this manually.</p>';
@@ -140,9 +145,9 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $this->options->rsync_path && file_exists($this->options->rsync_path) )
 			$rsync_help .= 'The current path appears to be OK.';
 		elseif( $this->options->rsync_path && ! file_exists($this->options->rsync_path) )
-			$rsync_help .= '<b>Rsync was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/rsync.';
+			$rsync_help .= '<b>rsync was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/rsync, or leave blank.';
 		else
-			$rsync_help .= ' Please enter a path to rsync, e.g. /usr/bin/rsync';
+			$rsync_help .= ' Please enter a path to rsync, e.g. /usr/bin/rsync, or leave blank.';
 
 		echo $this->input_text('rsync_path',$rsync_help,'large-text');
 	}
@@ -152,6 +157,31 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_text('dont_sync','Comma separated list of files or directories that will never be synced. You probably don\'t need or want to change this.','large-text');
 	}
 
+	function field_mysql_path()
+	{
+		$help = 'Path to mysql on this server. ';
+		if( $this->options->mysql_path && file_exists($this->options->mysql_path) )
+			$help .= 'The current path appears to be OK.';
+		elseif( $this->options->mysql_path && ! file_exists($this->options->mysql_path) )
+			$help .= '<b>mysql was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysql, or leave blank.';
+		else
+			$help .= ' Please enter a path to mysql, e.g. /usr/bin/mysql, or leave blank.';
+
+		echo $this->input_text('mysql_path',$help,'large-text');
+	}
+
+	function field_mysqldump_path()
+	{
+		$help = 'Path to mysqldump on this server. ';
+		if( $this->options->mysqldump_path && file_exists($this->options->mysqldump_path) )
+			$help .= 'The current path appears to be OK.';
+		elseif( $this->options->mysqldump_path && ! file_exists($this->options->mysqldump_path) )
+			$help .= '<b>mysqldump was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysqldump, or leave blank.';
+		else
+			$help .= ' Please enter a path to mysqldump, e.g. /usr/bin/mysqldump, or leave blank.';
+
+		echo $this->input_text('mysqldump_path',$help,'large-text');
+	}
 
 	function field_timezone()
 	{

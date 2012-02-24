@@ -6,6 +6,7 @@
 class SitePushCore
 {
 	//main parameters
+	public $sites = array(); //holds all sites parameters
 	public $source;
 	public $dest;
 	public $db_source;
@@ -93,20 +94,36 @@ class SitePushCore
 	
 	//set to TRUE for additional debug output
 	public $debug = FALSE;
+
+	/**
+	 * @var string $source name of push source
+	 * @var string $dest name of push dest	 *
+	 * @var SitePushOptions object holding options
+	 */
+	private $options;
 	
-	function __construct( $vars=array() )
+	function __construct( $source, $dest, $options )
 	{
+		//give push plenty of time to complete
+		set_time_limit( 6000 );
+
+		$this->options = $options;
 		$this->check_requirements();
 
-		$defaults = array(
-			  'timezone'	=>	''
-		);
-		extract( wp_parse_args( $vars , $defaults ) );
-		
+		$this->source = $source;
+		$this->dest = $dest;
+
 		//WP sets this to UTC somewhere which confuses things...
-		if( $timezone )
-			date_default_timezone_set( $time_zone );
-		
+		if( $this->options->timezone )
+			date_default_timezone_set( $this->options->timezone );
+
+		//get params for source and dest
+		$this->source_params = $this->options->get_site_params( $this->source );
+		if( !$this->source_params ) die("Unknown site config '{$this->source}'.\n");
+
+		$this->dest_params = $this->options->get_site_params( $this->dest );
+		if( !$this->dest_params ) die("Unknown site config '{$this->dest}'.\n");
+
 		//create single timestamp for all backups
 		$this->timestamp = date('Ymd-His');
 	}
@@ -133,13 +150,14 @@ class SitePushCore
 		}
 		if( PHP_VERSION_ID < 50200 ) $errors[] = 'we need PHP 5.2';
 		
-		//if we can't find rsync at defined path, try without any path
-		if( !file_exists( $this->rsync_cmd ) )
-			$this->rsync_cmd = 'rsync';
-		
-		$result = shell_exec("{$this->rsync_cmd} --version");
-			if( !$result ) $errors[]='Rsync not found or not configured properly.';
-		
+		//if we can't find rsync/mysql/mysqldump at defined path, try without any path
+		if( !file_exists( $this->options->rsync_path ) )
+			$this->options->rsync_path = 'rsync';
+		if( !file_exists( $this->options->mysql_path ) )
+			$this->options->mysql_path = 'mysql';
+		if( !file_exists( $this->options->mysqldump_path ) )
+			$this->options->mysqldump_path = 'mysqldump';
+
 		$this->errors = array_merge($this->errors, $errors);
 		
 		return ! (bool) $errors;			
@@ -152,10 +170,8 @@ class SitePushCore
 	//push everything as per parameters
 	public function push_files()
 	{
-		$this->set_all_params();
-		
-		if( $this->debug ) echo $this->show_params( FALSE );
-		
+		// $this->set_all_params(); //@cleanup - should be ok to remove
+
 		$source = $this->source_params;
 		$dest = $this->dest_params;
 	
@@ -190,16 +206,16 @@ class SitePushCore
 	 * 
 	 * copy source db to destintation, with backup
 	 * 
-	 * @param mixed table_groups :which groups of tables to push, either array of groups, or a single group as string
+	 * @param mixed $table_groups which groups of tables to push, either array of groups, or a single group as string
 	 * @access public
-	 * @return bool :result of push command
+	 * @return bool result of push command
 	 */
-	public function push_db( $table_groups=FALSE )
+	public function push_db( $table_groups=array() )
 	{
-		$this->set_all_params();
+		// $this->set_all_params(); //@cleanup - should be ok to remove
 
-		$db_source = $this->get_db_params( $this->db_source, 'source' );
-		$db_dest = $this->get_db_params( $this->db_dest, 'dest' );
+		$db_source = $this->options->get_db_params( $this->source );
+		$db_dest = $this->options->get_db_params( $this->dest );
 
 		if( empty( $db_source['prefix'] ) )
 			$this->errors[] = "You must set a database prefix for each database in dbs.ini.php";
@@ -239,13 +255,27 @@ class SitePushCore
 		$tables = trim($tables);
 		if( $tables ) 
 			$tables = "--tables {$tables}"; //tables parameter isn't strictly speaking necessary, but we'll use it just to be safe
-		$this->copy_db($db_source, $db_dest, $tables, TRUE);
+
+		return $this->copy_db($db_source, $db_dest, $tables, TRUE);
 	}
 		
 
 	//backs up and copies a database
 	private function copy_db($db_source, $db_dest, $tables='', $maint_mode=FALSE )
 	{
+		//check that mysql/mysqldump are present
+		$errors = array();
+		$result = shell_exec("{$this->options->mysql_path} --version");
+		if( !$result ) $errors[]='mysql not found or not configured properly.';
+		$result = shell_exec("{$this->options->mysqldump_path} --version");
+		if( !$result ) $errors[]='mysqldump not found or not configured properly.';
+		if( $errors )
+		{
+			$this->errors = array_merge($this->errors, $errors);
+			return FALSE;
+		}
+
+
 		$backup_file = $this->database_backup($db_dest);
 		
 		//set PHP script timelimit
@@ -257,10 +287,9 @@ class SitePushCore
 		$test = '';
 		//$test = " --ignore-table={$db_source['name']}.wp_posts";
 		
-		$dump_command = "mysqldump {$this->dump_options}{$source_host}{$test} -u {$db_source['user']} -p'{$db_source['pw']}' {$db_source['name']} {$tables}";
+		$dump_command = "{$this->options->mysqldump_path} {$this->dump_options}{$source_host}{$test} -u {$db_source['user']} -p'{$db_source['pw']}' {$db_source['name']} {$tables}";
 		
-		$mysql_options = '';
-		$mysql_command = "mysql -D {$db_dest['name']} -u {$db_dest['user']}{$dest_host} -p'{$db_dest['pw']}'";
+		$mysql_command = "{$this->options->mysql_path} -D {$db_dest['name']} -u {$db_dest['user']}{$dest_host} -p'{$db_dest['pw']}'";
 
 		$command = "{$dump_command} | " . $this->make_remote($mysql_command);
 
@@ -270,7 +299,7 @@ class SitePushCore
 			$undo['type'] = 'mysql';
 			$undo['original'] = $command;
 			//$undo['remote'] = $this->remote_shell; //@later make remote
-			$undo['undo'] = "mysql -u {$db_dest['user']} -p'{$db_dest['pw']}'{$dest_host} -D {$db_dest['name']} < '{$backup_file}'";
+			$undo['undo'] = "{$this->options->mysql_path} -u {$db_dest['user']} -p'{$db_dest['pw']}'{$dest_host} -D {$db_dest['name']} < '{$backup_file}'";
 			$this->write_undo_file( $undo );
 		}
 		
@@ -281,8 +310,10 @@ class SitePushCore
 			$this->add_result("Pushing database tables from {$db_source['label']} to {$db_dest['label']}: {$tables}");
 		else
 			$this->add_result("Pushing whole database",1);		
-		$this->add_result("Database source: {$db_source['label']} on {$this->source_params['domain']}",2);
-		$this->add_result("Database dest: {$db_dest['label']} on {$this->dest_params['domain']}",2);
+		$this->add_result("Database source: {$db_source['label']} ({$db_source['name']}) on {$this->source_params['domain']}",2);
+		$this->add_result("Database dest: {$db_dest['label']} ({$db_dest['name']}) on {$this->dest_params['domain']}",2);
+
+		//@todo $this->dest_params etc is null, also lots of other $this-> properties null???
 
 		$result = $this->my_exec($command);
 		$this->add_result('--');
@@ -304,7 +335,7 @@ class SitePushCore
 	 */
 	public function clear_cache()
 	{
-		$this->set_all_params();
+		// $this->set_all_params(); //@cleanup - should be ok to remove
 		$result = '';
 		$return = FALSE;
 
@@ -375,7 +406,7 @@ class SitePushCore
 	 *
 	 * @param string $path path of dir to backup
 	 * @param string $backup_name label for the backup file (defaults to last directory of $path)
-	 * @return string/bool path to backup file or FALSE if no backup
+	 * @return string|bool path to backup file or FALSE if no backup
 	 */
 	private function file_backup( $path , $backup_name='' )
 	{
@@ -391,8 +422,7 @@ class SitePushCore
 		
 		$last_pos =  strrpos($path, '/') + 1;
 		$dir = substr( $path, $last_pos );
-		$newpath = substr( $path, 0, $last_pos );
-		
+
 		$this->clear_old_backups();
 		
 		if( !$backup_name ) $backup_name = $dir;
@@ -420,7 +450,8 @@ class SitePushCore
 		elseif( !$this->do_backup )
 		{
 			$this->add_result("File backup off",2);
-			$this->add_result('--',2);		
+			$this->add_result('--',2);
+			return FALSE;
 		}
 		else
 		{
@@ -493,10 +524,10 @@ class SitePushCore
 		$this->add_result("Checking for old backups to clear at {$this->dest_backup_dir}",2);
 
 		$have_deleted = FALSE;
-		if( !$this->backup_keep_time ) return FALSE;
+		if( !$this->options->backup_keep_time ) return FALSE;
 		
 		//anything older than this is too old
-		$too_old = time() - $this->backup_keep_time*24*60*60;
+		$too_old = time() - $this->options->backup_keep_time*24*60*60;
 		
 		foreach( scandir($this->dest_backup_dir) as $backup )
 		{
@@ -553,7 +584,7 @@ class SitePushCore
 				$tables = '';
 				break;
 			default:
-				die("Unknown or no db-type option. Valid options are all-tables|options|comments|content|users|forms|form-data.\n");
+				die("Unknown or no db-type option.\n");
 		}
 		
 		//add correct DB prefix to all tables
@@ -567,11 +598,31 @@ class SitePushCore
 		return $tables;
 	}
 	
-	//copies files from source to dest
-	//deleting anything in dest not in source
-	//aborts if either source or dest is a symlink
+	//
+	//
+	//
+	/**
+	 * copy_files
+	 *
+	 * Copies files from source to dest deleting anything in dest not in source.
+	 * Aborts if either source or dest is a symlink.
+	 *
+	 * @param string $source_path
+	 * @param string $dest_path
+	 * @param string $backup_file
+	 * @param string $dir
+	 * @param bool $maint_mode
+	 * @return bool TRUE if copy was run, FALSE if not
+	 */
 	private function copy_files($source_path,$dest_path,$backup_file='',$dir='',$maint_mode=FALSE)
 	{
+		//check that rsync is present
+		if( !shell_exec("{$this->options->rsync_path} --version") )
+		{
+			$this->errors[]='rsync not found or not configured properly.';
+			return FALSE;
+		}
+
 		//rsync option parameters
 		$rsync_options = "-avz --delete";
 		
@@ -610,15 +661,15 @@ class SitePushCore
 		}
 		
 		//add the excludes to the options
-		if( !is_array($this->excludes) ) $this->excludes = explode( ',', $this->excludes );
-		foreach( $this->excludes as $exclude )
+		$excludes = is_array($this->options->dont_sync) ? $this->options->dont_sync : explode( ',', $this->options->dont_sync );
+		foreach( $excludes as $exclude )
 		{
 			$exclude = trim($exclude);
 			$rsync_options .= " --exclude='{$exclude}'";
 		}
 		
 		//create the command
-		$command = "{$this->rsync_cmd} {$rsync_options} '{$source_path}' '{$remote_site}{$dest_path}'";
+		$command = "{$this->options->rsync_path} {$rsync_options} '{$source_path}' '{$remote_site}{$dest_path}'";
 		
 		//write file which will undo the push
 		if( $this->source_backup_path && $this->save_undo && $dir && $backup_file )
@@ -628,7 +679,7 @@ class SitePushCore
 			$undo['original'] = $command;
 			//$undo['remote'] = $this->remote_shell; //@todo add remote
 			$undo['undo'][] = "cd {$this->dest_backup_dir}; mkdir '{$undo_dir}'; cd '{$undo_dir}'; tar -zpxf {$backup_file}"; //prep
-			$undo['undo'][] = "{$this->rsync_cmd} {$rsync_options} '{$this->dest_backup_dir}{$undo_dir}/{$dir}/' '{$dest_path}'"; //sync
+			$undo['undo'][] = "{$this->options->rsync_path} {$rsync_options} '{$this->dest_backup_dir}{$undo_dir}/{$dir}/' '{$dest_path}'"; //sync
 			$this->write_undo_file( $undo );
 		}
 		
@@ -641,22 +692,26 @@ class SitePushCore
 		$this->add_result("Files dest path: {$dest_path}",2);
 
 		//run the command
-		$result = $this->my_exec($command);
+		$this->my_exec($command);
 		$this->add_result('--');
 		
 		//turn maintenance mode off
 		if( $maint_mode ) $this->set_maintenance_mode('off');
+
+		return TRUE;
 	}
 
 	//if destination is remote, run command through remote shell
+	//@later - add remote capabilities
 	private function make_remote( $command, $remote='not_set' )
 	{
+		/*
 		if( $remote=='not_set') $remote = $this->dest_params['remote'];
 		if( $remote )
 		{
 			$command = "{$this->remote_shell} '{$command}'";
 		}
-
+		*/
 		return $command;
 	}
 	
@@ -682,8 +737,16 @@ class SitePushCore
 		return $result;
 	}
 	
-	//writes an array to undo file
-	//undo file is always written to source, so may be in different place to db/file backups
+
+	/**
+	 * write_undo_file
+	 *
+	 * Writes undo actions to undo file.
+	 * Undo file is always written to source, so it may be in different place to the backups if we are pushing to a remote server.
+	 *
+	 * @param array $undos undo actions to be written to file
+	 * @return bool TRUE if written, FALSE if not
+	 */
 	private function write_undo_file( $undos=array() )
 	{
 		if( !$this->source_backup_path ) return FALSE;
@@ -723,8 +786,10 @@ class SitePushCore
 		$undo_text .= "#\n# end undo\n#\n\n\n";
 		
 		if( file_exists($this->undo_file) ) chmod($this->undo_file, 0600);
-		file_put_contents($this->undo_file, $undo_text, FILE_APPEND);
+		$result = file_put_contents($this->undo_file, $undo_text, FILE_APPEND);
 		chmod($this->undo_file, 0400);
+
+		return (bool) $result;
 	}
 	
 	private function trailing_slashit( $path )
@@ -744,8 +809,6 @@ class SitePushCore
 				return system($command . ' 2>&1' );
 			else
 				return shell_exec($command . ' 2>&1' );
-
-			$this->add_result('--',$log_level);
 		}
 		else
 		{
@@ -760,8 +823,8 @@ class SitePushCore
 	{
 		if( !$this->hide_passwords ) return $command;
 
-		$db_source = $this->get_db_params( $this->db_source, 'source' );
-		$db_dest = $this->get_db_params( $this->db_dest, 'dest' );
+		$db_source = $this->options->get_db_params( $this->source );
+		$db_dest = $this->options->get_db_params( $this->dest );
 
 		if( !$db_source || !$db_dest ) return $command;
 		
@@ -779,8 +842,8 @@ class SitePushCore
 				echo "\n";
 			else
 				echo "[{$log_level}] " . trim($this->sanitize_cmd($result)) . "\n";
-			flush();
-			ob_flush();
+			@flush();
+			@ob_flush();
 		}
 	}
 	
@@ -789,7 +852,7 @@ class SitePushCore
 	 * 
 	 * returns results up to defined log level
 	 *
-	 * @param int $max_level output up to log level $max_level
+	 * @param mixed $max_level output up to log level $max_level
 	 * @return string results
 	 */
 	public function get_results( $max_level='' )

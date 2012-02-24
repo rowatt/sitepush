@@ -14,8 +14,6 @@ class SitePushOptions
 	public $all_domains = array();
 	public $sites_conf = '';
 	public $dbs_conf = '';
-	private $source_params = array();
-	private $dest_params = array();
 
 	//default capabilities required to use SitePush
 	public static $default_capability = 'manage_options';
@@ -25,7 +23,7 @@ class SitePushOptions
 	//options which need keeping when user updates options
 	private $keep_options = array( 'accept', 'last_update' );
 	//parameters which get initialised and get whitespace trimmed
-	private $trim_params = array('plugin_activates', 'plugin_deactivates', 'sites_conf', 'dbs_conf', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'capability', 'admin_capability', 'cache_key', 'timezone');
+	private $trim_params = array('plugin_activates', 'plugin_deactivates', 'sites_conf', 'dbs_conf', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path', 'capability', 'admin_capability', 'cache_key', 'timezone');
 	//parameters which just get initialised
 	private $no_trim_params = array('accept', 'make_relative_urls');
 	private $init_params; //set in __construct
@@ -40,6 +38,8 @@ class SitePushOptions
 	public $make_relative_urls; //@todo to add to WP options
 	public $rsync_path;
 	public $dont_sync;
+	public $mysql_path;
+	public $mysqldump_path;
 	public $backup_keep_time;
 	public $timezone;
 
@@ -75,7 +75,7 @@ class SitePushOptions
 		$sites_conf = $this->get_conf( $this->sites_conf, 'Sites ' );
 		$this->sites = $this->sites_init( $sites_conf );
 		if( $this->errors ) return FALSE;
-		
+
 		//set current site
 		$this->current_site_init();
 		if( $this->errors ) return FALSE;
@@ -147,8 +147,13 @@ class SitePushOptions
 			$options['dont_sync'] = '.git, .svn, .htaccess, tmp/, wp-config.php';
 
 		if( empty($options['rsync_path']) )
-			$options['rsync_path'] = $this->guess_rsync_path();
+			$options['rsync_path'] = $this->guess_path( 'rsync' );
 
+		if( empty($options['mysql_path']) )
+			$options['mysql_path'] = $this->guess_path( 'mysql' );
+
+		if( empty($options['mysqldump_path']) )
+			$options['mysqldump_path'] = $this->guess_path( 'mysqldump' );
 		//make sure any other parameters exist
 		$options = $this->init_params( $options, $this->init_params );
 
@@ -213,31 +218,55 @@ class SitePushOptions
 		}
 
 		if( empty($options['rsync_path']) )
-			$options['rsync_path'] = $this->guess_rsync_path();
+			$options['rsync_path'] = $this->guess_path( 'rsync' );
+
+		if( empty($options['mysql_path']) )
+			$options['mysql_path'] = $this->guess_path( 'mysql' );
+
+		if( empty($options['mysqldump_path']) )
+			$options['mysqldump_path'] = $this->guess_path( 'mysqldump' );
 
 		return $options;
 	}
 
 	/**
-	 * guess_rsync_path
+	 * Try to determine where rsync/mysql/mysqldump is on this system.
 	 *
-	 * Tries to determine where rsync is on this system.
-	 *
+	 * @param string $type rsync, mysql or mysqld
 	 * @return string best guess for rsync patgh
 	 */
-	private function guess_rsync_path()
+	private function guess_path( $type )
 	{
-		$whereis_path = trim( str_ireplace('rsync:', '', `whereis -b rsync`) );
-		$rsync_paths = array($whereis_path, '/usr/local/bin/rsync', '/usr/bin/rsync' );
-		$rsync_path = '';
-		foreach( $rsync_paths as $rsync_path )
+		$paths = array();
+		switch( $type )
 		{
-			if( file_exists($rsync_path) ) break;
+			case 'rsync':
+				if( preg_match( '|(/[^ ]*)|', `whereis rsync`, $matches ) )
+					$paths[] = $matches[1];
+				$paths = array_merge( $paths, array('/usr/local/bin/rsync', '/usr/bin/rsync' ) );
+				break;
+
+			case 'mysql':
+				if( preg_match( '|(/[^ ]*)|', `whereis mysql`, $matches ) )
+					$paths[] = $matches[1];
+				$paths = array_merge( $paths, array( '/Applications/MAMP/Library/bin/mysql', '/usr/local/bin/mysql', '/usr/bin/mysql' ) );
+				break;
+
+			case 'mysqldump':
+				if( preg_match( '|(/[^ ]*)|', `whereis mysqldump`, $matches ) )
+					$paths[] = $matches[1];
+				$paths = array_merge( $paths, array( '/Applications/MAMP/Library/bin/mysqldump', '/usr/local/bin/mysqldump', '/usr/bin/mysqldump' ) );
+				break;
 		}
 
-		return $rsync_path;
-	}
+		$path = '';
+		foreach( $paths as $path )
+		{
+			if( file_exists($path) ) break;
+		}
 
+		return $path;
+	}
 
 	/**
 	 * options_validate
@@ -272,8 +301,14 @@ class SitePushOptions
 		if( !empty($options['backup_path']) && !file_exists( $options['backup_path'] ) )
 			$errors['backup_path'] = 'Path not valid - backup directory not found.';
 
-		if( empty($options['rsync_path']) || !file_exists( $options['rsync_path'] ) )
+		if( !file_exists( $options['rsync_path'] ) )
 			$errors['rsync_path'] = 'Path not valid - rsync not found.';
+
+		if( !file_exists( $options['mysql_path'] ) )
+			$errors['mysql_path'] = 'Path not valid - mysql not found.';
+
+		if( !file_exists( $options['mysqldump_path'] ) )
+			$errors['mysqldump_path'] = 'Path not valid - mysqldump not found.';
 
 		if( !empty( $options['timezone'] ) )
 		{
@@ -514,6 +549,18 @@ class SitePushOptions
 	}
 
 	/**
+	 * @param string $site
+	 * @return array parameters for site
+	 */
+	public function get_site_params( $site )
+	{
+		if( array_key_exists($site,$this->sites) )
+			return $this->sites[$site];
+		else
+			return array();
+	}
+
+	/**
 	 * get_current_site
 	 * 
 	 * Gets the name of the current site
@@ -680,7 +727,28 @@ class SitePushOptions
 		return $this->dbs[ $this->sites[$site]['db'] ];
 	}
 
-	
+	//get params for a specific db
+	public function get_db_params( $db )
+	{
+
+		if( array_key_exists($db,$this->dbs) )
+		{
+			$result = $this->dbs[$db];
+			$result['label'] = $db;
+		}
+		else
+		{
+			//@todo throw error
+		}
+
+		//@todo this should be redundant
+		//stop if certain required params not present
+		//if( empty( $result['name'] ) || empty( $result['user'] ) || empty( $result['pw'] ) || empty( $result['prefix'] ) )
+		//	die( "ERROR: required parameter name, or user, or pw, or prefix is missing from config for {$result['label']} in dbs.conf\n" );
+
+		return $result;
+	}
+
 	/**
 	 * init_params
 	 * 
@@ -1045,9 +1113,9 @@ class SitePushOptions
 			return FALSE;
 		}
 	}
-*/	
+
 	//get params for a specific db
-	protected function get_db_params( $db='', $db_type='' )
+	public function get_db_params( $db='', $db_type='' )
 	{
 		
 		if( array_key_exists($db,$this->dbs) )
@@ -1081,7 +1149,7 @@ class SitePushOptions
 
 
 	//make sure all variables are set properly from config files etc
-/*	private function set_all_params()
+	private function set_all_params()
 	{
 		//read site & db config files
 		$this->get_sites();

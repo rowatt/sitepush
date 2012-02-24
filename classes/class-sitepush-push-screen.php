@@ -42,14 +42,6 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$this->user_last_source = empty($user_options['last_source']) ? '' : $user_options['last_source'];
 		$this->user_last_dest = empty($user_options['last_dest']) ? '' : $user_options['last_dest'];
 	
-		//give push plenty of time to complete
-		set_time_limit( 6000 );
-
-		//instantiate a new push object
-		$my_sitepush = new SitePushCore( $this->options );
-		$my_sitepush->rsync_cmd = $this->options->rsync_path;
-		$my_sitepush->excludes = $this->options->dont_sync;
-		$my_sitepush->backup_keep_time = $this->options->backup_keep_time;
 	?>
 		<div class="wrap">
 			<h2>SitePush</h2>	
@@ -71,7 +63,11 @@ class SitePush_Push_Screen extends SitePush_Screen
 				
 			echo "<h3{$hide_html}>Push results</h3>";
 			echo "<pre id='mra-sitepush-results'{$hide_html}>";
-			$push_result = $this->plugin->do_the_push( $my_sitepush, $push_options );
+
+			//Do the push!
+			$obj_sitepushcore = new SitePushCore( $push_options['source'], $push_options['dest'], $this->options );
+			$push_result = $this->plugin->do_the_push( $obj_sitepushcore, $push_options );
+
 			echo "</pre>";
 	
 			if( $this->plugin->errors )
@@ -86,7 +82,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 				echo "<div class='updated'><p>Push complete!</p></div>";
 				//bit of a hack... do one page load for destination site to make sure SitePush has activated plugins etc
 				//before any user accesses the site
-				echo "<iframe src='http://{$my_sitepush->dest_params['domain']}' class='hidden-iframe'></iframe>";
+				echo "<iframe src='http://{$obj_sitepushcore->dest_params['domain']}' class='hidden-iframe'></iframe>";
 			}
 			else
 			{
@@ -176,7 +172,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 							$output .= $this->option_html('mra_sitepush_push_backup','Backup push (note - restoring from a backup is currently a manual process and requires command line access)','user','checked');
 
 					/* No undo till we get it working properly!
-					<br /><label title="undo"><input type="radio" name="push_type" value="undo"<?php echo $push_type=='undo'?' checked="checked"':'';?> /> Undo the last push (<?php echo date( "D j F, Y \a\t H:i:s e O T",$my_sitepush->get_last_undo_time() );?>)</label>
+					<br /><label title="undo"><input type="radio" name="push_type" value="undo"<?php echo $push_type=='undo'?' checked="checked"':'';?> /> Undo the last push (<?php echo date( "D j F, Y \a\t H:i:s e O T",$obj_sitepushcore->get_last_undo_time() );?>)</label>
 					*/
 					
 						if( $output )

@@ -328,7 +328,12 @@ class SitePushPlugin
 		else
 			return current_user_can( SitePushOptions::$default_capability );
 	}
-	
+
+	/**
+	 * @param SitePushCore $my_push
+	 * @param array $push_options options for this push from $_REQUEST
+	 * @return bool TRUE if push completed without errors, FALSE otherwise
+	 */
 	public function do_the_push( $my_push, $push_options )
 	{
 		//if we are going to do a push, check that we were referred from options page as expected
@@ -352,8 +357,9 @@ class SitePushPlugin
 		
 		$my_push->dry_run = $push_options['dry_run'] ? TRUE : FALSE;
 		$my_push->do_backup = $push_options['do_backup'] ? TRUE : FALSE;
-		$my_push->backup_path = $this->options->backup_path;
-		
+		$my_push->source_backup_path = $this->options->backup_path;
+		$my_push->dest_backup_path = $this->options->backup_path;
+
 		$my_push->echo_output = TRUE;
 		$my_push->output_level = defined('MRA_SITEPUSH_OUTPUT_LEVEL') ? MRA_SITEPUSH_OUTPUT_LEVEL : 0;
 		
@@ -850,10 +856,10 @@ class SitePushPlugin
 		);	
 
 
-		/* Rsync options */
+		/* rsync options */
 		add_settings_section(
 			'mra_sitepush_section_rsync',
-			'Rsync options',
+			'rsync options',
 			array( $options_screen, 'section_rsync_text' ),
 			'sitepush_options'	
 		);
@@ -872,9 +878,31 @@ class SitePushPlugin
 			array( $options_screen, 'field_dont_sync' ),
 			'sitepush_options',
 			'mra_sitepush_section_rsync'
-		);	
+		);
 
-	
+		/* mysql options */
+		add_settings_section(
+			'mra_sitepush_section_mysql',
+			'mysql options',
+			array( $options_screen, 'section_mysql_text' ),
+			'sitepush_options'
+		);
+
+		add_settings_field(
+			'mra_sitepush_field_mysql_path',
+			'Path to mysql',
+			array( $options_screen, 'field_mysql_path' ),
+			'sitepush_options',
+			'mra_sitepush_section_mysql'
+		);
+
+		add_settings_field(
+			'mra_sitepush_field_mysqldump_path',
+			'Path to mysqldump',
+			array( $options_screen, 'field_mysqldump_path' ),
+			'sitepush_options',
+			'mra_sitepush_section_mysql'
+		);
 	}
 	
 	/**
