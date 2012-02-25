@@ -1,9 +1,9 @@
 <?php
 /*
 Plugin Name: SitePush
-Plugin URI: http://sitepush.rowatt.com
+Plugin URI: http://rowatt.com/sitepush
 Description: Easily move code and content between versions of a site
-Version: 0.1.2alpha
+Version: 0.2alpha
 Author: Mark Rowatt Anderson
 Author URI: http://rowatt.com
 License: GPL2
@@ -29,10 +29,14 @@ License: GPL2
 require_once('classes/class-sitepush-plugin.php');
 new SitePushPlugin;
 
-require_once('classes/class-sitepush-core.php');
-require_once('classes/class-sitepush-screen.php');
-require_once('classes/class-sitepush-options-screen.php');
-require_once('classes/class-sitepush-push-screen.php');
+//load classes which are required for admin
+if( is_admin() )
+{
+	require_once('classes/class-sitepush-core.php');
+	require_once('classes/class-sitepush-screen.php');
+	require_once('classes/class-sitepush-options-screen.php');
+	require_once('classes/class-sitepush-push-screen.php');
+}
 
 //get the plugin basename and abs path to plugin directory
 //__FILE__ won't work for basename if path has symlinks

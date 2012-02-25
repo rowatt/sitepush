@@ -52,27 +52,18 @@ class SitePushCore
 	public $save_undo = TRUE;
 	private $undo_file; //read from get_undo_file method
 	
-	//top level source/dest directories
-	//normally this would be path to httpdocs for site
-	public $source_path;
-	public $dest_path;
-
 	//where to store backups
 	public $source_backup_path; //undo files etc **required**
 	public $dest_backup_path; //file archives, db_dumps etc **required**
 	public $backup_keep_time; //how many days to keep backups
-	private $source_backup_dir;
-	private $dest_backup_dir;
 
 	//mysqldump options
-	//add  --events --routines to options if we need to backup triggers & stored procedures too (shouldn't be necessary for wp)
 	private $dump_options = "--opt";
 	
 	//rsync/ssh options - used for pushing to remote site
 	public $remote_user; //user account on remote destination
 	public $ssh_key_dir; //where ssh key is on local server for remote push (key must be named same as the remote server)
-	private $remote_shell; //set up by __construct
-	public $rsync_cmd = '/usr/bin/rsync'; //full path to rsync
+	//private $remote_shell; //set up by __construct
 
 	//are we in wordpress maintenance mode or not
 	private $maintenance_mode = 'off';
@@ -82,10 +73,7 @@ class SitePushCore
 
 	//should push output be echoed in realtime?
 	public $echo_output = TRUE;
-	
-	//how much info to output (normal,backups=1 or detail=2, very_detail=3)
-	public $output_level = 1;
-	
+
 	//holds any errors for later output
 	public $errors = array();
 	
@@ -96,12 +84,15 @@ class SitePushCore
 	public $debug = FALSE;
 
 	/**
+	 * @var SitePushOptions object holding options
+	 */
+	private $options;
+
+	/**
 	 * @var string $source name of push source
 	 * @var string $dest name of push dest	 *
 	 * @var SitePushOptions object holding options
 	 */
-	private $options;
-	
 	function __construct( $source, $dest, $options )
 	{
 		//give push plenty of time to complete
@@ -119,7 +110,7 @@ class SitePushCore
 
 		//get params for source and dest
 		$this->source_params = $this->options->get_site_params( $this->source );
-		if( !$this->source_params ) die("Unknown site config '{$this->source}'.\n");
+		if( !$this->source_params ) die("Unknown site config '{$this->source}'.\n"); //@todo better error handling
 
 		$this->dest_params = $this->options->get_site_params( $this->dest );
 		if( !$this->dest_params ) die("Unknown site config '{$this->dest}'.\n");
@@ -152,11 +143,29 @@ class SitePushCore
 		
 		//if we can't find rsync/mysql/mysqldump at defined path, try without any path
 		if( !file_exists( $this->options->rsync_path ) )
+		{
 			$this->options->rsync_path = 'rsync';
+			if( !$this->options->rsync_path )
+				$this->add_result("rsync path not set, using 'rsync'",3);
+			else
+				$this->add_result("rsync not found at {$this->options->rsync_path}, using 'rsync' instead and hoping system path is set correctly",3);
+		}
 		if( !file_exists( $this->options->mysql_path ) )
+		{
 			$this->options->mysql_path = 'mysql';
+			if( !$this->options->mysql_path )
+				$this->add_result("mysql path not set, using 'mysql'",3);
+			else
+				$this->add_result("mysql not found at {$this->options->mysql_path}, using 'mysql' instead and hoping system path is set correctly",3);
+		}
 		if( !file_exists( $this->options->mysqldump_path ) )
+		{
 			$this->options->mysqldump_path = 'mysqldump';
+			if( !$this->options->mysqldump_path )
+				$this->add_result("mysqldump path not set, using 'mysqldump'",3);
+			else
+				$this->add_result("mysqldump not found at {$this->options->mysqldump_path}, using 'mysqldump' instead and hoping system path is set correctly",3);
+		}
 
 		$this->errors = array_merge($this->errors, $errors);
 		
@@ -170,33 +179,28 @@ class SitePushCore
 	//push everything as per parameters
 	public function push_files()
 	{
-		// $this->set_all_params(); //@cleanup - should be ok to remove
-
-		$source = $this->source_params;
-		$dest = $this->dest_params;
-	
 		if( $this->push_plugins )
 		{
-			$backup_file = $this->file_backup( $this->dest_path . $dest['wp_plugins_dir'] );
-			$this->copy_files( $this->source_path . $source['wp_plugins_dir'], $this->dest_path . $dest['wp_plugins_dir'], $backup_file, 'plugins', TRUE );
+			$backup_file = $this->file_backup( $this->dest_params['web_path'] . $this->dest_params['wp_plugins_dir'] );
+			$this->copy_files( $this->source_params['web_path'] . $this->source_params['wp_plugins_dir'], $this->dest_params['web_path'] . $this->dest_params['wp_plugins_dir'], $backup_file, 'plugins', TRUE );
 		}
 		
 		if( $this->push_uploads )
 		{
-			$backup_file = $this->file_backup( $this->dest_path . $dest['wp_uploads_dir'] );
-			$this->copy_files( $this->source_path . $source['wp_uploads_dir'], $this->dest_path . $dest['wp_uploads_dir'], $backup_file, 'uploads', TRUE );
+			$backup_file = $this->file_backup( $this->dest_params['web_path'] . $this->dest_params['wp_uploads_dir'] );
+			$this->copy_files( $this->source_params['web_path'] . $this->source_params['wp_uploads_dir'], $this->dest_params['web_path'] . $this->dest_params['wp_uploads_dir'], $backup_file, 'uploads', TRUE );
 		}
 
 		if( $this->push_themes )
 		{
-			$backup_file = $this->file_backup( $this->dest_path . $dest['wp_themes_dir'] );
-			$this->copy_files( $this->source_path . $source['wp_themes_dir'], $this->dest_path . $dest['wp_themes_dir'], $backup_file, 'themes', TRUE );
+			$backup_file = $this->file_backup( $this->dest_params['web_path'] . $this->dest_params['wp_themes_dir'] );
+			$this->copy_files( $this->source_params['web_path'] . $this->source_params['wp_themes_dir'], $this->dest_params['web_path'] . $this->dest_params['wp_themes_dir'], $backup_file, 'themes', TRUE );
 		}
 		
 		if( $this->theme )
 		{
-			$backup_file = $this->file_backup( $this->dest_path . $dest['wp_themes_dir'] . '/' . $this->theme );
-			$this->copy_files( $this->source_path . $source['wp_themes_dir'] . '/' . $this->theme, $this->dest_path . $dest['wp_themes_dir'] . '/' . $this->theme, $backup_file, $this->theme, TRUE );
+			$backup_file = $this->file_backup( $this->dest_params['web_path'] . $this->dest_params['wp_themes_dir'] . '/' . $this->theme );
+			$this->copy_files( $this->source_params['web_path'] . $this->source_params['wp_themes_dir'] . '/' . $this->theme, $this->dest_params['web_path'] . $this->dest_params['wp_themes_dir'] . '/' . $this->theme, $backup_file, $this->theme, TRUE );
 		}
 
 	}
@@ -299,7 +303,7 @@ class SitePushCore
 			$undo['type'] = 'mysql';
 			$undo['original'] = $command;
 			//$undo['remote'] = $this->remote_shell; //@later make remote
-			$undo['undo'] = "{$this->options->mysql_path} -u {$db_dest['user']} -p'{$db_dest['pw']}'{$dest_host} -D {$db_dest['name']} < '{$backup_file}'";
+			$undo['undo'] = "'{$this->options->mysql_path}' -u {$db_dest['user']} -p'{$db_dest['pw']}'{$dest_host} -D {$db_dest['name']} < '{$backup_file}'";
 			$this->write_undo_file( $undo );
 		}
 		
@@ -344,7 +348,7 @@ class SitePushCore
 		{
 			foreach( $this->sites[$this->dest]['caches'] as $cache )
 			{
-				$cache_path = $this->trailing_slashit($this->dest_path) . ltrim($this->trailing_slashit($cache),'/') . '*';
+				$cache_path = $this->trailing_slashit($this->dest_params['web_path']) . ltrim($this->trailing_slashit($cache),'/') . '*';
 				$command = $this->make_remote("rm -rf {$cache_path}");
 				$result .= "Clearing cache {$cache} " . $this->my_exec($command) ."\n";
 				$return = TRUE;
@@ -432,10 +436,10 @@ class SitePushCore
 			$this->add_result("Backing up {$path}",1);
 
 			//where do we backup to
-			$backup_file = "{$this->dest_backup_dir}{$this->dest}-{$this->timestamp}-file-{$backup_name}.tgz";
+			$backup_file = "{$this->dest_backup_path}/{$this->dest}-{$this->timestamp}-file-{$backup_name}.tgz";
 
 			//create the backup command
-			$command = $this->make_remote("cd {$path}; cd ..; tar -czf {$backup_file} {$dir}; chmod 400 {$backup_file}");
+			$command = $this->make_remote("cd '{$path}'; cd ..; tar -czf '{$backup_file}' '{$dir}'; chmod 400 '{$backup_file}'");
 			
 			//run the backup command
 			$this->my_exec($command);
@@ -470,7 +474,7 @@ class SitePushCore
 			$this->clear_old_backups();
 
 			//where do we backup to
-			$destination = "{$this->dest_backup_dir}{$this->dest}-{$this->timestamp}-db-{$db['name']}.sql";
+			$destination = "{$this->dest_backup_path}/{$this->dest}-{$this->timestamp}-db-{$db['name']}.sql";
 			
 			//DB host parameter if needed
 			$dest_host = !empty($db['host']) ? " --host={$db['host']}" : '';
@@ -521,7 +525,22 @@ class SitePushCore
 		{
 			$already_cleared_backups = TRUE;
 		}
-		$this->add_result("Checking for old backups to clear at {$this->dest_backup_dir}",2);
+
+		if( empty($this->dest_backup_path) )
+		{
+			$this->add_result("Skipping backup clear because backup directory not set.",3);
+			$this->add_result('--',3);
+			return FALSE;
+		}
+
+		if( !$this->options->backup_keep_time )
+		{
+			$this->add_result("Not clearing backups.",3);
+			$this->add_result('--',3);
+			return FALSE;
+		}
+
+		$this->add_result("Checking for old backups to clear at {$this->dest_backup_path}",2);
 
 		$have_deleted = FALSE;
 		if( !$this->options->backup_keep_time ) return FALSE;
@@ -529,17 +548,17 @@ class SitePushCore
 		//anything older than this is too old
 		$too_old = time() - $this->options->backup_keep_time*24*60*60;
 		
-		foreach( scandir($this->dest_backup_dir) as $backup )
+		foreach( scandir($this->dest_backup_path) as $backup )
 		{
 		
 			//skip if it doesn't look like a sitepush backup file
 			if( !in_array( substr($backup, -4), array( '.sql', '.tgz', 'undo') ) ) continue;
 			$this->add_result("Checking {$backup}",4);
 		
-			if( filemtime($this->dest_backup_dir.$backup) < $too_old )
+			if( filemtime("{$this->dest_backup_path}/{$backup}") < $too_old )
 			{
-				$this->add_result("Deleting old backup at {$this->dest_backup_dir}{$backup}");
-				unlink($this->dest_backup_dir.$backup);
+				$this->add_result("Deleting old backup at {$this->dest_backup_path}/{$backup}");
+				unlink("{$this->dest_backup_path}/{$backup}");
 				$have_deleted = TRUE;
 			}
 		}
@@ -643,7 +662,7 @@ class SitePushCore
 		
 		//are we syncing to a remote server?
 		$remote_site = '';
-		if( $this->dest_params['remote'] )
+		if( !empty($this->dest_params['remote']) )
 		{
 			$rsync_options .= " -e 'ssh -i {$this->ssh_key_dir}{$this->dest_params['domain']}'";
 			$remote_site = "{$this->remote_user}@{$this->dest_params['domain']}:";
@@ -678,8 +697,8 @@ class SitePushCore
 			$undo['type'] = 'rsync';
 			$undo['original'] = $command;
 			//$undo['remote'] = $this->remote_shell; //@todo add remote
-			$undo['undo'][] = "cd {$this->dest_backup_dir}; mkdir '{$undo_dir}'; cd '{$undo_dir}'; tar -zpxf {$backup_file}"; //prep
-			$undo['undo'][] = "{$this->options->rsync_path} {$rsync_options} '{$this->dest_backup_dir}{$undo_dir}/{$dir}/' '{$dest_path}'"; //sync
+			$undo['undo'][] = "cd '{$this->dest_backup_path}'; mkdir '{$undo_dir}'; cd '{$undo_dir}'; tar -zpxf '{$backup_file}'"; //prep
+			$undo['undo'][] = "'{$this->options->rsync_path}' {$rsync_options} '{$this->dest_backup_path}/{$undo_dir}/{$dir}/' '{$dest_path}'"; //sync
 			$this->write_undo_file( $undo );
 		}
 		
@@ -752,10 +771,10 @@ class SitePushCore
 		if( !$this->source_backup_path ) return FALSE;
 	
 		//define the undo file
-		$this->undo_file = "{$this->source_backup_dir}{$this->dest}-{$this->timestamp}.undo";
+		$this->undo_file = "{$this->source_backup_path}/{$this->dest}-{$this->timestamp}.undo";
 		
 		//write file so we know what the last timestamp for backups was
-		file_put_contents($this->source_backup_path . 'last', $this->undo_file);
+		file_put_contents($this->source_backup_path . '/last', $this->undo_file);
 
 		$undo_text = "#\n# start undo\n#\n";
 		foreach( $undos as $key=>$undo )
@@ -836,7 +855,7 @@ class SitePushCore
 	{
 		$this->results[] = array( 'level'=>$log_level, 'msg'=>trim($this->sanitize_cmd($result)) );
 		
-		if( $this->echo_output && $this->output_level>=$log_level )
+		if( $this->echo_output && $this->options->debug_output_level>=$log_level )
 		{
 			if( '--' == $result )
 				echo "\n";
@@ -929,7 +948,7 @@ class SitePushCore
 	private function set_maintenance_mode( $switch=FALSE )
 	{
 		$maint_file = '<?php \$upgrading='.time().'; ?>';
-		$maint_file_path = $this->dest_path . $this->trailing_slashit($this->dest_params['wp_dir']) . '.maintenance';
+		$maint_file_path = $this->dest_params['web_path'] . $this->trailing_slashit($this->dest_params['wp_dir']) . '.maintenance';
 		
 		if( $switch===TRUE || $switch===1 ) $switch = 'on';
 		if( $switch===FALSE || $switch===0 ) $switch = 'off';

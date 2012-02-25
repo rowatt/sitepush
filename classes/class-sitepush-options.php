@@ -12,8 +12,7 @@ class SitePushOptions
 	private $current_site = ''; //access through get_current_site method
 	public $current_site_conf = array();
 	public $all_domains = array();
-	public $sites_conf = '';
-	public $dbs_conf = '';
+
 
 	//default capabilities required to use SitePush
 	public static $default_capability = 'manage_options';
@@ -23,29 +22,41 @@ class SitePushOptions
 	//options which need keeping when user updates options
 	private $keep_options = array( 'accept', 'last_update' );
 	//parameters which get initialised and get whitespace trimmed
-	private $trim_params = array('plugin_activates', 'plugin_deactivates', 'sites_conf', 'dbs_conf', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path', 'capability', 'admin_capability', 'cache_key', 'timezone');
+	private $trim_params = array('sites_conf', 'dbs_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
 	//parameters which just get initialised
 	private $no_trim_params = array('accept', 'make_relative_urls');
-	private $init_params; //set in __construct
+	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'domain', 'domains', 'wp_dir' );
+	private $all_params; //set in __construct
 
-	//options - these come from WP option mra_sitepush_options
+	//options - these come from WordPress option mra_sitepush_options
 	public $accept;
+	public $sites_conf = '';
+	public $dbs_conf = '';
+	public $timezone;
+	public $debug_output_level;
+
 	public $capability;
 	public $admin_capability;
-	public $backup_path;
+
 	public $cache_key;
+
 	public $plugins;
-	public $make_relative_urls; //@todo to add to WP options
+
+	public $backup_path;
+	public $backup_keep_time;
+
 	public $rsync_path;
 	public $dont_sync;
+
 	public $mysql_path;
 	public $mysqldump_path;
-	public $backup_keep_time;
-	public $timezone;
+
+	public $make_relative_urls; //@todo to add to WP options
+
 
 	function __construct()
 	{
-		$this->init_params = array_merge( $this->trim_params, $this->no_trim_params );
+		$this->all_params = array_merge( $this->trim_params, $this->no_trim_params );
 
 		$options = get_option( 'mra_sitepush_options' );
 
@@ -55,8 +66,10 @@ class SitePushOptions
 			$options = $this->options_init();
 			$this->update( $options );
 		}
-
-		$options = $this->options_clean( $options );
+		else
+		{
+			$options = $this->options_init( $options );
+		}
 
 		//set object properties according to options
 		foreach( $options as $option=>$value)
@@ -101,7 +114,7 @@ class SitePushOptions
 		//microtime ensures that options are written and don't use cached value
 		$update_options['last_update'] = microtime(TRUE);
 		
-		foreach( $this->init_params as $param )
+		foreach( $this->all_params as $param )
 		{
 			$update_options[ $param ] = $options[ $param ];
 		}
@@ -114,57 +127,104 @@ class SitePushOptions
 		update_option( 'mra_sitepush_options', $update_options );
 	}
 	
-	//xxxxx check this!!!
+	//xxxxx check this!!! @todo
 	
 /* --------------------------------------------------------------
 /* !INITIALISE & VALIDATE OPTIONS
 /* -------------------------------------------------------------- */
 		
 	/**
-	 * options_init
-	 * 
-	 * Initialise options so that all array keys present.
-	 * Will not overwrite any options which already exist.
+	 * Initialise options so that all array keys present,
+	 * make sure various arrays set up. If an option isn't present
+	 * then set it to default.
 	 *
 	 * @param array $options
 	 * @return array $options initialised options
 	 */
 	private function options_init( $options=array() )
 	{
-		//plugin defaults
-		if( !array_key_exists('plugins',          $options) )            $options['plugins']                     = array();
-		if( !array_key_exists('activate',         $options['plugins']) ) $options['plugins']['activate']         = array();
-		if( !array_key_exists('deactivate',       $options['plugins']) ) $options['plugins']['deactivate']       = array();
-		if( !array_key_exists('never_manage',     $options['plugins']) ) $options['plugins']['never_manage']     = array();
+		//accept risks
+		if( !array_key_exists( 'accept', $options ) ) $options['accept'] = FALSE;
 
-		//other defaults
-		if( !array_key_exists('backup_keep_time', $options) || ''==$options['backup_keep_time'] ) $options['backup_keep_time'] = 10;
+		//General parameters
+		if( !array_key_exists( 'sites_conf', $options ) ) $options['sites_conf'] = '';
+		if( !array_key_exists( 'dbs_conf', $options ) ) $options['dbs_conf'] = '';
+		if( !array_key_exists( 'timezone', $options ) ) $options['timezone'] = '';
+		if( !array_key_exists( 'debug_output_level', $options ) ) $options['debug_output_level'] = 0;
+
+		//Capabilities
 		if( empty($options['capability']) ) $options['capability'] = self::$default_capability;
 		if( empty($options['admin_capability']) ) $options['admin_capability'] = self::$default_admin_capability;
 
-		//defaults for what not to sync
+		//Cache management
+		if( !array_key_exists( 'cache_key', $options ) ) $options['cache_key'] = '';
+
+		//Plugin management
+		if( !array_key_exists('plugins',          $options) )            $options['plugins']                     = array();
+		if( !array_key_exists('never_manage',     $options['plugins']) ) $options['plugins']['never_manage']     = array(); //only used internally, not user settable
+
+		//set options for plugins to activate on live sites
+		if( !empty($options['plugin_activates']) )
+		{
+			$plugin_activates = array();
+			foreach( explode("\n",$options['plugin_activates']) as $plugin )
+			{
+				$plugin = trim( $plugin );
+				if( !$plugin || in_array($plugin, $plugin_activates) || in_array($plugin, $options['plugins']['never_manage']) ) continue; //empty line or duplicate
+				$plugin_activates[] = $plugin;
+			}
+			asort($plugin_activates);
+			unset( $options['plugin_activates'] );
+			$options['plugins']['activate'] = $plugin_activates;
+		}
+		else
+		{
+			$options['plugins']['activate'] = array();
+		}
+
+		//set options for plugins to deactivate on live sites
+		if( !empty($options['plugin_deactivates']) )
+		{
+			$plugin_deactivates = array();
+			foreach( explode("\n",$options['plugin_deactivates']) as $plugin )
+			{
+				$plugin = trim( $plugin );
+				if( !$plugin || in_array($plugin, $plugin_deactivates) || in_array($plugin, $plugin_activates) || in_array($plugin, $options['plugins']['never_manage']) ) continue; //empty line or duplicate
+				$plugin_deactivates[] = $plugin;
+			}
+			asort($plugin_deactivates);
+			unset( $options['plugin_deactivates'] );
+			$options['plugins']['deactivate'] = $plugin_deactivates;
+		}
+		else
+		{
+			$options['plugins']['deactivate'] = array();
+		}
+
+		//Backup Options
+		if( !array_key_exists( 'backup_path', $options ) ) $options['backup_path'] = '';
+		if( !array_key_exists( 'backup_keep_time', $options ) || ''==$options['backup_keep_time'] ) $options['backup_keep_time'] = 10;
+
+		//rsync options
+		if( empty($options['rsync_path']) )
+			$options['rsync_path'] = $this->guess_path( 'rsync' );
 		if( !array_key_exists('dont_sync', $options) )
 			$options['dont_sync'] = '.git, .svn, .htaccess, tmp/, wp-config.php';
 
-		if( empty($options['rsync_path']) )
-			$options['rsync_path'] = $this->guess_path( 'rsync' );
-
+		//mysql options
 		if( empty($options['mysql_path']) )
 			$options['mysql_path'] = $this->guess_path( 'mysql' );
-
 		if( empty($options['mysqldump_path']) )
 			$options['mysqldump_path'] = $this->guess_path( 'mysqldump' );
-		//make sure any other parameters exist
-		$options = $this->init_params( $options, $this->init_params );
+
+		//other params not yet user settable
+		if( !array_key_exists( 'make_relative_urls', $options ) ) $options['make_relative_urls'] = FALSE;
 
 		return $options;
 	}
 
 	/**
-	 * options_clean
-	 * 
-	 * Clean options, and make sure some keys are set,
-	 * convert string options (from user options) to arrays
+	 * Cleans options
 	 *
 	 * @param array $options
 	 * @return array $options cleaned options
@@ -175,56 +235,6 @@ class SitePushOptions
 		{
 			$options[$trim_opt] = trim( $options[$trim_opt] );
 		}
-
-		$plugin_activates = array();
-		$plugin_deactivates = array();
-
-		//make sure plugin options arrays exist
-		if( empty($options['plugins']) )
-			$options['plugins'] = array();
-		if( empty($options['plugins']['activate']) )
-			$options['plugins']['activate'] = array();
-		if( empty($options['plugins']['deactivate']) )
-			$options['plugins']['deactivate'] = array();
-		if( empty($options['plugins']['never_manage']) )
-			$options['plugins']['never_manage'] = array();
-
-		//set options for plugins to activate on live sites
-		if( !empty($options['plugin_activates']) )
-		{
-			foreach( explode("\n",$options['plugin_activates']) as $plugin )
-			{
-				$plugin = trim( $plugin );
-				if( !$plugin || in_array($plugin, $plugin_activates) || in_array($plugin, $options['plugins']['never_manage']) ) continue; //empty line or duplicate
-				$plugin_activates[] = $plugin;
-			}
-			asort($plugin_activates);
-			unset( $options['plugin_activates'] );		
-			$options['plugins']['activate'] = $plugin_activates;
-		}
-
-		//set options for plugins to deactivate on live sites
-		if( !empty($options['plugin_deactivates']) )
-		{
-			foreach( explode("\n",$options['plugin_deactivates']) as $plugin )
-			{
-				$plugin = trim( $plugin );
-				if( !$plugin || in_array($plugin, $plugin_deactivates) || in_array($plugin, $plugin_activates) || in_array($plugin, $options['plugins']['never_manage']) ) continue; //empty line or duplicate
-				$plugin_deactivates[] = $plugin;
-			}
-			asort($plugin_deactivates);
-			unset( $options['plugin_deactivates'] );		
-			$options['plugins']['deactivate'] = $plugin_deactivates;
-		}
-
-		if( empty($options['rsync_path']) )
-			$options['rsync_path'] = $this->guess_path( 'rsync' );
-
-		if( empty($options['mysql_path']) )
-			$options['mysql_path'] = $this->guess_path( 'mysql' );
-
-		if( empty($options['mysqldump_path']) )
-			$options['mysqldump_path'] = $this->guess_path( 'mysqldump' );
 
 		return $options;
 	}
@@ -467,25 +477,25 @@ class SitePushOptions
 	 * @param array $params params for site
 	 * @return array params with defaults set
 	 */
-	public function site_init( $params=array() )
+	public function site_init( $options=array() )
 	{
 		//make sure all params initialised, and non-params removed
-		$params = $this->init_params( $params, array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'domain', 'domains', 'wp_dir' ) );
+		$options = $this->init_params( $options, $this->site_params );
 
-		if( array_key_exists('domains',$params) && empty($params['domain']) )
-			$params['domain'] = $params['domains'][0];
+		if( array_key_exists('domains',$options) && empty($options['domain']) )
+			$options['domain'] = $options['domains'][0];
 
 		//save all domains in array
-		$this->all_domains = array_merge( $this->all_domains, $params['domains'], (array) $params['domain'] );
+		$this->all_domains = array_merge( $this->all_domains, $options['domains'], (array) $options['domain'] );
 
 		//make sure certain optional params are set correctly
-		if( !$params['label'] ) $params['label'] = $params['name'];
-		if( empty($params['wp_content_dir']) ) $params['wp_content_dir'] = '/wp-content';
-		if( empty($params['wp_plugins_dir']) ) $params['wp_plugins_dir'] = $params['wp_content_dir'] . '/plugins';
-		if( empty($params['wp_uploads_dir']) ) $params['wp_uploads_dir'] = $params['wp_content_dir'] . '/uploads';
-		if( empty($params['wp_themes_dir']) ) $params['wp_themes_dir'] = $params['wp_content_dir'] . '/themes';
+		if( !$options['label'] ) $options['label'] = $options['name'];
+		if( empty($options['wp_content_dir']) ) $options['wp_content_dir'] = '/wp-content';
+		if( empty($options['wp_plugins_dir']) ) $options['wp_plugins_dir'] = $options['wp_content_dir'] . '/plugins';
+		if( empty($options['wp_uploads_dir']) ) $options['wp_uploads_dir'] = $options['wp_content_dir'] . '/uploads';
+		if( empty($options['wp_themes_dir']) ) $options['wp_themes_dir'] = $options['wp_content_dir'] . '/themes';
 		
-		return $params;	
+		return $options;
 	}
 	
 

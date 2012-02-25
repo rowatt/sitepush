@@ -361,8 +361,7 @@ class SitePushPlugin
 		$my_push->dest_backup_path = $this->options->backup_path;
 
 		$my_push->echo_output = TRUE;
-		$my_push->output_level = defined('MRA_SITEPUSH_OUTPUT_LEVEL') ? MRA_SITEPUSH_OUTPUT_LEVEL : 0;
-		
+
 		//initialise some parameters
 		$push_files = FALSE;
 		$results = array(); //should be empty at end if everything worked as expected
@@ -766,7 +765,15 @@ class SitePushPlugin
 			'sitepush_options',
 			'mra_sitepush_section_config'
 		);
-	
+
+		add_settings_field(
+			'mra_sitepush_field_debug_output_level',
+			'Debug output level',
+			array( $options_screen, 'field_debug_output_level' ),
+			'sitepush_options',
+			'mra_sitepush_section_config'
+		);
+
 		/*Capability fields */
 		add_settings_section(
 			'mra_sitepush_section_capabilities',

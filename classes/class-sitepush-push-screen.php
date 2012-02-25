@@ -56,7 +56,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 			update_user_option( get_current_user_id(), 'mra_sitepush_options', $user_options );
 
 			// do the push!
-			if( defined('MRA_SITEPUSH_OUTPUT_LEVEL') && MRA_SITEPUSH_OUTPUT_LEVEL )
+			if( $this->options->debug_output_level )
 				$hide_html = '';
 			else
 				$hide_html = ' style="display: none;"';
@@ -165,7 +165,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<?php
 						$output = '';
 
-						if( 'none'<>$this->options->cache_key )
+						if( !empty($this->options->cache_key) )
 							$output .= $this->option_html('clear_cache','Clear WordPress cache on destination','user','checked');
 
 						if( $this->options->backup_path )

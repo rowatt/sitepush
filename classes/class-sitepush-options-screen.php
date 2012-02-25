@@ -135,7 +135,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_backup_keep_time()
 	{
-		echo $this->input_text('backup_keep_time','SitePush backups will be deleted after they are this many days old. Backups will never be deleted if set to 0.');
+		echo $this->input_text('backup_keep_time','SitePush backups will be deleted after they are this many days old. Backups will never be deleted if set to 0.','small-text');
 	}
 
 
@@ -188,6 +188,11 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_text('timezone','Your default timezone is  <i>' . date_default_timezone_get() . '</i>. If that is not correct, enter your timezone here to make sure that logs and reporting are in your correct local time. See <a href="http://php.net/manual/en/timezones.php" target="_blank">list of supported timezones</a> for valid values.');
 	}
 
+	function field_debug_output_level()
+	{
+		echo $this->input_text('debug_output_level','How much debug output is shown. Enter a number from 0 (no debug output) to 3 (detailed output).<br />Debug output is only ever shown to people with SitePush admin capability.','small-text');
+	}
+
 	function field_capability()
 	{
 		echo $this->input_text('capability');
@@ -202,7 +207,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 	{
 		$extra_text = empty( $this->options->cache_key ) ? "<br />A random string you could use: " .  md5( microtime() ) : '';
 
-		echo $this->input_text('cache_key', "A hard to guess secret key. This ensures that the cache is only cleared on a destination site when you want it to. This key must be the same on all sites which you push to from this site.{$extra_text}");
+		echo $this->input_text('cache_key', "A hard to guess secret key. This ensures that the cache is only cleared on a destination site when you want it to.<br />This key must be the same on all sites which you push to from this site.{$extra_text}");
 	}
 
 	function field_plugin_activates()

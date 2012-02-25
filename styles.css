@@ -31,3 +31,10 @@
 	height: 0;
 	width: 0;
 }
+
+input.small-text {
+	float: left;
+}
+input.small-text + .description {
+	margin-left: 65px;
+}
