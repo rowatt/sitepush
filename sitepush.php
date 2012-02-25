@@ -52,6 +52,4 @@ define( 'MRA_SITEPUSH_PLUGIN_DIR_URL', plugins_url( '', MRA_SITEPUSH__FILE ) );
 define( 'MRA_SITEPUSH_PLUGIN_DIR', dirname(MRA_SITEPUSH__FILE) );
 define( 'MRA_SITEPUSH_BASENAME', plugin_basename(MRA_SITEPUSH__FILE) );
 
-define( 'MRA_SITEPUSH_OUTPUT_LEVEL', 3 ); //@debug
-
 /* EOF */

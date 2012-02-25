@@ -79,7 +79,10 @@ class SitePush_Push_Screen extends SitePush_Screen
 			}
 			elseif( $push_result )
 			{
-				echo "<div class='updated'><p>Push complete!</p></div>";
+				if( $push_options['dry_run'] )
+					echo "<div class='updated'><p>Dry run complete! Nothing was actually pushed, but you can see what would have been done from the output above.</p></div>";
+				else
+					echo "<div class='updated'><p>Push complete!</p></div>";
 				//bit of a hack... do one page load for destination site to make sure SitePush has activated plugins etc
 				//before any user accesses the site
 				echo "<iframe src='http://{$obj_sitepushcore->dest_params['domain']}' class='hidden-iframe'></iframe>";
@@ -170,6 +173,10 @@ class SitePush_Push_Screen extends SitePush_Screen
 
 						if( $this->options->backup_path )
 							$output .= $this->option_html('mra_sitepush_push_backup','Backup push (note - restoring from a backup is currently a manual process and requires command line access)','user','checked');
+
+						if( $this->options->debug_output_level >= 3 )
+							$output .= $this->option_html('mra_sitepush_dry_run','Dry run (show what actions would be performed by push, but don\'t actually do anything)','admin');
+
 
 					/* No undo till we get it working properly!
 					<br /><label title="undo"><input type="radio" name="push_type" value="undo"<?php echo $push_type=='undo'?' checked="checked"':'';?> /> Undo the last push (<?php echo date( "D j F, Y \a\t H:i:s e O T",$obj_sitepushcore->get_last_undo_time() );?>)</label>

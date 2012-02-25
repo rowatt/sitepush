@@ -9,8 +9,10 @@ class SitePushPlugin
 	//holds any errors from push
 	public $errors = array();
 	public $notices = array();
-	
-	//holds SitePushOptions object
+
+	/**
+	 * @var SitePushOptions
+	 */
 	public $options;
 	
 	private $min_wp_version = '3.3';
@@ -445,7 +447,6 @@ class SitePushPlugin
 	
 		if( $push_options['clear_cache'] && $this->options->cache_key )
 		{
-			$my_push->cache_key = urlencode( $this->options->cache_key );
 			$my_push->clear_cache();
 		}
 		elseif( $push_options['clear_cache'] && ! $this->options->cache_key )
@@ -692,7 +693,7 @@ class SitePushPlugin
 	{
 		$sites_list = array();
 		
-		$exclude = ('exclude_current'==$exclude_current) ? $this->get_current_site() : '';
+		$exclude = ('exclude_current'==$exclude_current) ? $this->options->get_current_site() : '';
 	
 		foreach( $this->options->sites as $site=>$site_conf )
 		{

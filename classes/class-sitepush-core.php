@@ -9,29 +9,30 @@ class SitePushCore
 	public $sites = array(); //holds all sites parameters
 	public $source;
 	public $dest;
-	public $db_source;
-	public $db_dest;
-	public $theme;
+	public $theme; //name of specific theme to push
 	public $push_plugins = FALSE; //push plugins directory
 	public $push_uploads = FALSE; //push uploads directory
 	public $push_themes = FALSE; //push themes directory (ie all themes)
 	public $push_wp_files = FALSE; //push WordPress files (ie everything in wp directory except wp-content)
 	public $do_backup = TRUE;
-	public $undo;
-	public $db_prefix = ''; //custom prefix for database security
+
+	//not used - will be used when undo implemented
+	//public $undo;
+
+	/**
+	 * @var string holds db_prefix from db_conf for current site
+	 */
+	private $db_prefix = '';
 	
-	//don't actually do anything if dry_run is TRUE
+	/**
+	 * @var bool don't actually do anything if dry_run is TRUE
+	 */
 	public $dry_run = FALSE;
 	
-	//hold any results
-	public $results = array();
-	
-	//CACHE_KEY - security key required to run commands remotely
-	//this should be supplied URL encoded
-	public $cache_key = '';
-	
-	//type of cache
-	public $cache_type = '';
+	/**
+	 * @var array holds any results. Get results with get_results method
+	 */
+	private $results = array();
 
 	//array of file patterns to exclude from all pushes
 	public $excludes = array( '.git', '.svn', '.htaccess', 'tmp/', 'wp-config.php' );
@@ -50,20 +51,18 @@ class SitePushCore
 	
 	//do we want to save undo files
 	public $save_undo = TRUE;
-	private $undo_file; //read from get_undo_file method
-	
+
 	//where to store backups
 	public $source_backup_path; //undo files etc **required**
 	public $dest_backup_path; //file archives, db_dumps etc **required**
-	public $backup_keep_time; //how many days to keep backups
 
 	//mysqldump options
 	private $dump_options = "--opt";
 	
 	//rsync/ssh options - used for pushing to remote site
-	public $remote_user; //user account on remote destination
-	public $ssh_key_dir; //where ssh key is on local server for remote push (key must be named same as the remote server)
-	//private $remote_shell; //set up by __construct
+	public $remote_user; //user account on remote destination //???
+	public $ssh_key_dir; //where ssh key is on local server for remote push (key must be named same as the remote server) //???
+	//private $remote_shell; //set up by __construct //???
 
 	//are we in wordpress maintenance mode or not
 	private $maintenance_mode = 'off';
@@ -80,9 +79,6 @@ class SitePushCore
 	//passwords will be replaced with **** in any log output
 	public $hide_passwords = TRUE;
 	
-	//set to TRUE for additional debug output
-	public $debug = FALSE;
-
 	/**
 	 * @var SitePushOptions object holding options
 	 */
@@ -95,8 +91,8 @@ class SitePushCore
 	 */
 	function __construct( $source, $dest, $options )
 	{
-		//give push plenty of time to complete
-		set_time_limit( 6000 );
+		//set PHP script timelimit so push has plenty of time to complete
+		set_time_limit( $this->push_time_limit );
 
 		$this->options = $options;
 		$this->check_requirements();
@@ -279,12 +275,8 @@ class SitePushCore
 			return FALSE;
 		}
 
-
 		$backup_file = $this->database_backup($db_dest);
-		
-		//set PHP script timelimit
-		set_time_limit( $this->push_time_limit );
-		
+
 		$source_host = !empty($db_source['host']) ? " --host={$db_source['host']}" : '';
 		$dest_host = !empty($db_dest['host']) ? " --host={$db_dest['host']}" : '';
 		
@@ -320,8 +312,7 @@ class SitePushCore
 		//@todo $this->dest_params etc is null, also lots of other $this-> properties null???
 
 		$result = $this->my_exec($command);
-		$this->add_result('--');
-		
+
 		//turn maintenance mode off
 		if( $maint_mode ) $this->set_maintenance_mode('off');
 		
@@ -363,7 +354,8 @@ class SitePushCore
 		else
 		{
 			//clear WP cache on destination site
-			$url = "{$this->trailing_slashit($this->dest_params['domain'])}?mra_sitepush_cmd=clear_cache&mra_sitepush_key={$this->cache_key}";
+			$cache_key = urlencode( $this->options->cache_key );
+			$url = "{$this->trailing_slashit($this->dest_params['domain'])}?mra_sitepush_cmd=clear_cache&mra_sitepush_key={$cache_key}";
 			
 			$cc_result = $this->callResource($url, 'GET', $data = null);
 
@@ -393,8 +385,7 @@ class SitePushCore
 		}
 			
 		$this->add_result($result);
-		$this->add_result('--');
-		
+
 		return $return;
 	}
 
@@ -446,7 +437,6 @@ class SitePushCore
 						
 			//add the backup file to the backups array so we know what's been done for user reporting etc
 			$this->add_result("Backup file is at {$backup_file}",1);
-			$this->add_result('--');
 
 			//return the backup file name/path so we can undo		
 			return $backup_file;
@@ -454,14 +444,12 @@ class SitePushCore
 		elseif( !$this->do_backup )
 		{
 			$this->add_result("File backup off",2);
-			$this->add_result('--',2);
 			return FALSE;
 		}
 		else
 		{
 			//we didn't backup, so return FALSE
 			$this->add_result("{$path} not backed up, because it was not found.",1);
-			$this->add_result('--',1);		
 			return FALSE;
 		}
 	}
@@ -489,8 +477,6 @@ class SitePushCore
 			//run the backup command
 			$this->my_exec($command);
 
-			$this->add_result('--');
-		
 			//return the backup file name/path so we can undo			
 			return $destination;
 		}
@@ -498,7 +484,6 @@ class SitePushCore
 		{
 			//we didn't backup, so return FALSE
 			$this->add_result("Database backup off",2);
-			$this->add_result('--',2);
 			return FALSE;
 		}
 	}
@@ -518,7 +503,6 @@ class SitePushCore
 		if( $already_cleared_backups )
 		{
 			$this->add_result("Skipping backup clear because we've already run it.",3);
-			$this->add_result('--',3);
 			return FALSE;
 		}
 		else
@@ -529,14 +513,12 @@ class SitePushCore
 		if( empty($this->dest_backup_path) )
 		{
 			$this->add_result("Skipping backup clear because backup directory not set.",3);
-			$this->add_result('--',3);
 			return FALSE;
 		}
 
 		if( !$this->options->backup_keep_time )
 		{
 			$this->add_result("Not clearing backups.",3);
-			$this->add_result('--',3);
 			return FALSE;
 		}
 
@@ -566,7 +548,6 @@ class SitePushCore
 		if( ! $have_deleted )
 			$this->add_result('No old backups found to delete', 2);
 		
-		$this->add_result('--', $have_deleted ? 1 : 2);
 		return $have_deleted;
 	}
 	
@@ -674,9 +655,8 @@ class SitePushCore
 		else
 		{
 			//make sure dest dir exists
-			shell_exec("mkdir -p {$dest_path}");
-			//php mkdir gives warning if dir or parent already exists
-			//if( ! file_exists($dest_path) ) mkdir($dest_path,0755,TRUE);
+			//note - mkdir gives warning if dir or parent already exists
+			if( ! file_exists($dest_path) ) @mkdir($dest_path,0755,TRUE);
 		}
 		
 		//add the excludes to the options
@@ -712,8 +692,7 @@ class SitePushCore
 
 		//run the command
 		$this->my_exec($command);
-		$this->add_result('--');
-		
+
 		//turn maintenance mode off
 		if( $maint_mode ) $this->set_maintenance_mode('off');
 
@@ -771,10 +750,10 @@ class SitePushCore
 		if( !$this->source_backup_path ) return FALSE;
 	
 		//define the undo file
-		$this->undo_file = "{$this->source_backup_path}/{$this->dest}-{$this->timestamp}.undo";
+		$undo_file = "{$this->source_backup_path}/{$this->dest}-{$this->timestamp}.undo";
 		
 		//write file so we know what the last timestamp for backups was
-		file_put_contents($this->source_backup_path . '/last', $this->undo_file);
+		file_put_contents($this->source_backup_path . '/last', $undo_file);
 
 		$undo_text = "#\n# start undo\n#\n";
 		foreach( $undos as $key=>$undo )
@@ -804,9 +783,9 @@ class SitePushCore
 		}
 		$undo_text .= "#\n# end undo\n#\n\n\n";
 		
-		if( file_exists($this->undo_file) ) chmod($this->undo_file, 0600);
-		$result = file_put_contents($this->undo_file, $undo_text, FILE_APPEND);
-		chmod($this->undo_file, 0400);
+		if( file_exists($undo_file) ) chmod($undo_file, 0600);
+		$result = file_put_contents($undo_file, $undo_text, FILE_APPEND);
+		chmod($undo_file, 0400);
 
 		return (bool) $result;
 	}
@@ -969,7 +948,6 @@ class SitePushCore
 
 		$this->add_result( "Maintenance mode {$switch}" );
 		$this->my_exec($command,3);
-		$this->add_result('--');
 
 		//remember whether or not we are in maint mode
 		$this->maintenance_mode = $switch;

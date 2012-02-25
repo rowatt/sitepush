@@ -163,10 +163,11 @@ class SitePushOptions
 		if( !array_key_exists('plugins',          $options) )            $options['plugins']                     = array();
 		if( !array_key_exists('never_manage',     $options['plugins']) ) $options['plugins']['never_manage']     = array(); //only used internally, not user settable
 
+		$plugin_activates = array();
+
 		//set options for plugins to activate on live sites
 		if( !empty($options['plugin_activates']) )
 		{
-			$plugin_activates = array();
 			foreach( explode("\n",$options['plugin_activates']) as $plugin )
 			{
 				$plugin = trim( $plugin );
@@ -470,11 +471,9 @@ class SitePushOptions
 	}
 
 	/**
-	 * site_init
-	 * 
 	 * Initialise params & set defaults for a single site
 	 *
-	 * @param array $params params for site
+	 * @param array $options params for site
 	 * @return array params with defaults set
 	 */
 	public function site_init( $options=array() )
