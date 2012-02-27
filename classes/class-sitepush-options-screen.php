@@ -19,8 +19,11 @@ class SitePush_Options_Screen extends SitePush_Screen
 			<h2>SitePush Options</h2>
 
 			<?php
-			//show errors/notices
-			settings_errors();
+			//show errors/notices but only if we are updating, unless it's a fatal error
+			if( empty($_GET['settings-updated']) )
+				SitePushErrors::errors();
+			else
+				SitePushErrors::errors('fatal-errors');
 
 			if( $this->plugin->abort )
 				{
@@ -254,14 +257,14 @@ class SitePush_Options_Screen extends SitePush_Screen
 			  , 'description' => ''
 			  , 'rows' => ''
 			  , 'class' => 'large-text'
-			  , 'value' => ''
+			  , 'value' => NULL
 		);
 		extract( wp_parse_args( $vars , $defaults ) );
 
 		if( $class ) $class = " class='{$class}'";
 		if( $rows ) $rows = " rows='{$rows}'";
 
-		if( !$value )
+		if( is_null($value) )
 			$value = $this->options->$field ? $this->options->$field : '';
 
 		$output = "<textarea id='mra_sitepush_field_{$field}' name='mra_sitepush_options[{$field}]' type='text'{$class}{$rows}>{$value}</textarea>";

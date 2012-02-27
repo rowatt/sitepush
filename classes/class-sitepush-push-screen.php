@@ -65,11 +65,13 @@ class SitePush_Push_Screen extends SitePush_Screen
 			echo "<pre id='mra-sitepush-results'{$hide_html}>";
 
 			//Do the push!
-			$obj_sitepushcore = new SitePushCore( $push_options['source'], $push_options['dest'], $this->options );
+			$obj_sitepushcore = new SitePushCore( $push_options['source'], $push_options['dest'] );
 			$push_result = $this->plugin->do_the_push( $obj_sitepushcore, $push_options );
 
 			echo "</pre>";
-	
+
+			SitePushErrors::errors();
+
 			if( $this->plugin->errors )
 			{
 				foreach( $this->plugin->errors as $error )

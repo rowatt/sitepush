@@ -27,7 +27,8 @@ License: GPL2
 
 
 require_once('classes/class-sitepush-plugin.php');
-new SitePushPlugin;
+require_once('classes/class-sitepush-errors.php');
+SitePushPlugin::get_instance();
 
 //load classes which are required for admin
 if( is_admin() )

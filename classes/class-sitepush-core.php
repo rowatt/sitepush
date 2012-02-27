@@ -86,15 +86,14 @@ class SitePushCore
 
 	/**
 	 * @var string $source name of push source
-	 * @var string $dest name of push dest	 *
-	 * @var SitePushOptions object holding options
+	 * @var string $dest name of push dest
 	 */
-	function __construct( $source, $dest, $options )
+	function __construct( $source, $dest )
 	{
 		//set PHP script timelimit so push has plenty of time to complete
 		set_time_limit( $this->push_time_limit );
 
-		$this->options = $options;
+		$this->options = SitePushOptions::get_instance();
 		$this->check_requirements();
 
 		$this->source = $source;
@@ -121,22 +120,19 @@ class SitePushCore
 		if( $this->maintenance_mode=='on' ) $this->set_maintenance_mode('off');
 	}
 
-/* -------------------------------------------------------------- */
-/* !METHODS USED TO SET THINGS UP */
-/* -------------------------------------------------------------- */
+	/* -------------------------------------------------------------- */
+	/* !METHODS USED TO SET THINGS UP */
+	/* -------------------------------------------------------------- */
 
+	/**
+	 * Check that various required things are present.
+	 *
+	 * Currently all checks have fallbacks, so check always passes.
+	 *
+	 * @return bool
+	 */
 	public function check_requirements()
 	{
-		$errors = array();
-		
-		//get php version
-		if (!defined('PHP_VERSION_ID'))
-		{
-			$php_version = explode('.', PHP_VERSION);
-			define('PHP_VERSION_ID', ($php_version[0] * 10000 + $php_version[1] * 100 + $php_version[2]));
-		}
-		if( PHP_VERSION_ID < 50200 ) $errors[] = 'we need PHP 5.2';
-		
 		//if we can't find rsync/mysql/mysqldump at defined path, try without any path
 		if( !file_exists( $this->options->rsync_path ) )
 		{
@@ -163,16 +159,18 @@ class SitePushCore
 				$this->add_result("mysqldump not found at {$this->options->mysqldump_path}, using 'mysqldump' instead and hoping system path is set correctly",3);
 		}
 
-		$this->errors = array_merge($this->errors, $errors);
-		
-		return ! (bool) $errors;			
+		return TRUE;
 	}
 
-/* -------------------------------------------------------------- */
-/* !PUBLIC METHODS */
-/* -------------------------------------------------------------- */
+	/* -------------------------------------------------------------- */
+	/* !PUBLIC METHODS */
+	/* -------------------------------------------------------------- */
 
-	//push everything as per parameters
+	/**
+	 * Push files as per parameters.
+	 *
+	 * Parameters are set as class properties and need to be set before pushing.
+	 */
 	public function push_files()
 	{
 		if( $this->push_plugins )
@@ -202,9 +200,7 @@ class SitePushCore
 	}
 	
 	/**
-	 * push_db function.
-	 * 
-	 * copy source db to destintation, with backup
+	 * Copy source DB to destintation, with backup
 	 * 
 	 * @param mixed $table_groups which groups of tables to push, either array of groups, or a single group as string
 	 * @access public
@@ -212,25 +208,13 @@ class SitePushCore
 	 */
 	public function push_db( $table_groups=array() )
 	{
-		// $this->set_all_params(); //@cleanup - should be ok to remove
-
 		$db_source = $this->options->get_db_params( $this->source );
 		$db_dest = $this->options->get_db_params( $this->dest );
 
-		if( empty( $db_source['prefix'] ) )
-			$this->errors[] = "You must set a database prefix for each database in dbs.ini.php";
-		if( $db_source['prefix'] <> $db_dest['prefix'] )
-			$this->errors[] = "Source and destination DB prefix must be the same.";
-		$this->db_prefix = $db_source['prefix'];
-
-		if( !$db_source || !$db_dest )
-			$this->errors[] = 'Unknown database source or destination';
-
 		if( $db_source['name'] == $db_dest['name'] )
-			$this->errors[] = 'Database not pushed. Source and destination databases are the same!';
+			SitePushErrors::add_error( 'Database not pushed. Source and destination databases cannot be the same.', 'fatal-error' );
 
-		if( $this->errors )
-			return FALSE;
+		if( SitePushErrors::is_error() ) return FALSE;
 
 		//work out which table(s) to push
 		if( $table_groups )
@@ -260,7 +244,15 @@ class SitePushCore
 	}
 		
 
-	//backs up and copies a database
+	/**
+	 * Back up and copy a database
+	 *
+	 * @param $db_source
+	 * @param $db_dest
+	 * @param string $tables
+	 * @param bool $maint_mode
+	 * @return bool|string
+	 */
 	private function copy_db($db_source, $db_dest, $tables='', $maint_mode=FALSE )
 	{
 		//check that mysql/mysqldump are present
