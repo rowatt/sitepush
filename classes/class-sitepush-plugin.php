@@ -61,6 +61,10 @@ class SitePushPlugin
 		require_once('class-sitepush-options.php');
 		$this->options = SitePushOptions::get_instance();
 
+		//add settings to plugin listing page
+		if( ! $this->abort )
+			add_filter( 'plugin_action_links', array( __CLASS__, 'plugin_links'), 10, 2 );
+
 		if( $this->options->OK & ! $this->abort )
 		{
 			//makes sure correct plugins activated/deactivated for site
@@ -69,8 +73,7 @@ class SitePushPlugin
 			//clears cache if proper $_GET params set, otherwise does nothing
 			$this->clear_cache();
 
-			//add settings to plugin listing page
-			add_filter( 'plugin_action_links', array( __CLASS__, 'plugin_links'), 10, 2 );
+			//override plugin activate/deactivate for plugins we are managing
 			add_filter( 'plugin_action_links', array( &$this, 'plugin_admin_override'), 10, 2 );
 
 			//content filters

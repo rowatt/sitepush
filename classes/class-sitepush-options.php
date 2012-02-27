@@ -95,12 +95,14 @@ class SitePushOptions
 
 		//initialise & validate db configs
 		$dbs_conf = $this->get_conf( $this->dbs_conf, 'DB ' );
+		$sites_conf = $this->get_conf( $this->sites_conf, 'Sites ' );
+		if( SitePushErrors::is_error() ) return FALSE;
 		$this->dbs = $this->dbs_init( $dbs_conf );
+		$this->sites = $this->sites_init( $sites_conf );
 		if( SitePushErrors::is_error() ) return FALSE;
 	
 		//initialise & validate site configs
-		$sites_conf = $this->get_conf( $this->sites_conf, 'Sites ' );
-		$this->sites = $this->sites_init( $sites_conf );
+		if( SitePushErrors::is_error() ) return FALSE;
 		if( SitePushErrors::is_error() ) return FALSE;
 
 		//set current site
@@ -130,7 +132,7 @@ class SitePushOptions
 		
 		foreach( $this->all_params as $param )
 		{
-			$update_options[ $param ] = $options[ $param ];
+			$update_options[ $param ] = empty($options[ $param ]) ? NULL : $options[ $param ];
 		}
 
 		if( !empty($options['plugins']['activate']) )
@@ -652,25 +654,25 @@ class SitePushOptions
 
 		if( empty($params['web_path']) )
 		{
-			SitePushErrors::add_error( "Required parameter web_path is missing from config for site {$params['name']}." );
+			SitePushErrors::add_error( "Required parameter web_path is missing from config for site <i>{$params['label']}</i>." );
 			$errors = TRUE;
 		}
 		elseif( !file_exists($params['web_path']) )
 		{
 			//@later this will need changing when we add remote sites
-			SitePushErrors::add_error( "The web path for site {$params['name']} ({$params['web_path']}) does not exist or is not accessible." );
+			SitePushErrors::add_error( "The web path for site <i>{$params['label']}</i> ({$params['web_path']}) does not exist or is not accessible." );
 			$errors = TRUE;
 		}
 
 		if( empty($params['db']) )
 		{
-			SitePushErrors::add_error( "Required parameter db is missing from config for site {$params['name']}." );
+			SitePushErrors::add_error( "Required parameter db is missing from config for site <i>{$params['label']}</i>." );
 			$errors = TRUE;
 		}
 
 		if( !array_key_exists($params['db'], $this->dbs) )
 		{
-			SitePushErrors::add_error( "Database {$params['db']} in config for {$params['name']} is not defined in database config file." );
+			SitePushErrors::add_error( "Database <i>{$params['db']}</i> in config for site <i>{$params['label']}</i> is not defined in database config file." );
 			$errors = TRUE;
 		}
 
@@ -693,7 +695,7 @@ class SitePushOptions
 		{
 			SitePushErrors::add_error( "No databases defined in dbs config file." );
 			return array();
-		};
+		}
 
 		//make sure db options set correctly
 		foreach( $dbs as $db=>$params )
@@ -737,7 +739,7 @@ class SitePushOptions
 		{
 			if( empty($params[$required]) )
 			{
-				SitePushErrors::add_error( "Required parameter {$required} is missing from config for database {$name}." );
+				SitePushErrors::add_error( "Required parameter <i>{$required}</i> is missing from config for database <i>{$name}</i>." );
 				$errors = TRUE;
 			}
 		}
@@ -747,6 +749,8 @@ class SitePushOptions
 			SitePushErrors::add_error( "Database prefix must be the same for all databases." );
 			$errors = TRUE;
 		}
+
+		$prefix = $params['prefix'];
 
 		return $errors;
 	}
