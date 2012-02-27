@@ -639,7 +639,7 @@ class SitePushCore
 			$undo_dir = "{$this->dest}-{$this->timestamp}-undo_files";
 			$undo['type'] = 'rsync';
 			$undo['original'] = $command;
-			//$undo['remote'] = $this->remote_shell; //@todo add remote
+			//$undo['remote'] = $this->remote_shell; //@later add remote
 			$undo['undo'][] = "cd '{$this->dest_backup_path}'; mkdir '{$undo_dir}'; cd '{$undo_dir}'; tar -zpxf '{$backup_file}'"; //prep
 			$undo['undo'][] = "'{$this->options->rsync_path}' {$rsync_options} '{$this->dest_backup_path}/{$undo_dir}/{$dir}/' '{$dest_path}'"; //sync
 			$this->write_undo_file( $undo );

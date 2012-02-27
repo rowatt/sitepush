@@ -29,7 +29,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 				return FALSE;
 
 			?>
-			<p>You are using SitePush version <?php $this->options->get_plugin_version(); ?>
+			<p>You are using SitePush version <?php echo $this->options->get_plugin_version(); ?>
 
 			<form action='options.php' method='post'>
 			<?php
@@ -57,7 +57,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function section_config_text()
 	{
-		echo '<p>Configuration and backup files should not be placed anywhere which is web readable. If possible, place these outside your web document root. For this site, the document root is at <br /><i>'.$_SERVER['DOCUMENT_ROOT'].'</i></p>';
+		echo '<p>Configuration and backup files should not be placed anywhere which is web readable. If possible, place these outside your web document root.<br />For this site, the document root is at <i>'.$_SERVER['DOCUMENT_ROOT'].'</i></p>';
 	}
 
 	function section_capabilities_text()
