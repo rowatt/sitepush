@@ -450,7 +450,7 @@ class SitePushOptions
 
 		if( !file_exists($conf_file) )
 		{
-			SitePushErrors::add_error( "{$type} config file not found at {$conf_file}." );
+			SitePushErrors::add_error( "{$type} config file not found at {$conf_file}" );
 			return array();
 		}
 		//get site info from the sites.conf file
