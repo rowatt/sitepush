@@ -56,7 +56,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 			update_user_option( get_current_user_id(), 'mra_sitepush_options', $user_options );
 
 			// do the push!
-			if( $this->options->debug_output_level )
+			if( $this->plugin->can_admin() && $this->options->debug_output_level )
 				$hide_html = '';
 			else
 				$hide_html = ' style="display: none;"';
@@ -66,33 +66,34 @@ class SitePush_Push_Screen extends SitePush_Screen
 
 			//Do the push!
 			$obj_sitepushcore = new SitePushCore( $push_options['source'], $push_options['dest'] );
-			$push_result = $this->plugin->do_the_push( $obj_sitepushcore, $push_options );
+			if( !SitePushErrors::count_errors('all-errors') )
+				$push_result = $this->plugin->do_the_push( $obj_sitepushcore, $push_options );
+			else
+				$push_result = FALSE;
 
 			echo "</pre>";
 
-			SitePushErrors::errors();
-
-			if( $this->plugin->errors )
-			{
-				foreach( $this->plugin->errors as $error )
-				{
-					echo "<div class='error'><p>{$error}</p></div>";
-				}
-			}
-			elseif( $push_result )
+			if( $push_result )
 			{
 				if( $push_options['dry_run'] )
-					echo "<div class='updated'><p>Dry run complete! Nothing was actually pushed, but you can see what would have been done from the output above.</p></div>";
+					SitePushErrors::add_error( "Dry run complete. Nothing was actually pushed, but you can see what would have been done from the output above.", 'notice' );
+				elseif( SitePushErrors::count_errors('warning') )
+					SitePushErrors::add_error( "Push complete (with warnings).", 'notice' );
 				else
-					echo "<div class='updated'><p>Push complete!</p></div>";
+					SitePushErrors::add_error( "Push complete.", 'notice' );
+
 				//bit of a hack... do one page load for destination site to make sure SitePush has activated plugins etc
 				//before any user accesses the site
 				echo "<iframe src='http://{$obj_sitepushcore->dest_params['domain']}' class='hidden-iframe'></iframe>";
 			}
 			else
 			{
-				echo "<div class='error'><p>Nothing selected to push.</p></div>";
+				if( !SitePushErrors::is_error() )
+					SitePushErrors::add_error( "Nothing selected to push." );
 			}
+
+			SitePushErrors::errors();
+
 		}
 
 		
@@ -171,13 +172,13 @@ class SitePush_Push_Screen extends SitePush_Screen
 						$output = '';
 
 						if( !empty($this->options->cache_key) )
-							$output .= $this->option_html('clear_cache','Clear WordPress cache on destination','user','checked');
+							$output .= $this->option_html('clear_cache','Clear cache on destination','user','checked');
 
 						if( $this->options->backup_path )
 							$output .= $this->option_html('mra_sitepush_push_backup','Backup push (note - restoring from a backup is currently a manual process and requires command line access)','user','checked');
 
 						if( $this->options->debug_output_level >= 3 )
-							$output .= $this->option_html('mra_sitepush_dry_run','Dry run (show what actions would be performed by push, but don\'t actually do anything)','admin');
+							$output .= $this->option_html('mra_sitepush_dry_run','Dry run (show what actions would be performed by push, but don\'t actually do anything)','admin_only');
 
 
 					/* No undo till we get it working properly!
@@ -192,7 +193,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<tr>
 						<th scope="row">&nbsp;</th>
 						<td>
-							<br /><span class="description">To push Wordpress core, plugins, theme code, users or site settings, please ask an administrator.</span>
+							<br /><span class="description">To push plugins, theme code, users or site settings, please ask an administrator.</span>
 						</td>
 					</tr>
 				<?php endif; ?>

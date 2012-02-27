@@ -73,9 +73,6 @@ class SitePushCore
 	//should push output be echoed in realtime?
 	public $echo_output = TRUE;
 
-	//holds any errors for later output
-	public $errors = array();
-	
 	//passwords will be replaced with **** in any log output
 	public $hide_passwords = TRUE;
 	
@@ -105,10 +102,18 @@ class SitePushCore
 
 		//get params for source and dest
 		$this->source_params = $this->options->get_site_params( $this->source );
-		if( !$this->source_params ) die("Unknown site config '{$this->source}'.\n"); //@todo better error handling
+		if( !$this->source_params )
+		{
+			SitePushErrors::add_error( "Unknown site config '{$this->source}'", 'fatal-error' );
+			return;
+		}
 
 		$this->dest_params = $this->options->get_site_params( $this->dest );
-		if( !$this->dest_params ) die("Unknown site config '{$this->dest}'.\n");
+		if( !$this->dest_params )
+		{
+			SitePushErrors::add_error( "Unknown site config '{$this->dest}'", 'fatal-error' );
+			return;
+		}
 
 		//create single timestamp for all backups
 		$this->timestamp = date('Ymd-His');
@@ -202,7 +207,7 @@ class SitePushCore
 	/**
 	 * Copy source DB to destintation, with backup
 	 * 
-	 * @param mixed $table_groups which groups of tables to push, either array of groups, or a single group as string
+	 * @param array $table_groups which groups of tables to push
 	 * @access public
 	 * @return bool result of push command
 	 */
@@ -211,74 +216,36 @@ class SitePushCore
 		$db_source = $this->options->get_db_params( $this->source );
 		$db_dest = $this->options->get_db_params( $this->dest );
 
+		//last minute error checking
 		if( $db_source['name'] == $db_dest['name'] )
 			SitePushErrors::add_error( 'Database not pushed. Source and destination databases cannot be the same.', 'fatal-error' );
-
+		if( ! shell_exec("{$this->options->mysql_path} --version") )
+			SitePushErrors::add_error( 'mysql not found or not configured properly.' );
+		if( ! shell_exec("{$this->options->mysqldump_path} --version") )
+			SitePushErrors::add_error( 'mysqldump not found or not configured properly.' );
 		if( SitePushErrors::is_error() ) return FALSE;
 
 		//work out which table(s) to push
+		$tables = '';
 		if( $table_groups )
 		{
-			$tables = '';
-			if( is_array($table_groups) )
+			foreach( $table_groups as $table_group )
 			{
-				foreach( $table_groups as $table_group )
-				{
-					$tables .= ' ' . $this->get_tables( $table_group );
-				}
+				$tables .= ' ' . $this->get_tables( $table_group );
 			}
-			else
-			{
-				$tables .= ' ' . $this->get_tables( $table_groups );
-			}
-		}
-		else
-		{
-			$tables = '';
 		}
 		$tables = trim($tables);
 		if( $tables ) 
 			$tables = "--tables {$tables}"; //tables parameter isn't strictly speaking necessary, but we'll use it just to be safe
 
-		return $this->copy_db($db_source, $db_dest, $tables, TRUE);
-	}
-		
-
-	/**
-	 * Back up and copy a database
-	 *
-	 * @param $db_source
-	 * @param $db_dest
-	 * @param string $tables
-	 * @param bool $maint_mode
-	 * @return bool|string
-	 */
-	private function copy_db($db_source, $db_dest, $tables='', $maint_mode=FALSE )
-	{
-		//check that mysql/mysqldump are present
-		$errors = array();
-		$result = shell_exec("{$this->options->mysql_path} --version");
-		if( !$result ) $errors[]='mysql not found or not configured properly.';
-		$result = shell_exec("{$this->options->mysqldump_path} --version");
-		if( !$result ) $errors[]='mysqldump not found or not configured properly.';
-		if( $errors )
-		{
-			$this->errors = array_merge($this->errors, $errors);
-			return FALSE;
-		}
-
+		//backup database
 		$backup_file = $this->database_backup($db_dest);
 
+		//create mysql command
 		$source_host = !empty($db_source['host']) ? " --host={$db_source['host']}" : '';
 		$dest_host = !empty($db_dest['host']) ? " --host={$db_dest['host']}" : '';
-		
-		$test = '';
-		//$test = " --ignore-table={$db_source['name']}.wp_posts";
-		
-		$dump_command = "{$this->options->mysqldump_path} {$this->dump_options}{$source_host}{$test} -u {$db_source['user']} -p'{$db_source['pw']}' {$db_source['name']} {$tables}";
-		
+		$dump_command = "{$this->options->mysqldump_path} {$this->dump_options}{$source_host} -u {$db_source['user']} -p'{$db_source['pw']}' {$db_source['name']} {$tables}";
 		$mysql_command = "{$this->options->mysql_path} -D {$db_dest['name']} -u {$db_dest['user']}{$dest_host} -p'{$db_dest['pw']}'";
-
 		$command = "{$dump_command} | " . $this->make_remote($mysql_command);
 
 		//write file which will undo the push
@@ -292,7 +259,7 @@ class SitePushCore
 		}
 		
 		//turn maintenance mode on
-		if( $maint_mode ) $this->set_maintenance_mode('on');
+		$this->set_maintenance_mode('on');
 		
 		if( $tables )
 			$this->add_result("Pushing database tables from {$db_source['label']} to {$db_dest['label']}: {$tables}");
@@ -301,47 +268,55 @@ class SitePushCore
 		$this->add_result("Database source: {$db_source['label']} ({$db_source['name']}) on {$this->source_params['domain']}",2);
 		$this->add_result("Database dest: {$db_dest['label']} ({$db_dest['name']}) on {$this->dest_params['domain']}",2);
 
-		//@todo $this->dest_params etc is null, also lots of other $this-> properties null???
-
+		//run the command
 		$result = $this->my_exec($command);
 
 		//turn maintenance mode off
-		if( $maint_mode ) $this->set_maintenance_mode('off');
-		
+		$this->set_maintenance_mode('off');
+
 		return $result;
 	}
 	
 
 	/**
-	 * clear_cache
-	 * 
-	 * Clears caches on destination. Will attempt to clear W3TC and SuperCache,
+	 * Clear caches on destination. Will attempt to clear W3TC and SuperCache,
 	 * and empty any directories defined in sites.ini.php 'caches' parameter.
 	 * 
 	 * @return bool TRUE if any cache cleared, FALSE otherwise
 	 */
 	public function clear_cache()
 	{
-		// $this->set_all_params(); //@cleanup - should be ok to remove
-		$result = '';
 		$return = FALSE;
 
 		//clear any cache directories defined by site parameters
-		if( array_key_exists('caches', $this->sites[$this->dest]) && is_array($this->sites[$this->dest]['caches']) )
+		if( !empty($this->dest_params['caches']) )
 		{
-			foreach( $this->sites[$this->dest]['caches'] as $cache )
+			if( !is_array($this->dest_params['caches']) )
+				$this->dest_params['caches'] = (array) $this->dest_params['caches'];
+			foreach( $this->dest_params['caches'] as $cache )
 			{
-				$cache_path = $this->trailing_slashit($this->dest_params['web_path']) . ltrim($this->trailing_slashit($cache),'/') . '*';
-				$command = $this->make_remote("rm -rf {$cache_path}");
-				$result .= "Clearing cache {$cache} " . $this->my_exec($command) ."\n";
-				$return = TRUE;
+				$cache_path = $this->trailing_slashit($this->dest_params['web_path']) . ltrim($this->trailing_slashit($cache),'/');
+				if( file_exists($cache_path) )
+				{
+					$command = $this->make_remote("rm -rf {$cache_path}*");
+					$this->add_result( "Clearing file cache ({$cache}) on {$this->dest_params['label']}", 1 );
+					$result = $this->my_exec($command);
+					if( $result )
+						$this->add_result( "Result: {$result}", 3 );
+					$return = TRUE;
+				}
 			}
 		}
 		
 		//cache not active on destination, so don't try to clear it
-		if( empty($this->sites[$this->dest]['cache']) )
+		if( empty($this->dest_params['cache']) )
 		{
-			$result .= "WordPress cache is not activated on destination site";
+			if( !$return )
+			{
+				$error = "Cache not cleared: WordPress cache is not activated on {$this->dest_params['label']}";
+				$this->add_result( $error , 1 );
+				SitePushErrors::add_error( $error, 'warning' );
+			}
 		}
 		else
 		{
@@ -357,26 +332,22 @@ class SitePushCore
 			if( $cc_result['code']==200 )
 			{
 				//sucess
-				$result .= "Cache: {$result_text}";
+				$this->add_result( "Cache: {$result_text}", 1 );
 				$return = TRUE;
 			}
 			elseif(  $cc_result['code']==401 )
 			{
 				$error = "Cache: could not access destination site to clear cache because authorisation failed (check in your .htaccess that this server can access the destination) [{$cc_result['code']}]";
-				$result .= $error;
-				$result .= "\n{$url}";
-				$this->errors[] = $error;
+				$this->add_result( $error, 1 );
+				SitePushErrors::add_error( $error );
 			}
 			else
 			{	
 				$error = "Error clearing cache: {$result_text}[{$cc_result['code']}]";
-				$result .= $error;
-				$result .= "\n{$url}";
-				$this->errors[] = $error;
+				$this->add_result( $error, 1 );
+				SitePushErrors::add_error( $error );
 			}
 		}
-			
-		$this->add_result($result);
 
 		return $return;
 	}
@@ -387,9 +358,7 @@ class SitePushCore
 /* -------------------------------------------------------------- */
 	
 	/**
-	 * file_backup
-	 * 
-	 * backup a directory before we push files
+	 * Backup a directory before we push files
 	 *
 	 * @param string $path path of dir to backup
 	 * @param string $backup_name label for the backup file (defaults to last directory of $path)
@@ -446,7 +415,12 @@ class SitePushCore
 		}
 	}
 	
-	//backup the database before we push
+	/**
+	 * Backup a database before we push
+	 *
+	 * @param array $db DB config array
+	 * @return string|bool path to backup file or FALSE if no backup
+	 */
 	private function database_backup( $db )
 	{
 		if( $this->do_backup )
@@ -481,10 +455,9 @@ class SitePushCore
 	}
 	
 	/**
-	 * clear_old_backups
-	 * 
-	 * Deletes old backups. Backups older than the backup_keep_time option will be deleted.
+	 * Delete old backups. Backups older than the backup_keep_time option will be deleted.
 	 * It runs whenever a new backup is made.
+	 *
 	 * @later will need to be updated for remote site backups
 	 *
 	 * @return bool TRUE if any backups deleted
@@ -542,22 +515,24 @@ class SitePushCore
 		
 		return $have_deleted;
 	}
-	
-	//get tables for any given push group
+
+	/**
+	 * Get tables for any given push group.
+	 *
+	 * Table groups can be:-
+	 *  - content = wp_links, wp_postmeta, wp_posts, wp_term_relationships, wp_term_taxonomy, wp_terms
+	 *  - options = wp_options
+	 *  - comments = wp_commentmeta, wp_comments
+	 *  - users = wp_usermeta, wp_users
+	 *  - all-tables = the whole database
+	 *
+	 * @later add custom table groups
+	 *
+	 * @param string $group name of a table group
+	 * @return string list of tables for group
+	 */
 	private function get_tables( $group )
 	{
-	
-	/*
-		Table groups:-
-		options = wp_options
-		comments = wp_commentmeta, wp_comments
-		content = wp_links, wp_postmeta, wp_posts, wp_term_relationships, wp_term_taxonomy, wp_terms
-		users = wp_usermeta, wp_users
-		forms = gravity forms
-		form-data = data collected by gravity forms
-		all-tables = the whole database - use with caution!
-	*/
-	
 		switch( $group )
 		{
 			case 'options':
@@ -590,13 +565,8 @@ class SitePushCore
 		return $tables;
 	}
 	
-	//
-	//
-	//
 	/**
-	 * copy_files
-	 *
-	 * Copies files from source to dest deleting anything in dest not in source.
+	 * Copy files from source to dest deleting anything in dest not in source.
 	 * Aborts if either source or dest is a symlink.
 	 *
 	 * @param string $source_path
@@ -611,7 +581,7 @@ class SitePushCore
 		//check that rsync is present
 		if( !shell_exec("{$this->options->rsync_path} --version") )
 		{
-			$this->errors[]='rsync not found or not configured properly.';
+			SitePushErrors::add_error( 'rsync not found or not configured properly.', 'error' );
 			return FALSE;
 		}
 
@@ -624,16 +594,17 @@ class SitePushCore
 		//don't copy if source or dest are symlinks
 		if( is_link( rtrim($source_path,'/') ) )
 		{
-			$this->errors[] = "Could not push from {$source_path} because it is a symlink and not a real directory.";
+			SitePushErrors::add_error( "Could not push from {$source_path} because it is a symlink and not a real directory." );
 			return FALSE;
 		}
 		elseif( is_link( rtrim($dest_path,'/') ) )
 		{
-			$this->errors[] = "Could not push to {$dest_path} because it is a symlink and not a real directory.";
+			SitePushErrors::add_error( "Could not push to {$dest_path} because it is a symlink and not a real directory." );
 			return FALSE;
 		}
 		
 		//are we syncing to a remote server?
+		//@later still to implement remote
 		$remote_site = '';
 		if( !empty($this->dest_params['remote']) )
 		{
@@ -691,12 +662,19 @@ class SitePushCore
 		return TRUE;
 	}
 
-	//if destination is remote, run command through remote shell
-	//@later - add remote capabilities
-	private function make_remote( $command, $remote='not_set' )
+	/**
+	 * Make a command suitable for running on a remote system. If destination is remote, run command through remote shell
+	 *
+	 * @later not currently implemented
+	 *
+	 * @param $command
+	 * @param string $remote
+	 * @return mixed
+	 */
+	private function make_remote( $command, $remote=NULL )
 	{
 		/*
-		if( $remote=='not_set') $remote = $this->dest_params['remote'];
+		if( is_null($remote) ) $remote = $this->dest_params['remote'];
 		if( $remote )
 		{
 			$command = "{$this->remote_shell} '{$command}'";
@@ -705,33 +683,8 @@ class SitePushCore
 		return $command;
 	}
 	
-	//wrapper for file_put_contents which works for remote site as well
-	private function dest_file_put_contents( $filename, $data , $flags=NULL, $context=NULL )
-	{
-		if( $this->dest_params['remote'] )
-		{
-			if( $flags & FILE_APPEND )
-				$command = "echo \"{$data}\" >> $filename";
-			else
-				$command = "echo \'{$data}\' > $filename";
-				
-			$command = $this->make_remote($command);
-
-			$result = $this->my_exec($command);
-		}
-		else
-		{
-			$result = file_put_contents($filename, $data, $flags, $context );
-		}
-		
-		return $result;
-	}
-	
-
 	/**
-	 * write_undo_file
-	 *
-	 * Writes undo actions to undo file.
+	 * Write undo actions to undo file.
 	 * Undo file is always written to source, so it may be in different place to the backups if we are pushing to a remote server.
 	 *
 	 * @param array $undos undo actions to be written to file
@@ -781,12 +734,25 @@ class SitePushCore
 
 		return (bool) $result;
 	}
-	
+
+	/**
+	 * Make sure a path ends in a slash
+	 *
+	 * @param $path
+	 * @return string
+	 */
 	private function trailing_slashit( $path )
 	{
 		return rtrim( $path , '/' ) . '/';
 	}
-	
+
+	/**
+	 * Wrapper for shell_exec etc which adds logging and does nothing if dry_run is set
+	 *
+	 * @param $command
+	 * @param int $log_level
+	 * @return bool|string
+	 */
 	private function my_exec($command,$log_level=3)
 	{
 		$log_command = htmlspecialchars($command);
@@ -807,8 +773,13 @@ class SitePushCore
 		}
 	
 	}
-	
-	//masks password for logs
+
+	/**
+	 * Mask password for logs
+	 *
+	 * @param $command
+	 * @return mixed
+	 */
 	private function sanitize_cmd($command)
 	{
 		if( !$this->hide_passwords ) return $command;
@@ -821,7 +792,12 @@ class SitePushCore
 		return str_replace(array($db_source['pw'], $db_dest['pw']), array('*****', '*****'), $command);
 	}
 	
-	//config add params for echo or not
+	/**
+	 * Add a result to results array and optionally output
+	 *
+	 * @param string $result
+	 * @param int $log_level log level for this result
+	 */
 	private function add_result( $result, $log_level=1 )
 	{
 		$this->results[] = array( 'level'=>$log_level, 'msg'=>trim($this->sanitize_cmd($result)) );
@@ -838,9 +814,7 @@ class SitePushCore
 	}
 	
 	/**
-	 * get_results
-	 * 
-	 * returns results up to defined log level
+	 * Return results up to defined log level
 	 *
 	 * @param mixed $max_level output up to log level $max_level
 	 * @return string results
@@ -860,8 +834,17 @@ class SitePushCore
 		return $output;
 	}
 	
-	//function for sending http request and getting results
-	//based on code from iContact
+	/**
+	 * Send http request and get results. Used for cache clearing.
+	 *
+	 * Based on code sample from iContact
+	 *
+	 * @param $url
+	 * @param string $method
+	 * @param mixed $data
+	 * @param string $type
+	 * @return array results from call
+	 */
 	private function callResource($url, $method='GET', $data = null, $type='text')
 	{
 		$handle = curl_init();
@@ -915,7 +898,12 @@ class SitePushCore
 		);
 	}
 
-	//turns WP maintenance mode on/off
+	/**
+	 * Turn WP maintenance mode on/off
+	 *
+	 * @param bool $switch
+	 * @return bool
+	 */
 	private function set_maintenance_mode( $switch=FALSE )
 	{
 		$maint_file = '<?php \$upgrading='.time().'; ?>';
@@ -1007,6 +995,37 @@ METHODS FOR FUTURE DEVELOPMENT
 		$last_time = substr( $undo_file, -11, 6);
 		$last_date = substr( $undo_file, -20, 8);
 		return strtotime("{$last_date}T{$last_time}");
+	}
+
+
+	/**
+	 * Wrapper for file_put_contents which works for remote site as well
+	 *
+	 * @param $filename
+	 * @param $data
+	 * @param null $flags
+	 * @param null $context
+	 * @return bool|int|string
+	 *
+	private function dest_file_put_contents( $filename, $data , $flags=NULL, $context=NULL )
+	{
+		if( $this->dest_params['remote'] )
+		{
+			if( $flags & FILE_APPEND )
+				$command = "echo \"{$data}\" >> $filename";
+			else
+				$command = "echo \'{$data}\' > $filename";
+
+			$command = $this->make_remote($command);
+
+			$result = $this->my_exec($command);
+		}
+		else
+		{
+			$result = file_put_contents($filename, $data, $flags, $context );
+		}
+
+		return $result;
 	}
 
 

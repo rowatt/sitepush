@@ -20,21 +20,16 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 			<?php
 			//show errors/notices but only if we are updating, unless it's a fatal error
-			if( empty($_GET['settings-updated']) )
+			if( ! empty($_GET['settings-updated']) )
 				SitePushErrors::errors();
 			else
 				SitePushErrors::errors('fatal-errors');
 
 			if( $this->plugin->abort )
-				{
-					foreach( $this->plugin->errors as $error )
-					{
-						echo "<div class='error'><p>{$error}</p></div>";
-					}
-					return FALSE;
-				}
+				return FALSE;
+
 			?>
-			<p>You are using SitePush version <?php $pd=get_plugin_data( WP_PLUGIN_DIR .'/' . MRA_SITEPUSH_BASENAME ); echo $pd['Version']; ?>
+			<p>You are using SitePush version <?php $this->options->get_plugin_version(); ?>
 
 			<form action='options.php' method='post'>
 			<?php
@@ -118,7 +113,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_accept()
 	{
-		echo $this->input_checkbox('accept',' I have read the instructions, backed up my site and accept the risks.', '' );
+		echo $this->input_checkbox('accept',' I have read the instructions, backed up my site and accept the risks.' );
 	}
 
 	function field_sites_conf()
@@ -131,6 +126,58 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_text('dbs_conf','','large-text');
 	}
 
+	function field_make_relative_uris()
+	{
+		echo $this->input_checkbox('make_relative_uris', ' Convert all URLs to this site to relative URIs', 'Make sure that any URLs to any of your sites domains are converted to a relative URI. <br />For example http://dev.mysite.com/mypage would be converted to /mypage.<br />This helps to make sure that URLs work across different versions of your sites.');
+	}
+
+	function field_timezone()
+	{
+		echo $this->input_text('timezone','Your default timezone is  <i>' . date_default_timezone_get() . '</i>. If that is not correct, enter your timezone here to make sure that logs and reporting are in your correct local time. See <a href="http://php.net/manual/en/timezones.php" target="_blank">list of supported timezones</a> for valid values.');
+	}
+
+	function field_debug_output_level()
+	{
+		echo $this->input_text('debug_output_level','How much debug output is shown. Enter a number from 0 (no debug output) to 3 (detailed output).<br />Debug output is only ever shown to people with SitePush admin capability.','small-text');
+	}
+
+	function field_capability()
+	{
+		echo $this->input_text('capability');
+	}
+
+	function field_admin_capability()
+	{
+		echo $this->input_text('admin_capability');
+	}
+
+	function field_cache_key()
+	{
+		$extra_text = empty( $this->options->cache_key ) ? "<br />A random string you could use: " .  md5( microtime() ) : '';
+
+		echo $this->input_text('cache_key', "A hard to guess secret key. This ensures that the cache is only cleared on a destination site when you want it to.<br />This key must be the same on all sites which you push to from this site.{$extra_text}");
+	}
+
+	function field_plugin_activates()
+	{
+		echo $this->input_textarea(	array(
+		                                    'field' => 'plugin_activates'
+		                                    , 'value' => implode( "\n", $this->options->plugins['activate'] )
+		                                    , 'description' => 'Plugins which are to be automatically activated for any site which is classed as live, and deactivated on all others. One plugin per line, use the full path to the plugin from your plugins directory, e.g. "myplugin/myplugin.php"'
+		                                    , 'rows' => max( 3, 2+count($this->options->plugins['activate']) )
+		                               ));
+	}
+
+	function field_plugin_deactivates()
+	{
+		echo $this->input_textarea(	array(
+		                                    'field' => 'plugin_deactivates'
+		                                    , 'value' => implode( "\n", $this->options->plugins['deactivate'] )
+		                                    , 'description' => 'Plugins which are to be automatically deactivated for any site which is not classed as live, and activated on all others. One plugin per line, use the full path to the plugin from your plugins directory, e.g. "myplugin/myplugin.php"'
+		                                    , 'rows' => max( 3, 2+count($this->options->plugins['deactivate']) )
+		                               ));
+	}
+
 	function field_backup_path()
 	{
 		echo $this->input_text('backup_path','If you leave this blank, destination site will not be backed up before a push.','large-text');
@@ -140,7 +187,6 @@ class SitePush_Options_Screen extends SitePush_Screen
 	{
 		echo $this->input_text('backup_keep_time','SitePush backups will be deleted after they are this many days old. Backups will never be deleted if set to 0.','small-text');
 	}
-
 
 	function field_rsync_path()
 	{
@@ -186,54 +232,18 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_text('mysqldump_path',$help,'large-text');
 	}
 
-	function field_timezone()
-	{
-		echo $this->input_text('timezone','Your default timezone is  <i>' . date_default_timezone_get() . '</i>. If that is not correct, enter your timezone here to make sure that logs and reporting are in your correct local time. See <a href="http://php.net/manual/en/timezones.php" target="_blank">list of supported timezones</a> for valid values.');
-	}
+	/* --------------------------------------------------------------
+	/* ! Generate HTML fields
+	/* -------------------------------------------------------------- */
 
-	function field_debug_output_level()
-	{
-		echo $this->input_text('debug_output_level','How much debug output is shown. Enter a number from 0 (no debug output) to 3 (detailed output).<br />Debug output is only ever shown to people with SitePush admin capability.','small-text');
-	}
-
-	function field_capability()
-	{
-		echo $this->input_text('capability');
-	}
-
-	function field_admin_capability()
-	{
-		echo $this->input_text('admin_capability');
-	}
-
-	function field_cache_key()
-	{
-		$extra_text = empty( $this->options->cache_key ) ? "<br />A random string you could use: " .  md5( microtime() ) : '';
-
-		echo $this->input_text('cache_key', "A hard to guess secret key. This ensures that the cache is only cleared on a destination site when you want it to.<br />This key must be the same on all sites which you push to from this site.{$extra_text}");
-	}
-
-	function field_plugin_activates()
-	{
-		echo $this->input_textarea(	array(
-					  'field' => 'plugin_activates'
-					, 'value' => implode( "\n", $this->options->plugins['activate'] )
-					, 'description' => 'Plugins which are to be automatically activated for any site which is classed as live, and deactivated on all others. One plugin per line, use the full path to the plugin from your plugins directory, e.g. "myplugin/myplugin.php"'
-					, 'rows' => max( 3, 2+count($this->options->plugins['activate']) )
-		));
-	}
-
-	function field_plugin_deactivates()
-	{
-		echo $this->input_textarea(	array(
-					  'field' => 'plugin_deactivates'
-					, 'value' => implode( "\n", $this->options->plugins['deactivate'] )
-					, 'description' => 'Plugins which are to be automatically deactivated for any site which is not classed as live, and activated on all others. One plugin per line, use the full path to the plugin from your plugins directory, e.g. "myplugin/myplugin.php"'
-					, 'rows' => max( 3, 2+count($this->options->plugins['deactivate']) )
-		));
-	}
-
-	// actual HTML creator
+	/**
+	 * Generate a text field
+	 *
+	 * @param $field
+	 * @param string $description
+	 * @param string $class CSS class
+	 * @return string HTML output
+	 */
 	function input_text( $field, $description='', $class='regular-text' )
 	{
 		if( $class ) $class=" class='{$class}'";
@@ -245,6 +255,12 @@ class SitePush_Options_Screen extends SitePush_Screen
 		return $output;
 	}
 
+	/**
+	 * Generate a textarea field
+	 *
+	 * @param array $vars
+	 * @return string HTML output
+	 */
 	function input_textarea( $vars=array() )
 	{
 		/** @var string $field */
@@ -273,7 +289,14 @@ class SitePush_Options_Screen extends SitePush_Screen
 		return $output;
 	}
 
-
+	/**
+	 * Generate radio button group
+	 *
+	 * @param $field
+	 * @param $radio_options
+	 * @param string $description
+	 * @return string HTML output
+	 */
 	function input_radio( $field, $radio_options, $description='' )
 	{
 		$output = '';
@@ -289,7 +312,15 @@ class SitePush_Options_Screen extends SitePush_Screen
 		return $output;
 	}
 
-	function input_checkbox( $field, $description, $class='' )
+	/**
+	 * Generate checkbox field
+	 *
+	 * @param $field
+	 * @param $description
+	 * @param string $class
+	 * @return string HTML output
+	 */
+	function input_checkbox( $field, $description, $help='', $class='' )
 	{
 		if( $class ) $class=" class='{$class}'";
 
@@ -297,10 +328,16 @@ class SitePush_Options_Screen extends SitePush_Screen
 		$output = "<label for='mra_sitepush_field_{$field}'{$class}>";
 		$output .= "<input id='mra_sitepush_field_{$field}' name='mra_sitepush_options[{$field}]' type='checkbox'{$checked} />";
 		$output .= "{$description}</label>";
+		if( $help )
+			$output .= "<span class='description' style='display:block;'>{$help}</span>";
 		return $output;
 	}
 
-	//gets list of all installed plugins which are not managed by SitePush
+	/**
+	 * Get list of all installed plugins which are not managed by SitePush
+	 *
+	 * @return array plugins
+	 */
 	function get_other_plugins()
 	{
 		$other_plugins = array();

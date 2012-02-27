@@ -2,7 +2,7 @@
 
 /**
  * Holds and displays errors. An error can be of 4 types:-
- *   - fatal_error
+ *   - fatal-error
  *   - error
  *   - warning
  *   - notice
@@ -12,7 +12,7 @@
 class SitePushErrors
 {
 	public static $errors = array();
-	private static $error_types = array( 'fatal_error', 'error', 'warning', 'notice' );
+	public static $force_show_wp_errors = FALSE;
 
 	static public function add_error( $message, $type='error', $field=NULL )
 	{
@@ -32,6 +32,10 @@ class SitePushErrors
 				$count += count( $error_type );
 			}
 		}
+		elseif( 'all-errors'==$type )
+		{
+			$count = self::count_errors( 'error' ) + self::count_errors( 'fatal-error' );
+		}
 		elseif( array_key_exists( $type, self::$errors ))
 		{
 			$count = count( self::$errors[$type] );
@@ -50,18 +54,30 @@ class SitePushErrors
 
 	static public function errors( $force_type=NULL )
 	{
+		$errors = self::$errors;
+		$show_wp_errors = self::$force_show_wp_errors || get_transient('sitepush_force_show_wp_errors');
+		delete_transient('sitepush_force_show_wp_errors');
+
 		if( is_null($force_type) || 'all' == $force_type )
 		{
-			foreach( self::$error_types as $type )
+			//show the most serious errors only
+			foreach( array( 'fatal-error', 'error') as $type )
 			{
 				if( !empty(self::$errors[$type]) )
 				{
-					echo self::get_error_html( self::$errors[$type], $type );
-					unset( self::$errors[$type] );
+					echo self::get_error_html( $type );
+					if( $show_wp_errors ) settings_errors();
 					if( 'all' <> $force_type ) return;
 				}
 			}
-			//if no errors of our own, show any errors/notices from WP settings_errors
+
+			//if no errors, show warnings, notices etc
+			foreach( array( 'warning', 'notice' ) as $type )
+			{
+				if( !empty(self::$errors[$type]) )
+					echo self::get_error_html( $type );
+			}
+
 			settings_errors();
 		}
 		else
@@ -74,15 +90,22 @@ class SitePushErrors
 		}
 	}
 
-	private static function get_error_html( $errors=array(), $type='error' )
+	private static function get_error_html( $type='error' )
 	{
 		$output = '';
-		$class = 'notice'==$type ? 'updated' : 'error';
-		foreach( $errors as $error )
+		$class = in_array( $type , array( 'fatal-error', 'error') ) ? 'error' : 'updated';
+		foreach(  self::$errors[$type] as $error )
 		{
 			$output .= "<div class='{$class}'><p><strong>{$error}</strong></p></div>";
 		}
+		unset( self::$errors[$type] );
 		return $output;
+	}
+
+	public static function force_show_wp_errors()
+	{
+		self::$force_show_wp_errors = TRUE;
+		set_transient('sitepush_force_show_wp_errors', TRUE, 30);
 	}
 
 }

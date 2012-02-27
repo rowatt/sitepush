@@ -24,7 +24,7 @@ class SitePushOptions
 	//parameters which get initialised and get whitespace trimmed
 	private $trim_params = array('sites_conf', 'dbs_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
 	//parameters which just get initialised
-	private $no_trim_params = array('accept', 'make_relative_urls');
+	private $no_trim_params = array('accept', 'make_relative_uris');
 	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'domain', 'domains', 'wp_dir' );
 	private $all_params; //set in __construct
 
@@ -51,7 +51,7 @@ class SitePushOptions
 	public $mysql_path;
 	public $mysqldump_path;
 
-	public $make_relative_urls; //@todo to add to WP options
+	public $make_relative_uris;
 
 	/**
 	 * Singleton instantiator
@@ -91,7 +91,7 @@ class SitePushOptions
 			$this->$option = $value;
 		}
 
-		if( !$this->options_validate( $options ) ) return FALSE;
+		if( !$this->options_validate( $options, FALSE ) ) return FALSE;
 
 		//initialise & validate db configs
 		$dbs_conf = $this->get_conf( $this->dbs_conf, 'DB ' );
@@ -122,8 +122,6 @@ class SitePushOptions
 	 */
 	public function update( $options=array() )
 	{
-return;
-
 		if( is_object($options) )
 			$options = (array) $options;
 	
@@ -166,6 +164,7 @@ return;
 		//General parameters
 		if( !array_key_exists( 'sites_conf', $options ) ) $options['sites_conf'] = '';
 		if( !array_key_exists( 'dbs_conf', $options ) ) $options['dbs_conf'] = '';
+		if( !array_key_exists( 'make_relative_uris', $options ) ) $options['make_relative_urls'] = TRUE;
 		if( !array_key_exists( 'timezone', $options ) ) $options['timezone'] = '';
 		if( !array_key_exists( 'debug_output_level', $options ) ) $options['debug_output_level'] = 0;
 
@@ -222,19 +221,20 @@ return;
 		if( !array_key_exists( 'backup_keep_time', $options ) || ''==$options['backup_keep_time'] ) $options['backup_keep_time'] = 10;
 
 		//rsync options
-		if( empty($options['rsync_path']) )
+		if( !array_key_exists( 'rsync_path', $options ) )
 			$options['rsync_path'] = $this->guess_path( 'rsync' );
 		if( !array_key_exists('dont_sync', $options) )
 			$options['dont_sync'] = '.git, .svn, .htaccess, tmp/, wp-config.php';
 
 		//mysql options
-		if( empty($options['mysql_path']) )
+		if( !array_key_exists( 'mysql_path', $options ) )
 			$options['mysql_path'] = $this->guess_path( 'mysql' );
-		if( empty($options['mysqldump_path']) )
+		if( !array_key_exists( 'mysqldump_path', $options ) )
 			$options['mysqldump_path'] = $this->guess_path( 'mysqldump' );
 
-		//other params not yet user settable
-		if( !array_key_exists( 'make_relative_urls', $options ) ) $options['make_relative_urls'] = FALSE;
+		//other non-user settable options
+		if( empty($options['sitepush_version']) )
+			$options['sitepush_version'] = $this->get_plugin_version();
 
 		return $options;
 	}
@@ -295,70 +295,110 @@ return;
 	}
 
 	/**
-	 * Validate config options, setting errors as appropriate. This is called when options are updated
-	 * from settings screen.
+	 * Validate config options, setting errors as appropriate.
+	 *
+	 * This is called when options are updated from settings screen, generating errors as appropriate,
+	 * and when plugin is initialised, in which case errors not generated and capabilities not checked.
 	 *
 	 * @param array $options options to validated
+	 * @param bool $update_check if FALSE, only validate, no error reporting and don't validate capabilities
 	 * @return bool TRUE if options OK, FALSE otherwise
 	 */
-	private function options_validate( &$options=array() )
+	private function options_validate( &$options=array(), $update_check = TRUE )
 	{
 		//if nothing is configured we don't validate, but no error generated
 		if( empty( $options ) )
 			return FALSE;
 
+		$valid = TRUE;
+
 		if( empty($options['accept']) )
-			SitePushErrors::add_error( 'You must accept the warning before using SitePush.', 'error', 'accept' );
+		{
+			if( $update_check ) SitePushErrors::add_error( 'You must accept the warning before using SitePush.', 'error', 'accept' );
+			$valid = FALSE;
+		}
 
 		if( empty( $options['sites_conf'] ) || !file_exists( $options['sites_conf'] ) )
-			SitePushErrors::add_error( 'Path not valid - sites config file not found.', 'error', 'sites_conf' );
+		{
+			if( $update_check ) SitePushErrors::add_error( 'Path not valid - sites config file not found.', 'error', 'sites_conf' );
+			$valid = FALSE;
+		}
 
 		if( empty( $options['dbs_conf'] ) ||  !file_exists( $options['dbs_conf'] ) )
-			SitePushErrors::add_error( 'Path not valid - DB config file not found.', 'error', 'dbs_conf' );
+		{
+			if( $update_check ) SitePushErrors::add_error( 'Path not valid - DB config file not found.', 'error', 'dbs_conf' );
+			$valid = FALSE;
+		}
 
 		if( !empty($options['sites_conf']) && !empty($options['dbs_conf']) && $options['dbs_conf'] == $options['sites_conf'] )
-			SitePushErrors::add_error( 'Sites and DBs config files cannot be the same file.', 'error', 'dbs_conf' );
+		{
+			if( $update_check ) SitePushErrors::add_error( 'Sites and DBs config files cannot be the same file.', 'error', 'dbs_conf' );
+			$valid = FALSE;
+		}
 
 		if( !empty($options['backup_path']) && !file_exists( $options['backup_path'] ) )
-			SitePushErrors::add_error( 'Path not valid - backup directory not found.', 'error', 'backup_path' );
+		{
+			if( $update_check ) SitePushErrors::add_error( 'Path not valid - backup directory not found.', 'error', 'backup_path' );
+			$valid = FALSE;
+		}
 
-		if( !file_exists( $options['rsync_path'] ) )
-			SitePushErrors::add_error( 'Path not valid - rsync not found.', 'error', 'rsync_path' );
+		if( $options['rsync_path'] && !file_exists( $options['rsync_path'] ) )
+		{
+			if( $update_check ) SitePushErrors::add_error( 'Path not valid - rsync not found.', 'error', 'rsync_path' );
+			$valid = FALSE;
+		}
 
-		if( !file_exists( $options['mysql_path'] ) )
-			SitePushErrors::add_error( 'Path not valid - mysql not found.', 'error', 'mysql_path' );
+		if( $options['mysql_path'] && !file_exists( $options['mysql_path'] ) )
+		{
+			if( $update_check ) SitePushErrors::add_error( 'Path not valid - mysql not found.', 'error', 'mysql_path' );
+			$valid = FALSE;
+		}
 
-		if( !file_exists( $options['mysqldump_path'] ) )
-			SitePushErrors::add_error( 'Path not valid - mysqldump not found.', 'error', 'mysqldump_path' );
+		if( $options['mysqldump_path'] && !file_exists( $options['mysqldump_path'] ) )
+		{
+			if( $update_check ) SitePushErrors::add_error( 'Path not valid - mysqldump not found.', 'error', 'mysqldump_path' );
+			$valid = FALSE;
+		}
 
 		if( !empty( $options['timezone'] ) )
 		{
 			@$tz=timezone_open( $options['timezone'] );
 			if( FALSE===$tz )
 			{
-				SitePushErrors::add_error( "{$options['timezone']} is not a valid timezone. See <a href='http://php.net/manual/en/timezones.php' target='_blank'>list of supported timezones</a> for valid values.", 'error', 'timezone' );
+				if( $update_check ) SitePushErrors::add_error( "{$options['timezone']} is not a valid timezone. See <a href='http://php.net/manual/en/timezones.php' target='_blank'>list of supported timezones</a> for valid values.", 'error', 'timezone' );
+				$valid = FALSE;
 			}
 		}
 
 		//Make sure current admin has whatever capabilities are required for SitePush
-		if( !current_user_can( $options['capability']) )
+		//we need to use WP settings_error API here, because error is fixed before SitePushErrors can report it
+		if( $update_check )
 		{
-			SitePushErrors::add_error( "SitePush capability ({$options['capability']}) cannot be a capability which you do not have.", 'error', 'capability' );
-			$options['capability'] = self::$default_capability;
-		}
-		if( !current_user_can( $options['admin_capability']) )
-		{
-			SitePushErrors::add_error( "SitePush admin capability ({$options['admin_capability']}) cannot be a capability which you do not have.", 'error', 'admin_capability' );
-			$options['admin_capability'] = self::$default_capability;
+			if( !current_user_can( $options['capability']) )
+			{
+				$error = "SitePush capability ({$options['capability']}) cannot be a capability which you do not have. It has been reset to ".self::$default_capability.".";
+				SitePushErrors::force_show_wp_errors();
+				SitePushErrors::add_error( $error, 'error', 'capability' );
+				if( function_exists('add_settings_error') )
+					add_settings_error( 'mra-sitepush', 'sitepush-capability-error', $error );
+				$options['capability'] = self::$default_capability;
+			}
+			if( !current_user_can( $options['admin_capability']) )
+			{
+				$error = "SitePush admin capability ({$options['admin_capability']}) cannot be a capability which you do not have. It has been reset to ".self::$default_admin_capability.".";
+				SitePushErrors::force_show_wp_errors();
+				SitePushErrors::add_error( $error, 'error', 'admin-capability' );
+				if( function_exists('add_settings_error') )
+					add_settings_error( 'mra-sitepush', 'sitepush-admin-capability-error', $error );
+				$options['admin_capability'] = self::$default_capability;
+			}
 		}
 
 		return ! SitePushErrors::is_error();
 	}
 
 	/**
-	 * Sanitise options
-	 *
-	 * called by register_setting when options are updated
+	 * Called by register_setting when options are updated
 	 *
 	 * @param array $options
 	 * @return array sanitized options
@@ -369,6 +409,9 @@ return;
 		$options = $this->options_clean( $options );
 		$options = $this->options_init( $options ); //makes sure certain array keys are set
 		$this->options_validate( $options );
+
+		$options['sitepush_version'] = $this->get_plugin_version();
+
 		return $options;
 	}
 
@@ -477,6 +520,7 @@ return;
 
 		//make sure certain optional params are set correctly
 		if( !$options['label'] ) $options['label'] = $options['name'];
+		if( empty($options['admin_only']) ) $options['admin_only'] = FALSE;
 		if( empty($options['wp_content_dir']) ) $options['wp_content_dir'] = '/wp-content';
 		if( empty($options['wp_plugins_dir']) ) $options['wp_plugins_dir'] = $options['wp_content_dir'] . '/plugins';
 		if( empty($options['wp_uploads_dir']) ) $options['wp_uploads_dir'] = $options['wp_content_dir'] . '/uploads';
@@ -584,7 +628,7 @@ return;
 	
 		foreach( $sites as $site )
 		{
-			$validated = $validated && $this->site_validate( $site );
+			$validated = $this->site_validate( $site ) && $validated;
 		}
 		
 		if( count( $sites ) < 2 )
@@ -611,10 +655,9 @@ return;
 			SitePushErrors::add_error( "Required parameter web_path is missing from config for site {$params['name']}." );
 			$errors = TRUE;
 		}
-
-		//@later this will need changing when we add remote sites
-		if( !file_exists($params['web_path']) )
+		elseif( !file_exists($params['web_path']) )
 		{
+			//@later this will need changing when we add remote sites
 			SitePushErrors::add_error( "The web path for site {$params['name']} ({$params['web_path']}) does not exist or is not accessible." );
 			$errors = TRUE;
 		}
@@ -737,7 +780,6 @@ return;
 		}
 		else
 		{
-			SitePushErrors::add_error( "No database settings found for '{$db}'. Please check your dbs config file." );
 			$result = array();
 		}
 
@@ -763,6 +805,17 @@ return;
 				$options[ $param ] = '';
 		}
 		return $options;
+	}
+
+	/**
+	 * Get version of this plugin
+	 *
+	 * @return string plugin version
+	 */
+	public function get_plugin_version()
+	{
+		$pd=get_plugin_data( WP_PLUGIN_DIR .'/' . MRA_SITEPUSH_BASENAME );
+		return $pd['Version'];
 	}
 
 }

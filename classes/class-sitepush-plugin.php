@@ -7,10 +7,6 @@ class SitePushPlugin
 
 	//major errors in initialisation will stop even options screen showing
 	public $abort = FALSE;
-	
-	//holds any errors from push
-	public $errors = array();
-	public $notices = array();
 
 	/**
 	 * @var SitePushOptions
@@ -28,9 +24,7 @@ class SitePushPlugin
 	public static function get_instance()
 	{
 		if( !self::$instance instanceof SitePushPlugin )
-		{
 			self::$instance = new SitePushPlugin();
-		}
 
 		return self::$instance;
 	}
@@ -115,14 +109,20 @@ class SitePushPlugin
 	}
 	
 	/**
-	 * Delete options entry when plugin is deleted
+	 * Delete SitePush and SitePush user options entry when plugin is deleted
+	 *
 	 * @static
 	 */
 	static public function uninstall()
 	{
+		global $wpdb;
+
 		delete_option('mra_sitepush_options');
-		
-		//@todo delete user options
+
+		foreach( get_users( "meta_key={$wpdb->prefix}mra_sitepush_options&fields=ID" ) as $user_id )
+		{
+			delete_user_option( $user_id, 'mra_sitepush_options');
+		}
 	}
 
 	/**
@@ -142,13 +142,6 @@ class SitePushPlugin
 			array_unshift( $links, $add_link );
 		}
 		return $links;
-	}
-	
-	//@todo collate notices better
-	private function check_query_vars()
-	{
-		if( isset($_GET['settings-updated']) && $_GET['settings-updated'] )
-			$this->notices[] = 'Options updated.';
 	}
 	
 	/* -------------------------------------------------------------- */
@@ -173,9 +166,9 @@ class SitePushPlugin
 		//if options aren't OK and user doesn't have admin capability don't add SitePush menus
 		if( ! $this->can_admin() && ! $this->options->OK ) return;
 
-		//make sure menus show for right capabilities, but will always show for admin
-		if( ! current_user_can( $this->options->capability ) && current_user_can( SitePushOptions::$fallback_capability ) )
-			$capability = SitePushOptions::$fallback_capability;
+		//make sure menus will always show for admin
+		if( ! current_user_can( $this->options->capability ) && $this->can_admin() )
+			$capability = $this->options->admin_capability;
 		else
 			$capability = $this->options->capability;
 		
@@ -308,7 +301,6 @@ class SitePushPlugin
 	/* !CONTENT FILTERS */
 	/* -------------------------------------------------------------- */
 	
-	//@todo add to options screen
 	/**
 	 * Removes domain names from URLs on site to make them relative, so that links still work across versions of a site
 	 * Domains to remove is defined in SitePush options
@@ -320,7 +312,7 @@ class SitePushPlugin
 	 */
 	function relative_urls( $content='' )
 	{
-		if( !$this->options->make_relative_urls ) return $content;
+		if( !$this->options->make_relative_uris ) return $content;
 		
 		foreach( $this->options->all_domains as $domain )
 		{
@@ -423,13 +415,9 @@ class SitePushPlugin
 		//if we are going to do a push, check that we were referred from options page as expected
 		check_admin_referer('sitepush-dopush','sitepush-nonce');
 		
-		if( $my_push->errors )
-		{
-			//if there are any errors before we start, then stop here!
-			$this->errors = array_merge($this->errors, $my_push->errors);
-			return FALSE;		
-		}
-		
+		if( SitePushErrors::count_errors('all-errors') )
+			return FALSE;
+
 		//track if we have actually tried to push anything
 		$done_push = FALSE;
 		
@@ -529,15 +517,10 @@ class SitePushPlugin
 	/* !Clear Cache */
 	/* -------------------------------------------------------------- */
 		if( $push_options['clear_cache'] && $this->options->cache_key )
-		{
 			$my_push->clear_cache();
-		}
 		elseif( $push_options['clear_cache'] && ! $this->options->cache_key )
-		{
-			if( !$this->errors )
-				$this->errors[] = "Push complete, but you tried to clear the destination cache and the cache secret key is not set.";
-		}
-		
+			SitePushErrors::add_error( "Could not clear the destination cache because the cache secret key is not set.", 'warning' );
+
 	/* -------------------------------------------------------------- */
 	/* !Other things to do */
 	/* -------------------------------------------------------------- */
@@ -565,9 +548,8 @@ class SitePushPlugin
 		
 		//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
 		activate_plugin(MRA_SITEPUSH_BASENAME);
-		$this->errors = array_merge($this->errors, $my_push->errors, $cleaned_results);
 
-		return $this->errors ? FALSE : $done_push;
+		return SitePushErrors::is_error() ? FALSE : $done_push;
 	}
 	
 	/**
@@ -782,8 +764,6 @@ class SitePushPlugin
 	/**
 	 * Get all sites which are valid given current capability
 	 *
-	 * @todo check admin only works
-	 *
 	 * @param string $exclude_current
 	 * @return array
 	 */
@@ -856,15 +836,23 @@ class SitePushPlugin
 			'sitepush_options',
 			'mra_sitepush_section_config'
 		);
-		
+
 		add_settings_field(
 			'mra_sitepush_field_dbs_conf',
 			'Full path to dbs config file',
 			array( $options_screen, 'field_dbs_conf' ),
 			'sitepush_options',
 			'mra_sitepush_section_config'
-		);	
-	
+		);
+
+		add_settings_field(
+			'mra_sitepush_field_make_relative_uris',
+			'Relative URIs',
+			array( $options_screen, 'field_make_relative_uris' ),
+			'sitepush_options',
+			'mra_sitepush_section_config'
+		);
+
 		add_settings_field(
 			'mra_sitepush_field_timezone',
 			'Timezone',
@@ -1027,16 +1015,13 @@ class SitePushPlugin
 	 */
 	public function show_warnings()
 	{
-		$errors = array();
-
 		//don't show warnings if user can't admin SitePush
 		if( ! current_user_can( $this->options->admin_capability ) ) return;
 
-		if( $error = $this->check_wp_config() )
-			$errors[] = $error;
-		
-		if( $errors )
-		    echo "<div id='my-custom-warning' class='error'><p>".implode( '<br />', $errors )."</p></div>";
+		$error = $this->check_wp_config();
+
+		if( $error )
+		    echo "<div id='sitepush-error' class='error'><p>{$error}</p></div>";
 	}
 
 	/**
