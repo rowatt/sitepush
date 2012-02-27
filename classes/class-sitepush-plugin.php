@@ -86,8 +86,8 @@ class SitePushPlugin
 		if( version_compare( get_bloginfo( 'version' ), $this->min_wp_version, '<') )
 			SitePushErrors::add_error( "SitePush requires at least WordPress version {$this->min_wp_version}", 'error' );
 
-		if( (defined('WP_ALLOW_MULTISITE') && WP_ALLOW_MULTISITE) && ! (defined('MRA_SITEPUSH_ALLOW_MULTISITE') && MRA_SITEPUSH_ALLOW_MULTISITE) )
-			SitePushErrors::add_error( "SitePush does not support WordPress multisite installs. If you wish to use SitePush on a multisite install, add define('MRA_SITEPUSH_ALLOW_MULTISITE',TRUE) to your wp-config.php file and proceed with caution!", 'fatal-error' );
+		if( (defined('WP_ALLOW_MULTISITE') && WP_ALLOW_MULTISITE) && ! (defined('SITEPUSH_ALLOW_MULTISITE') && SITEPUSH_ALLOW_MULTISITE) )
+			SitePushErrors::add_error( "SitePush does not support WordPress multisite installs. If you wish to use SitePush on a multisite install, add define('SITEPUSH_ALLOW_MULTISITE',TRUE) to your wp-config.php file and proceed with caution!", 'fatal-error' );
 
 		//get php version
 		if (!defined('PHP_VERSION_ID'))
@@ -117,11 +117,11 @@ class SitePushPlugin
 	{
 		global $wpdb;
 
-		delete_option('mra_sitepush_options');
+		delete_option('sitepush_options');
 
-		foreach( get_users( "meta_key={$wpdb->prefix}mra_sitepush_options&fields=ID" ) as $user_id )
+		foreach( get_users( "meta_key={$wpdb->prefix}sitepush_options&fields=ID" ) as $user_id )
 		{
-			delete_user_option( $user_id, 'mra_sitepush_options');
+			delete_user_option( $user_id, 'sitepush_options');
 		}
 	}
 
@@ -136,9 +136,9 @@ class SitePushPlugin
 	 */
 	static public function plugin_links( $links, $file )
 	{
-		if ( $file == MRA_SITEPUSH_BASENAME )
+		if ( $file == SITEPUSH_BASENAME )
 		{
-			$add_link = '<a href="'.get_admin_url().'admin.php?page=mra_sitepush_options">'.__('Settings').'</a>';
+			$add_link = '<a href="'.get_admin_url().'admin.php?page=sitepush_options">'.__('Settings').'</a>';
 			array_unshift( $links, $add_link );
 		}
 		return $links;
@@ -180,7 +180,7 @@ class SitePushPlugin
 		//add menu(s) - only options page is shown if not configured properly
 		$page_title = 'SitePush';
 		$menu_title = 'SitePush';
-		$menu_slug = ($this->options->OK && ! $this->abort) ? 'mra_sitepush' : 'mra_sitepush_options';
+		$menu_slug = ($this->options->OK && ! $this->abort) ? 'sitepush' : 'sitepush_options';
 		$function = ($this->options->OK && ! $this->abort) ? array( $push_screen, 'display_screen') : array( $options_screen, 'display_screen');
 		$icon_url = '';
 		$position = 3;
@@ -201,7 +201,7 @@ class SitePushPlugin
 			//add options page if we have admin capability
 			$page_title = 'SitePush Options';
 			$menu_title = 'Options';
-			$menu_slug = 'mra_sitepush_options';
+			$menu_slug = 'sitepush_options';
 			$function = array( $options_screen, 'display_screen');
 			
 			$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $admin_capability, $menu_slug, $function);
@@ -219,7 +219,7 @@ class SitePushPlugin
 	 */
 	static public function admin_init()
 	{
-		wp_register_style( 'mra-sitepush-styles', MRA_SITEPUSH_PLUGIN_DIR_URL.'/styles.css' );
+		wp_register_style( 'sitepush-styles', SITEPUSH_PLUGIN_DIR_URL.'/styles.css' );
 	}
 	
 	/**
@@ -228,7 +228,7 @@ class SitePushPlugin
 	 */
 	static public function admin_styles()
 	{
-		wp_enqueue_style( 'mra-sitepush-styles' );
+		wp_enqueue_style( 'sitepush-styles' );
 	}
 
 	/**
@@ -266,17 +266,17 @@ class SitePushPlugin
 			var warnText = '';
 
 		<?php //show/hide warning if pushing to live site ?>
-			if( $.inArray( $("#mra_sitepush_dest").find("option:selected").val(), liveSites ) > -1 )
+			if( $.inArray( $("#sitepush_dest").find("option:selected").val(), liveSites ) > -1 )
 				warnText = 'Caution - live site!';
 
 		<?php //change button from Push<->Pull depending on destination ?>
-			if( $("#mra_sitepush_dest").find("option:selected").val() == "<?php echo $this->options->get_current_site(); ?>" )
+			if( $("#sitepush_dest").find("option:selected").val() == "<?php echo $this->options->get_current_site(); ?>" )
 				$('#push-button').val('Pull Content');
 			else
 				$('#push-button').val('Push Content');
 
 		<?php //hide submit button if source/dest are same ?>
-			if( $("#mra_sitepush_dest").find("option:selected").val() == $("#mra_sitepush_source").find("option:selected").val() )
+			if( $("#sitepush_dest").find("option:selected").val() == $("#sitepush_source").find("option:selected").val() )
 			{
 				$('#push-button').hide();
 				warnText = 'Source and destination sites cannot be the same!';
@@ -286,7 +286,7 @@ class SitePushPlugin
 				$('#push-button').show();
 			}
 
-			$('#mra_sitepush_dest-warning').text(warnText);
+			$('#sitepush_dest-warning').text(warnText);
 		};
 		
 		updateSourceDest();
@@ -342,7 +342,7 @@ class SitePushPlugin
 		 */
 		$screen = get_current_screen();
 		$screen->add_help_tab( array(
-			'id'      => 'mra-sitepush-options-help',
+			'id'      => 'sitepush-options-help',
 			'title'   => 'Special Instructions',
 			'content' => '<p>This is the content for the tab.</p>',
 		) );
@@ -360,7 +360,7 @@ class SitePushPlugin
 	{
 		$screen = get_current_screen();
 		$screen->add_help_tab( array(
-			'id'      => 'mra-sitepush-push-help',
+			'id'      => 'sitepush-push-help',
 			'title'   => 'Special Instructions',
 			'content' => '<p>This is the content for the tab.</p>',
 		) );
@@ -440,7 +440,7 @@ class SitePushPlugin
 		$db_types = array();
 		
 		//save various options which we don't want overwritten if we are doing a pull
-		$current_options = get_option('mra_sitepush_options');
+		$current_options = get_option('sitepush_options');
 		$current_user_options = $this->get_all_user_options();
 		$current_active_plugins = get_option('active_plugins');
 		
@@ -542,12 +542,12 @@ class SitePushPlugin
 
 			//deactivating sitepush ensures that when we update option cached value isn't used
 			//we reactivate again after this if clause just to make sure it's active
-			deactivate_plugins(MRA_SITEPUSH_BASENAME);
+			deactivate_plugins(SITEPUSH_BASENAME);
 			update_option( 'active_plugins', $current_active_plugins );
 		}
 		
 		//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
-		activate_plugin(MRA_SITEPUSH_BASENAME);
+		activate_plugin(SITEPUSH_BASENAME);
 
 		return SitePushErrors::is_error() ? FALSE : $done_push;
 	}
@@ -563,9 +563,9 @@ class SitePushPlugin
 		
 		$results = array();
 		
-		foreach( get_users( "meta_key={$wpdb->prefix}mra_sitepush_options&fields=ID" ) as $user_id )
+		foreach( get_users( "meta_key={$wpdb->prefix}sitepush_options&fields=ID" ) as $user_id )
 		{
-			$results[$user_id] = get_user_option( 'mra_sitepush_options', $user_id );
+			$results[$user_id] = get_user_option( 'sitepush_options', $user_id );
 		}
 
 		return $results;
@@ -582,7 +582,7 @@ class SitePushPlugin
 		{
 			if( !$options ) continue;
 			$options['last_update'] = microtime(TRUE); //make sure we aren't caching
-			update_user_option( $user_id, 'mra_sitepush_options', $options );
+			update_user_option( $user_id, 'sitepush_options', $options );
 		}
 	}
 	
@@ -598,14 +598,14 @@ class SitePushPlugin
 
 		//check $_GET to see if someone has asked us to clear the cache
 		//for example a push from another server to this one
-		$cmd = isset($_GET['mra_sitepush_cmd']) ? $_GET['mra_sitepush_cmd'] : FALSE;
-		$key = isset($_GET['mra_sitepush_key']) ? $_GET['mra_sitepush_key'] : FALSE;
+		$cmd = isset($_GET['sitepush_cmd']) ? $_GET['sitepush_cmd'] : FALSE;
+		$key = isset($_GET['sitepush_key']) ? $_GET['sitepush_key'] : FALSE;
 
 		//no command and/or key so return to normal WP initialisation
 		if( !$cmd || !$key ) return FALSE;
 
 		//do nothing if the secret key isn't correct
-		$options = get_option('mra_sitepush_options');
+		$options = get_option('sitepush_options');
 		$result = '';
 
 		if( $key <> urlencode( $options['cache_key'] ) )
@@ -800,210 +800,210 @@ class SitePushPlugin
 	 */
 	private function register_options( $options_screen )
 	{
-		register_setting('mra_sitepush_options', 'mra_sitepush_options', array( &$this->options, 'options_sanitize') );
+		register_setting('sitepush_options', 'sitepush_options', array( &$this->options, 'options_sanitize') );
 
 		if( empty($this->options->OK) )
 		{
 			/* General settings fields */
 			add_settings_section(
-				'mra_sitepush_section_warning',
+				'sitepush_section_warning',
 				'Caution!',
 				array( $options_screen, 'section_warning_text' ),
 				'sitepush_options'
 			);
 
 			add_settings_field(
-				'mra_sitepush_field_accept',
+				'sitepush_field_accept',
 				'',
 				array( $options_screen, 'field_accept' ),
 				'sitepush_options',
-				'mra_sitepush_section_warning'
+				'sitepush_section_warning'
 			);
 		}
 	
 		/* General settings fields */
 		add_settings_section(
-			'mra_sitepush_section_config',
+			'sitepush_section_config',
 			'General Configuration',
 			array( $options_screen, 'section_config_text' ),
 			'sitepush_options'	
 		);
 		
 		add_settings_field(
-			'mra_sitepush_field_sites_conf',
+			'sitepush_field_sites_conf',
 			'Full path to sites config file',
 			array( $options_screen, 'field_sites_conf' ),
 			'sitepush_options',
-			'mra_sitepush_section_config'
+			'sitepush_section_config'
 		);
 
 		add_settings_field(
-			'mra_sitepush_field_dbs_conf',
+			'sitepush_field_dbs_conf',
 			'Full path to dbs config file',
 			array( $options_screen, 'field_dbs_conf' ),
 			'sitepush_options',
-			'mra_sitepush_section_config'
+			'sitepush_section_config'
 		);
 
 		add_settings_field(
-			'mra_sitepush_field_make_relative_uris',
+			'sitepush_field_make_relative_uris',
 			'Relative URIs',
 			array( $options_screen, 'field_make_relative_uris' ),
 			'sitepush_options',
-			'mra_sitepush_section_config'
+			'sitepush_section_config'
 		);
 
 		add_settings_field(
-			'mra_sitepush_field_timezone',
+			'sitepush_field_timezone',
 			'Timezone',
 			array( $options_screen, 'field_timezone' ),
 			'sitepush_options',
-			'mra_sitepush_section_config'
+			'sitepush_section_config'
 		);
 
 		add_settings_field(
-			'mra_sitepush_field_debug_output_level',
+			'sitepush_field_debug_output_level',
 			'Debug output level',
 			array( $options_screen, 'field_debug_output_level' ),
 			'sitepush_options',
-			'mra_sitepush_section_config'
+			'sitepush_section_config'
 		);
 
 		/*Capability fields */
 		add_settings_section(
-			'mra_sitepush_section_capabilities',
+			'sitepush_section_capabilities',
 			'SitePush Capabilities',
 			array( $options_screen, 'section_capabilities_text' ),
 			'sitepush_options'	
 		);
 	
 		add_settings_field(
-			'mra_sitepush_field_capability',
+			'sitepush_field_capability',
 			'SitePush capability',
 			array( $options_screen, 'field_capability' ),
 			'sitepush_options',
-			'mra_sitepush_section_capabilities'
+			'sitepush_section_capabilities'
 		);
 		
 		add_settings_field(
-			'mra_sitepush_field_admin_capability',
+			'sitepush_field_admin_capability',
 			'SitePush admin capability',
 			array( $options_screen, 'field_admin_capability' ),
 			'sitepush_options',
-			'mra_sitepush_section_capabilities'
+			'sitepush_section_capabilities'
 		);
 	
 		/* Cache option fields */
 		add_settings_section(
-			'mra_sitepush_section_cache',
+			'sitepush_section_cache',
 			'Cache management',
 			array( $options_screen, 'section_cache_text' ),
 			'sitepush_options'	
 		);
 		add_settings_field(
-			'mra_sitepush_field_cache_key',
+			'sitepush_field_cache_key',
 			'Cache secret key',
 			array( $options_screen, 'field_cache_key' ),
 			'sitepush_options',
-			'mra_sitepush_section_cache'
+			'sitepush_section_cache'
 		);
 	
 	
 		/* Plugin option fields */
 		add_settings_section(
-			'mra_sitepush_section_plugins',
+			'sitepush_section_plugins',
 			'Plugin management',
 			array( $options_screen, 'section_plugins_text' ),
 			'sitepush_options'	
 		);
 	
 		add_settings_field(
-			'mra_sitepush_field_plugins_activate',
+			'sitepush_field_plugins_activate',
 			'Activate Plugins',
 			array( $options_screen, 'field_plugin_activates' ),
 			'sitepush_options',
-			'mra_sitepush_section_plugins'
+			'sitepush_section_plugins'
 		);
 
 		add_settings_field(
-			'mra_sitepush_field_plugins_deactivate',
+			'sitepush_field_plugins_deactivate',
 			'Deactivate Plugins',
 			array( $options_screen, 'field_plugin_deactivates' ),
 			'sitepush_options',
-			'mra_sitepush_section_plugins'
+			'sitepush_section_plugins'
 		);
 		
 		/* Backup options */
 		add_settings_section(
-			'mra_sitepush_section_backup',
+			'sitepush_section_backup',
 			'Backup options',
 			array( $options_screen, 'section_backup_text' ),
 			'sitepush_options'	
 		);
 		
 		add_settings_field(
-			'mra_sitepush_field_backup_path',
+			'sitepush_field_backup_path',
 			'Path to backups directory',
 			array( $options_screen, 'field_backup_path' ),
 			'sitepush_options',
-			'mra_sitepush_section_backup'
+			'sitepush_section_backup'
 		);	
 		
 		add_settings_field(
-			'mra_sitepush_field_backup_keep_time',
+			'sitepush_field_backup_keep_time',
 			'Days before backups deleted',
 			array( $options_screen, 'field_backup_keep_time' ),
 			'sitepush_options',
-			'mra_sitepush_section_backup'
+			'sitepush_section_backup'
 		);	
 
 
 		/* rsync options */
 		add_settings_section(
-			'mra_sitepush_section_rsync',
+			'sitepush_section_rsync',
 			'rsync options',
 			array( $options_screen, 'section_rsync_text' ),
 			'sitepush_options'	
 		);
 		
 		add_settings_field(
-			'mra_sitepush_field_rsync_path',
+			'sitepush_field_rsync_path',
 			'Path to rsync',
 			array( $options_screen, 'field_rsync_path' ),
 			'sitepush_options',
-			'mra_sitepush_section_rsync'
+			'sitepush_section_rsync'
 		);	
 
 		add_settings_field(
-			'mra_sitepush_field_dont_sync',
+			'sitepush_field_dont_sync',
 			'Exclude from sync',
 			array( $options_screen, 'field_dont_sync' ),
 			'sitepush_options',
-			'mra_sitepush_section_rsync'
+			'sitepush_section_rsync'
 		);
 
 		/* mysql options */
 		add_settings_section(
-			'mra_sitepush_section_mysql',
+			'sitepush_section_mysql',
 			'mysql options',
 			array( $options_screen, 'section_mysql_text' ),
 			'sitepush_options'
 		);
 
 		add_settings_field(
-			'mra_sitepush_field_mysql_path',
+			'sitepush_field_mysql_path',
 			'Path to mysql',
 			array( $options_screen, 'field_mysql_path' ),
 			'sitepush_options',
-			'mra_sitepush_section_mysql'
+			'sitepush_section_mysql'
 		);
 
 		add_settings_field(
-			'mra_sitepush_field_mysqldump_path',
+			'sitepush_field_mysqldump_path',
 			'Path to mysqldump',
 			array( $options_screen, 'field_mysqldump_path' ),
 			'sitepush_options',
-			'mra_sitepush_section_mysql'
+			'sitepush_section_mysql'
 		);
 	}
 	

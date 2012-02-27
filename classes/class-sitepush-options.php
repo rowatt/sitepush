@@ -28,7 +28,7 @@ class SitePushOptions
 	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'domain', 'domains', 'wp_dir' );
 	private $all_params; //set in __construct
 
-	//options - these come from WordPress option mra_sitepush_options
+	//options - these come from WordPress option sitepush_options
 	public $accept;
 	public $sites_conf = '';
 	public $dbs_conf = '';
@@ -72,7 +72,7 @@ class SitePushOptions
 	{
 		$this->all_params = array_merge( $this->trim_params, $this->no_trim_params );
 
-		$options = get_option( 'mra_sitepush_options' );
+		$options = get_option( 'sitepush_options' );
 
 		//make sure all options set & initialise WP options if necessary
 		if( !$options || !is_array($options) )
@@ -140,7 +140,7 @@ class SitePushOptions
 
 		unset( $options['plugins'] );
 
-		update_option( 'mra_sitepush_options', $update_options );
+		update_option( 'sitepush_options', $update_options );
 	}
 
 
@@ -380,7 +380,7 @@ class SitePushOptions
 				SitePushErrors::force_show_wp_errors();
 				SitePushErrors::add_error( $error, 'error', 'capability' );
 				if( function_exists('add_settings_error') )
-					add_settings_error( 'mra-sitepush', 'sitepush-capability-error', $error );
+					add_settings_error( 'sitepush', 'sitepush-capability-error', $error );
 				$options['capability'] = self::$default_capability;
 			}
 			if( !current_user_can( $options['admin_capability']) )
@@ -389,7 +389,7 @@ class SitePushOptions
 				SitePushErrors::force_show_wp_errors();
 				SitePushErrors::add_error( $error, 'error', 'admin-capability' );
 				if( function_exists('add_settings_error') )
-					add_settings_error( 'mra-sitepush', 'sitepush-admin-capability-error', $error );
+					add_settings_error( 'sitepush', 'sitepush-admin-capability-error', $error );
 				$options['admin_capability'] = self::$default_capability;
 			}
 		}
@@ -814,7 +814,7 @@ class SitePushOptions
 	 */
 	public function get_plugin_version()
 	{
-		$pd=get_plugin_data( WP_PLUGIN_DIR .'/' . MRA_SITEPUSH_BASENAME );
+		$pd=get_plugin_data( WP_PLUGIN_DIR .'/' . SITEPUSH_BASENAME );
 		return $pd['Version'];
 	}
 

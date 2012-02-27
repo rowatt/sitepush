@@ -322,7 +322,7 @@ class SitePushCore
 		{
 			//clear WP cache on destination site
 			$cache_key = urlencode( $this->options->cache_key );
-			$url = "{$this->trailing_slashit($this->dest_params['domain'])}?mra_sitepush_cmd=clear_cache&mra_sitepush_key={$cache_key}";
+			$url = "{$this->trailing_slashit($this->dest_params['domain'])}?sitepush_cmd=clear_cache&sitepush_key={$cache_key}";
 			
 			$cc_result = $this->callResource($url, 'GET', $data = null);
 

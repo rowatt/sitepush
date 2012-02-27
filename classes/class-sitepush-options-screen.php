@@ -33,7 +33,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 			<form action='options.php' method='post'>
 			<?php
-				settings_fields('mra_sitepush_options');
+				settings_fields('sitepush_options');
 				do_settings_sections('sitepush_options');
 			?>
 			<input name="Submit" type='submit' value='Save Changes' class='button-primary' />
@@ -249,7 +249,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $class ) $class=" class='{$class}'";
 
 		$value = isset($this->options->$field) ? $this->options->$field : '';
-		$output = "<input id='mra_sitepush_field_{$field}' name='mra_sitepush_options[{$field}]' type='text' value='{$value}'{$class} />";
+		$output = "<input id='sitepush_field_{$field}' name='sitepush_options[{$field}]' type='text' value='{$value}'{$class} />";
 		if( $description )
 			$output .= "<span class='description' style='display:block;'>{$description}</span>";
 		return $output;
@@ -283,7 +283,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( is_null($value) )
 			$value = $this->options->$field ? $this->options->$field : '';
 
-		$output = "<textarea id='mra_sitepush_field_{$field}' name='mra_sitepush_options[{$field}]' type='text'{$class}{$rows}>{$value}</textarea>";
+		$output = "<textarea id='sitepush_field_{$field}' name='sitepush_options[{$field}]' type='text'{$class}{$rows}>{$value}</textarea>";
 		if( $description )
 			$output .= "<span class='description' style='display:block;'>{$description}</span>";
 		return $output;
@@ -303,7 +303,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 		foreach( $radio_options as $radio_option=>$label )
 		{
-			$output .= "<label><input name='mra_sitepush_options[{$field}]' type='radio' value='{$radio_option}'" . checked($radio_option, $this->options->$field, FALSE) . " /> {$label}</label><br />\n";
+			$output .= "<label><input name='sitepush_options[{$field}]' type='radio' value='{$radio_option}'" . checked($radio_option, $this->options->$field, FALSE) . " /> {$label}</label><br />\n";
 		}
 
 		if( $description )
@@ -325,8 +325,8 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $class ) $class=" class='{$class}'";
 
 		$checked = empty( $this->options->$field ) ? '' : ' checked="checked"';
-		$output = "<label for='mra_sitepush_field_{$field}'{$class}>";
-		$output .= "<input id='mra_sitepush_field_{$field}' name='mra_sitepush_options[{$field}]' type='checkbox'{$checked} />";
+		$output = "<label for='sitepush_field_{$field}'{$class}>";
+		$output .= "<input id='sitepush_field_{$field}' name='sitepush_options[{$field}]' type='checkbox'{$checked} />";
 		$output .= "{$description}</label>";
 		if( $help )
 			$output .= "<span class='description' style='display:block;'>{$help}</span>";
@@ -344,7 +344,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 		//gather plugins we are already managing or can't manage
 		$managed_plugins = array_merge($this->options->plugins['activate'],$this->options->plugins['deactivate'],$this->options->plugins['never_manage']);
-		$managed_plugins[] = MRA_SITEPUSH_BASENAME;
+		$managed_plugins[] = SITEPUSH_BASENAME;
 		
 		//create list of plugins we could manage
 		foreach( get_plugins() as $plugin=>$info )

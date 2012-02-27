@@ -19,26 +19,26 @@ class SitePush_Push_Screen extends SitePush_Screen
 			wp_die( __('You do not have sufficient permissions to access this page.') );
 	
 		//initialise options from form data
-		$push_options['db_all_tables'] =  SitePushPlugin::get_query_var('mra_sitepush_push_db_all_tables') ? TRUE : FALSE;
-		$push_options['db_post_content'] =  SitePushPlugin::get_query_var('mra_sitepush_push_db_post_content') ? TRUE : FALSE;
-		$push_options['db_comments'] = SitePushPlugin::get_query_var('mra_sitepush_push_db_comments') ? TRUE : FALSE;
-		$push_options['db_users'] = SitePushPlugin::get_query_var('mra_sitepush_push_db_users') ? TRUE : FALSE;
-		$push_options['db_options'] = SitePushPlugin::get_query_var('mra_sitepush_push_db_options') ? TRUE : FALSE;
+		$push_options['db_all_tables'] =  SitePushPlugin::get_query_var('sitepush_push_db_all_tables') ? TRUE : FALSE;
+		$push_options['db_post_content'] =  SitePushPlugin::get_query_var('sitepush_push_db_post_content') ? TRUE : FALSE;
+		$push_options['db_comments'] = SitePushPlugin::get_query_var('sitepush_push_db_comments') ? TRUE : FALSE;
+		$push_options['db_users'] = SitePushPlugin::get_query_var('sitepush_push_db_users') ? TRUE : FALSE;
+		$push_options['db_options'] = SitePushPlugin::get_query_var('sitepush_push_db_options') ? TRUE : FALSE;
 		
-		$push_options['push_uploads'] = SitePushPlugin::get_query_var('mra_sitepush_push_uploads') ? TRUE : FALSE;
-		$push_options['push_theme'] = SitePushPlugin::get_query_var('mra_sitepush_push_theme') ? TRUE : FALSE;
-		$push_options['push_themes'] = SitePushPlugin::get_query_var('mra_sitepush_push_themes') ? TRUE : FALSE;
-		$push_options['push_plugins'] = SitePushPlugin::get_query_var('mra_sitepush_push_plugins') ? TRUE : FALSE;
-		$push_options['push_wp_core'] = SitePushPlugin::get_query_var('mra_sitepush_push_wp_core') ? TRUE : FALSE;
+		$push_options['push_uploads'] = SitePushPlugin::get_query_var('sitepush_push_uploads') ? TRUE : FALSE;
+		$push_options['push_theme'] = SitePushPlugin::get_query_var('sitepush_push_theme') ? TRUE : FALSE;
+		$push_options['push_themes'] = SitePushPlugin::get_query_var('sitepush_push_themes') ? TRUE : FALSE;
+		$push_options['push_plugins'] = SitePushPlugin::get_query_var('sitepush_push_plugins') ? TRUE : FALSE;
+		$push_options['push_wp_core'] = SitePushPlugin::get_query_var('sitepush_push_wp_core') ? TRUE : FALSE;
 		
 		$push_options['clear_cache'] = SitePushPlugin::get_query_var('clear_cache') ? TRUE : FALSE;
-		$push_options['dry_run'] = SitePushPlugin::get_query_var('mra_sitepush_dry_run') ? TRUE : FALSE;
-		$push_options['do_backup'] = SitePushPlugin::get_query_var('mra_sitepush_push_backup') ? TRUE : FALSE;
+		$push_options['dry_run'] = SitePushPlugin::get_query_var('sitepush_dry_run') ? TRUE : FALSE;
+		$push_options['do_backup'] = SitePushPlugin::get_query_var('sitepush_push_backup') ? TRUE : FALSE;
 		
-		$push_options['source'] = SitePushPlugin::get_query_var('mra_sitepush_source') ? SitePushPlugin::get_query_var('mra_sitepush_source') : '';
-		$push_options['dest'] = SitePushPlugin::get_query_var('mra_sitepush_dest') ? SitePushPlugin::get_query_var('mra_sitepush_dest') : '';
+		$push_options['source'] = SitePushPlugin::get_query_var('sitepush_source') ? SitePushPlugin::get_query_var('sitepush_source') : '';
+		$push_options['dest'] = SitePushPlugin::get_query_var('sitepush_dest') ? SitePushPlugin::get_query_var('sitepush_dest') : '';
 	
-		$user_options = get_user_option('mra_sitepush_options');
+		$user_options = get_user_option('sitepush_options');
 		$this->user_last_source = empty($user_options['last_source']) ? '' : $user_options['last_source'];
 		$this->user_last_dest = empty($user_options['last_dest']) ? '' : $user_options['last_dest'];
 	
@@ -50,10 +50,10 @@ class SitePush_Push_Screen extends SitePush_Screen
 		if( $push_options['dest'] )
 		{
 			//save source/dest to user options
-			$user_options = get_user_option('mra_sitepush_options');
+			$user_options = get_user_option('sitepush_options');
 			$user_options['last_source'] = $push_options['source'];
 			$user_options['last_dest'] = $push_options['dest'];
-			update_user_option( get_current_user_id(), 'mra_sitepush_options', $user_options );
+			update_user_option( get_current_user_id(), 'sitepush_options', $user_options );
 
 			// do the push!
 			if( $this->plugin->can_admin() && $this->options->debug_output_level )
@@ -62,7 +62,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 				$hide_html = ' style="display: none;"';
 				
 			echo "<h3{$hide_html}>Push results</h3>";
-			echo "<pre id='mra-sitepush-results'{$hide_html}>";
+			echo "<pre id='sitepush-results'{$hide_html}>";
 
 			//Do the push!
 			$obj_sitepushcore = new SitePushCore( $push_options['source'], $push_options['dest'] );
@@ -101,8 +101,8 @@ class SitePush_Push_Screen extends SitePush_Screen
 		if( !empty($_REQUEST['sitepush-nonce']) )
 		{
 			//already done a push, so redo what we had before
-			$default_source = empty( $_REQUEST['mra_sitepush_source'] ) ? '' :  $_REQUEST['mra_sitepush_source'];
-			$default_dest = empty( $_REQUEST['mra_sitepush_dest'] ) ? '' :  $_REQUEST['mra_sitepush_dest'];
+			$default_source = empty( $_REQUEST['sitepush_source'] ) ? '' :  $_REQUEST['sitepush_source'];
+			$default_dest = empty( $_REQUEST['sitepush_dest'] ) ? '' :  $_REQUEST['sitepush_dest'];
 		}
 		if( empty($default_source) )
 			$default_source = $this->user_last_source ? $this->user_last_source : $this->options->get_current_site();
@@ -115,9 +115,9 @@ class SitePush_Push_Screen extends SitePush_Screen
 				<?php wp_nonce_field('sitepush-dopush','sitepush-nonce'); ?>
 				<table class="form-table">
 					<tr>
-						<th scope="row"><label for="mra_sitepush_source">Source</label></th>
+						<th scope="row"><label for="sitepush_source">Source</label></th>
 						<td>
-							<select name="mra_sitepush_source" id="mra_sitepush_source" class="site-selector">
+							<select name="sitepush_source" id="sitepush_source" class="site-selector">
 							<?php
 								foreach( $this->plugin->get_sites() as $site )
 								{
@@ -131,9 +131,9 @@ class SitePush_Push_Screen extends SitePush_Screen
 					</tr>
 	
 					<tr>
-						<th scope="row"><label for="mra_sitepush_dest">Destination</label></th>
+						<th scope="row"><label for="sitepush_dest">Destination</label></th>
 						<td>
-							<select name="mra_sitepush_dest" id="mra_sitepush_dest" class="site-selector">
+							<select name="sitepush_dest" id="sitepush_dest" class="site-selector">
 							<?php
 								foreach( $this->plugin->get_sites() as $site )
 								{
@@ -143,28 +143,28 @@ class SitePush_Push_Screen extends SitePush_Screen
 								}
 							?>
 							</select>
-							<span id='mra_sitepush_dest-warning'><span>
+							<span id='sitepush_dest-warning'><span>
 						</td>
 					</tr>
 	
 					<tr>
 						<th scope="row">Database content</th>
 						<td>
-							<?php echo $this->option_html('mra_sitepush_push_db_all_tables','Entire database (this will overwrite all content and settings)','admin_only');?>
-							<?php echo $this->option_html('mra_sitepush_push_db_post_content','All post content (pages, posts, custom post types, link, post meta, categories, tags &amp; custom taxonomies)', 'user');?>
-							<?php echo $this->option_html('mra_sitepush_push_db_comments','Comments','user');?>
-							<?php echo $this->option_html('mra_sitepush_push_db_users','Users &amp; user meta','admin_only');?>
-							<?php echo $this->option_html('mra_sitepush_push_db_options','WordPress options','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_db_all_tables','Entire database (this will overwrite all content and settings)','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_db_post_content','All post content (pages, posts, custom post types, link, post meta, categories, tags &amp; custom taxonomies)', 'user');?>
+							<?php echo $this->option_html('sitepush_push_db_comments','Comments','user');?>
+							<?php echo $this->option_html('sitepush_push_db_users','Users &amp; user meta','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_db_options','WordPress options','admin_only');?>
 						</td>
 					</tr>
 	
 					<tr>
 						<th scope="row">Files</th>
 						<td>
-							<?php echo $this->option_html('mra_sitepush_push_theme', 'Current theme ('.get_current_theme().')','admin_only');?>
-							<?php echo $this->option_html('mra_sitepush_push_themes','All themes','admin_only');?>
-							<?php echo $this->option_html('mra_sitepush_push_plugins','WordPress plugins','admin_only');?>
-							<?php echo $this->option_html('mra_sitepush_push_uploads','WordPress media uploads', 'user');?>
+							<?php echo $this->option_html('sitepush_push_theme', 'Current theme ('.get_current_theme().')','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_themes','All themes','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_uploads','WordPress media uploads', 'user');?>
 						</td>
 					</tr>				
 	
@@ -175,10 +175,10 @@ class SitePush_Push_Screen extends SitePush_Screen
 							$output .= $this->option_html('clear_cache','Clear cache on destination','user','checked');
 
 						if( $this->options->backup_path )
-							$output .= $this->option_html('mra_sitepush_push_backup','Backup push (note - restoring from a backup is currently a manual process and requires command line access)','user','checked');
+							$output .= $this->option_html('sitepush_push_backup','Backup push (note - restoring from a backup is currently a manual process and requires command line access)','user','checked');
 
 						if( $this->options->debug_output_level >= 3 )
-							$output .= $this->option_html('mra_sitepush_dry_run','Dry run (show what actions would be performed by push, but don\'t actually do anything)','admin_only');
+							$output .= $this->option_html('sitepush_dry_run','Dry run (show what actions would be performed by push, but don\'t actually do anything)','admin_only');
 
 
 					/* No undo till we get it working properly!

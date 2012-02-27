@@ -45,12 +45,12 @@ if( is_admin() )
 //have symlinks, in which case we have to assume that plugin is at
 //sitepush/sitepush.php - so don't change dir if using symlinks!
 if( substr_count(plugin_basename(__FILE__), '/') <= 1 )
-	define('MRA_SITEPUSH__FILE', __FILE__);
+	define('SITEPUSH__FILE', __FILE__);
 else
-	define('MRA_SITEPUSH__FILE', WP_PLUGIN_DIR . '/' . 'sitepush/sitepush.php' );
+	define('SITEPUSH__FILE', WP_PLUGIN_DIR . '/' . 'sitepush/sitepush.php' );
 
-define( 'MRA_SITEPUSH_PLUGIN_DIR_URL', plugins_url( '', MRA_SITEPUSH__FILE ) );
-define( 'MRA_SITEPUSH_PLUGIN_DIR', dirname(MRA_SITEPUSH__FILE) );
-define( 'MRA_SITEPUSH_BASENAME', plugin_basename(MRA_SITEPUSH__FILE) );
+define( 'SITEPUSH_PLUGIN_DIR_URL', plugins_url( '', SITEPUSH__FILE ) );
+define( 'SITEPUSH_PLUGIN_DIR', dirname(SITEPUSH__FILE) );
+define( 'SITEPUSH_BASENAME', plugin_basename(SITEPUSH__FILE) );
 
 /* EOF */
