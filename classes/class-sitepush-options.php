@@ -814,8 +814,16 @@ class SitePushOptions
 	 */
 	public function get_plugin_version()
 	{
-		$pd=get_plugin_data( WP_PLUGIN_DIR .'/' . SITEPUSH_BASENAME );
-		return $pd['Version'];
+		if( function_exists( 'get_plugin_data' ) )
+		{
+			$pd=get_plugin_data( WP_PLUGIN_DIR .'/' . SITEPUSH_BASENAME );
+			return $pd['Version'];
+		}
+		else
+		{
+			$options = get_option( 'sitepush_options' );
+			return empty($options['sitepush_version']) ? '' : $options['sitepush_version'];
+		}
 	}
 
 }
