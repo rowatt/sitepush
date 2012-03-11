@@ -1038,7 +1038,7 @@ class SitePushPlugin
 	{
 		$error = '';
 		if( empty($this->options->current_site_conf['cache']) && ( defined('WP_CACHE') && WP_CACHE ) )
-				$error = "<b>SitePush Warning</b> - caching is turned off in your config file for this site, but WP_CACHE is defined as TRUE in your wp-config.php file. You should either change the setting in your config file ({$this->options->sites_conf}), or update wp-config.php.";
+			$error = "<b>SitePush Warning</b> - caching is turned off in your config file for this site, but WP_CACHE is defined as TRUE in your wp-config.php file. You should either change the setting in your config file ({$this->options->sites_conf}), or update wp-config.php.";
 		elseif( !empty($this->options->current_site_conf['cache']) && ( !defined('WP_CACHE') || !WP_CACHE ) )
 			$error = "<b>SitePush Warning</b> - caching is turned on in your config file for this site, but WP_CACHE is defined as FALSE or not defined in your wp-config.php file. You should either change the setting in your config file ({$this->options->sites_conf}), or update wp-config.php.";
 
