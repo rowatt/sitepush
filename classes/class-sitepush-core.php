@@ -180,8 +180,8 @@ class SitePushCore
 	{
 		if( $this->push_plugins )
 		{
-			$backup_file = $this->file_backup( $this->dest_params['web_path'] . $this->dest_params['wp_plugins_dir'] );
-			$this->copy_files( $this->source_params['web_path'] . $this->source_params['wp_plugins_dir'], $this->dest_params['web_path'] . $this->dest_params['wp_plugins_dir'], $backup_file, 'plugins', TRUE );
+			$backup_file = $this->file_backup( $this->dest_params['web_path'] . $this->dest_params['wp_plugin_dir'] );
+			$this->copy_files( $this->source_params['web_path'] . $this->source_params['wp_plugin_dir'], $this->dest_params['web_path'] . $this->dest_params['wp_plugin_dir'], $backup_file, 'plugins', TRUE );
 		}
 		
 		if( $this->push_uploads )

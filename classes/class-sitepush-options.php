@@ -524,7 +524,7 @@ class SitePushOptions
 		if( !$options['label'] ) $options['label'] = $options['name'];
 		if( empty($options['admin_only']) ) $options['admin_only'] = FALSE;
 		if( empty($options['wp_content_dir']) ) $options['wp_content_dir'] = '/wp-content';
-		if( empty($options['wp_plugins_dir']) ) $options['wp_plugins_dir'] = $options['wp_content_dir'] . '/plugins';
+		if( empty($options['wp_plugin_dir']) ) $options['wp_plugin_dir'] = $options['wp_content_dir'] . '/plugins';
 		if( empty($options['wp_uploads_dir']) ) $options['wp_uploads_dir'] = $options['wp_content_dir'] . '/uploads';
 		if( empty($options['wp_themes_dir']) ) $options['wp_themes_dir'] = $options['wp_content_dir'] . '/themes';
 		
