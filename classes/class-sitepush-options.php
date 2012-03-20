@@ -523,6 +523,7 @@ class SitePushOptions
 		//make sure certain optional params are set correctly
 		if( !$options['label'] ) $options['label'] = $options['name'];
 		if( empty($options['admin_only']) ) $options['admin_only'] = FALSE;
+		if( empty($options['wp_dir']) ) $options['wp_dir'] = '';
 		if( empty($options['wp_content_dir']) ) $options['wp_content_dir'] = '/wp-content';
 		if( empty($options['wp_plugin_dir']) ) $options['wp_plugin_dir'] = $options['wp_content_dir'] . '/plugins';
 		if( empty($options['wp_uploads_dir']) ) $options['wp_uploads_dir'] = $options['wp_content_dir'] . '/uploads';
