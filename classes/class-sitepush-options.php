@@ -9,6 +9,7 @@ class SitePushOptions
 
 	public $sites = array();
 	public $dbs = array();
+	public $db_prefix = ''; //prefix for tables in all DBs
 	private $current_site = ''; //access through get_current_site method
 	public $current_site_conf = array();
 	public $all_domains = array();
@@ -102,6 +103,7 @@ class SitePushOptions
 		if( SitePushErrors::is_error() ) return FALSE;
 	
 		//initialise & validate site configs
+		//@todo should there be something here?
 		if( SitePushErrors::is_error() ) return FALSE;
 		if( SitePushErrors::is_error() ) return FALSE;
 
@@ -115,9 +117,7 @@ class SitePushOptions
 	}
 	
 	/**
-	 * update
-	 * 
-	 * Updates plugin options in WP DB.
+	 * Update plugin options in WP DB.
 	 *
 	 * @param array $options
 	 * @return void
@@ -730,8 +730,6 @@ class SitePushOptions
 	 */
 	private function db_validate( $params, $name='' )
 	{
-		static $prefix;
-
 		$errors = FALSE;
 		
 		$requireds = array( 'name', 'user', 'pw', 'prefix' );
@@ -745,13 +743,14 @@ class SitePushOptions
 			}
 		}
 
-		if( !$errors && !empty( $prefix) && $params['prefix'] <> $prefix )
+		if( !$errors && !empty($this->db_prefix) && $params['prefix'] <> $this->db_prefix )
 		{
-			SitePushErrors::add_error( "Database prefix must be the same for all databases." );
+			SitePushErrors::add_error( "Error in DB config file - database prefix must be the same for all databases." );
 			$errors = TRUE;
 		}
 
-		$prefix = $params['prefix'];
+		//save db_prefix property
+		$this->db_prefix = $params['prefix'];
 
 		return $errors;
 	}

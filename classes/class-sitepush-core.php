@@ -20,7 +20,7 @@ class SitePushCore
 	//public $undo;
 
 	/**
-	 * @var string holds db_prefix from db_conf for current site
+	 * @var string holds db_prefix for databases
 	 */
 	private $db_prefix = '';
 	
@@ -117,6 +117,8 @@ class SitePushCore
 
 		//create single timestamp for all backups
 		$this->timestamp = date('Ymd-His');
+
+		$this->db_prefix = $this->options->db_prefix;
 	}
 	
 	function __destruct()
