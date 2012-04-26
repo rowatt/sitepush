@@ -6,12 +6,35 @@
 	margin: 0;
 }
 
-#mra-wpp-push-results {
+#sitepush-results {
 	white-space: pre-wrap;
 	margin: 20px 0;
 	padding: 5px;
 	border: 1px solid grey;
-	height:  200px;
+	max-height:  200px;
 	overflow: scroll;
 	overflow-x: hidden;
+}
+
+#sitepush_dest-warning {
+	margin-left: 10px;
+	font-weight: bold;
+	color: red;
+}
+
+.hide-field {
+	display: none;
+}
+
+.hidden-iframe {
+	display: none;
+	height: 0;
+	width: 0;
+}
+
+input.small-text {
+	float: left;
+}
+input.small-text + .description {
+	margin-left: 65px;
 }
