@@ -55,6 +55,9 @@ class SitePushOptions
 
 	public $make_relative_uris;
 
+	//Internal options - can only be changed here
+	public $mask_passwords = TRUE; //mask passwords from results log
+
 	/**
 	 * Singleton instantiator
 	 * @static

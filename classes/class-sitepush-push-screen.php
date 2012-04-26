@@ -151,7 +151,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 						<th scope="row">Database content</th>
 						<td>
 							<?php echo $this->option_html('sitepush_push_db_all_tables','Entire database (this will overwrite all content and settings)','admin_only');?>
-							<?php echo $this->option_html('sitepush_push_db_post_content','All post content (pages, posts, custom post types, link, post meta, categories, tags &amp; custom taxonomies)', 'user');?>
+							<?php echo $this->option_html('sitepush_push_db_post_content','All post content (pages, posts, media, links, custom post types, post meta, categories, tags &amp; custom taxonomies)', 'user');?>
 							<?php echo $this->option_html('sitepush_push_db_comments','Comments','user');?>
 							<?php echo $this->option_html('sitepush_push_db_users','Users &amp; user meta','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_db_options','WordPress options','admin_only');?>

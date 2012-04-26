@@ -596,12 +596,12 @@ class SitePushCore
 		//don't copy if source or dest are symlinks
 		if( is_link( rtrim($source_path,'/') ) )
 		{
-			SitePushErrors::add_error( "Could not push from {$source_path} because it is a symlink and not a real directory." );
+			SitePushErrors::add_error( "Could not push from {$source_path} because it is a symlink and not a real directory.", 'warning' );
 			return FALSE;
 		}
 		elseif( is_link( rtrim($dest_path,'/') ) )
 		{
-			SitePushErrors::add_error( "Could not push to {$dest_path} because it is a symlink and not a real directory." );
+			SitePushErrors::add_error( "Could not push to {$dest_path} because it is a symlink and not a real directory.", 'warning' );
 			return FALSE;
 		}
 		
@@ -790,8 +790,11 @@ class SitePushCore
 		$db_dest = $this->options->get_db_params( $this->dest );
 
 		if( !$db_source || !$db_dest ) return $command;
-		
-		return str_replace(array($db_source['pw'], $db_dest['pw']), array('*****', '*****'), $command);
+
+		if( $this->options->mask_passwords )
+			$command = str_replace(array($db_source['pw'], $db_dest['pw']), array('*****', '*****'), $command);
+
+		return $command;
 	}
 	
 	/**
