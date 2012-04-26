@@ -93,7 +93,7 @@ class SitePushOptions
 			$this->$option = $value;
 		}
 
-		if( !$this->options_validate( $options, FALSE ) ) return FALSE;
+		if( !$this->options_validate( $options ) ) return FALSE;
 
 		//initialise & validate db configs
 		$dbs_conf = $this->get_conf( $this->dbs_conf, 'DB ' );
