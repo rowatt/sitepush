@@ -294,10 +294,29 @@ class SitePushPlugin
 
 			$('#sitepush_dest-warning').text(warnText);
 		};
-		
+
+		function update_cache_option() {
+			if( $('#sitepush_dest').children('option:selected').attr('data-cache') == 'no' )
+			{
+				$('label[title=clear_cache]').addClass('disabled');
+				$('input[name=clear_cache]').attr("disabled", "disabled");
+				$('input[name=clear_cache]').removeAttr("checked");
+			}
+			else
+			{
+				$('input[name=clear_cache]').removeAttr("disabled");
+				$('label[title=clear_cache]').removeClass('disabled');
+			}
+		}
+
 		updateSourceDest();
 		$(".site-selector").change(function() {
 			updateSourceDest();
+		});
+
+		update_cache_option();
+		$("#sitepush_dest").change(function() {
+			update_cache_option();
 		});
 	<?php
 	}

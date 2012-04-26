@@ -67,7 +67,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function section_cache_text()
 	{
-		echo '<p class="description">If the destination site uses <a href="http://wordpress.org/extend/plugins/w3-total-cache/" target="_blank">W3 Total Cache</a> or <a href="http://wordpress.org/extend/plugins/wp-super-cache/" target="_blank">WP Super Cache</a>, SitePush can can clear the cache immediately after a push. To enable this, you must first set the cache secret key below.</p>';
+		echo '<p class="description">If the destination site uses <a href="http://wordpress.org/extend/plugins/w3-total-cache/" target="_blank">W3 Total Cache</a> or <a href="http://wordpress.org/extend/plugins/wp-super-cache/" target="_blank">WP Super Cache</a>, SitePush can can clear the cache immediately after a push.<br />To enable this, you must set the cache secret key below, and also set the cache parameter to <i>yes</i> in your sites config file for at least one site.</p>';
 	}
 
 	function section_rsync_text()

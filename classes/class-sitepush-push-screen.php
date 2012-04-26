@@ -137,7 +137,8 @@ class SitePush_Push_Screen extends SitePush_Screen
 							<?php
 								foreach( $this->plugin->get_sites() as $site )
 								{
-									echo "<option value='{$site}'";
+									$use_cache = $this->options->sites[$site]['use_cache'] ? 'yes' : 'no';
+									echo "<option value='{$site}' data-cache='{$use_cache}'";
 									if( $default_dest == $site ) echo " selected='selected'";
 									echo ">{$this->options->sites[$site]['label']}</option>";
 								}
@@ -171,7 +172,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<?php
 						$output = '';
 
-						if( !empty($this->options->cache_key) )
+						if( !empty($this->options->cache_key) && $this->options->use_cache )
 							$output .= $this->option_html('clear_cache','Clear cache on destination','user','checked');
 
 						if( $this->options->backup_path )

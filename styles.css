@@ -38,3 +38,6 @@ input.small-text {
 input.small-text + .description {
 	margin-left: 65px;
 }
+label.disabled {
+	color: #AAA;
+}

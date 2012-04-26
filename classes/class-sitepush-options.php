@@ -13,6 +13,7 @@ class SitePushOptions
 	private $current_site = ''; //access through get_current_site method
 	public $current_site_conf = array();
 	public $all_domains = array();
+	public $use_cache = FALSE; //remember if any site uses cache
 
 
 	//default capabilities required to use SitePush
@@ -26,7 +27,7 @@ class SitePushOptions
 	private $trim_params = array('sites_conf', 'dbs_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
 	//parameters which just get initialised
 	private $no_trim_params = array('accept', 'fix_site_urls', 'only_admins_login_to_live');
-	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'domain', 'domains', 'wp_dir' );
+	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'caches', 'domain', 'domains', 'wp_dir' );
 	private $all_params; //set in __construct
 
 	//options - these come from WordPress option sitepush_options
@@ -538,7 +539,11 @@ class SitePushOptions
 		if( empty($options['wp_plugin_dir']) ) $options['wp_plugin_dir'] = $options['wp_content_dir'] . '/plugins';
 		if( empty($options['wp_uploads_dir']) ) $options['wp_uploads_dir'] = $options['wp_content_dir'] . '/uploads';
 		if( empty($options['wp_themes_dir']) ) $options['wp_themes_dir'] = $options['wp_content_dir'] . '/themes';
-		
+
+		//remember if any site has caching turned on
+		$options['use_cache'] = (bool) $options['cache'] || (bool) $options['caches'];
+		$this->use_cache = $this->use_cache || $options['use_cache'];
+
 		return $options;
 	}
 	
