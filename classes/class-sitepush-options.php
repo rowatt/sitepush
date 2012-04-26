@@ -524,8 +524,11 @@ class SitePushOptions
 		if( array_key_exists('domains',$options) && empty($options['domain']) )
 			$options['domain'] = $options['domains'][0];
 
+		if( empty($options['domains']) )
+			$options['domains'][0] = $options['domain'];
+
 		//save all domains in array
-		$this->all_domains = array_merge( $this->all_domains, $options['domains'], (array) $options['domain'] );
+		$this->all_domains = array_unique( array_merge( $this->all_domains, $options['domains'], (array) $options['domain'] ) );
 
 		//make sure certain optional params are set correctly
 		if( !$options['label'] ) $options['label'] = $options['name'];
