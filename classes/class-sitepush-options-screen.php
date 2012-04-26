@@ -126,9 +126,9 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_text('dbs_conf','','large-text');
 	}
 
-	function field_make_relative_uris()
+	function field_fix_site_urls()
 	{
-		echo $this->input_checkbox('make_relative_uris', ' Convert all URLs to this site to relative URIs', 'Make sure that any URLs to any of your sites domains are converted to a relative URI. <br />For example http://dev.mysite.com/mypage would be converted to /mypage.<br />This helps to make sure that URLs work across different versions of your sites.');
+		echo $this->input_checkbox('fix_site_urls', ' Convert site URLs to link to current site', 'Make sure that any URLs to any of your sites domains link to the current site. <br />For example http://dev.mysite.com/mypage would be converted to http://www.mysite.com/mypage when viewing www.mysite.com.<br />This helps to make sure that URLs work across different versions of your sites.<br />If a site has more than one domain defined, URLs will be converted to the first domain given for that site in your sites config file.');
 	}
 
 	function field_timezone()

@@ -80,7 +80,7 @@ class SitePushPlugin
 			add_filter( 'plugin_action_links', array( &$this, 'plugin_admin_override'), 10, 2 );
 
 			//content filters
-			add_filter('the_content', array( &$this, 'relative_urls') );
+			add_filter('the_content', array( &$this, 'fix_site_urls') );
 		}
 	}
 
@@ -308,22 +308,22 @@ class SitePushPlugin
 	/* -------------------------------------------------------------- */
 	
 	/**
-	 * Removes domain names from URLs on site to make them relative, so that links still work across versions of a site
-	 * Domains to remove is defined in SitePush options
+	 * Make sure that URLs to any defined site's domains link to the current site, so that links still work across versions of a site
 	 *
 	 * Called by the_content filter
 	 *
 	 * @param string
 	 * @return string
 	 */
-	function relative_urls( $content='' )
+	function fix_site_urls( $content='' )
 	{
-		if( !$this->options->make_relative_uris ) return $content;
+		if( !$this->options->fix_site_urls ) return $content;
 		
 		foreach( $this->options->all_domains as $domain )
 		{
 			$search = array( "http://{$domain}", "https://{$domain}" );
-			$content = str_ireplace( $search, '', $content );	
+			$replace = array( "http://{$this->options->current_site_conf['domains'][0]}", "https://{$this->options->current_site_conf['domains'][0]}" );
+			$content = str_ireplace( $search, $replace, $content );
 		}
 		
 		return $content;
@@ -852,9 +852,9 @@ class SitePushPlugin
 		);
 
 		add_settings_field(
-			'sitepush_field_make_relative_uris',
-			'Relative URIs',
-			array( $options_screen, 'field_make_relative_uris' ),
+			'sitepush_field_fix_site_urls',
+			'Fix site URLs',
+			array( $options_screen, 'field_fix_site_urls' ),
 			'sitepush_options',
 			'sitepush_section_config'
 		);
