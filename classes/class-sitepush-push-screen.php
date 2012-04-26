@@ -89,7 +89,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 			else
 			{
 				if( !SitePushErrors::is_error() )
-					SitePushErrors::add_error( "Nothing selected to push." );
+					SitePushErrors::add_error( "Nothing selected to push" );
 			}
 
 			SitePushErrors::errors();
