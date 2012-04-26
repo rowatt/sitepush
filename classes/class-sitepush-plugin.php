@@ -420,7 +420,10 @@ class SitePushPlugin
 	{
 		//if we are going to do a push, check that we were referred from options page as expected
 		check_admin_referer('sitepush-dopush','sitepush-nonce');
-		
+
+		//final check everything is OK
+		$this->final_check( $my_push );
+
 		if( SitePushErrors::count_errors('all-errors') )
 			return FALSE;
 
@@ -557,7 +560,20 @@ class SitePushPlugin
 
 		return SitePushErrors::is_error() ? FALSE : $done_push;
 	}
-	
+
+	/**
+	 * Run last minute final checks immediately before doing a push
+	 *
+	 * @param SitePushCore $my_push
+	 * @return void
+	 */
+	private function final_check( $my_push )
+	{
+		//check if source and dest DB are actually the same DB
+		if( $this->options->dbs[ $my_push->source_params['db'] ]['name'] == $this->options->dbs[ $my_push->dest_params['db'] ]['name'] )
+			SitePushErrors::add_error( "Unable to push - both sites use the same database ({$this->options->dbs[ $my_push->dest_params['db'] ]['name']})", 'error' );
+	}
+
 	/**
 	 * Get SitePush user options for all users who have SitePush user meta options set
 	 *
