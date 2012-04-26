@@ -151,6 +151,11 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_text('admin_capability');
 	}
 
+	function field_only_admins_login_to_live()
+	{
+		echo $this->input_checkbox('only_admins_login_to_live', ' Only admins can login to live sites', 'Prevent login to any site labelled as <i>live</i> (in site config file) by any user who does not have the SitePush admin capability.');
+	}
+
 	function field_cache_key()
 	{
 		$extra_text = empty( $this->options->cache_key ) ? "<br />A random string you could use: " .  md5( microtime() ) : '';

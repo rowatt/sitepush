@@ -25,7 +25,7 @@ class SitePushOptions
 	//parameters which get initialised and get whitespace trimmed
 	private $trim_params = array('sites_conf', 'dbs_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
 	//parameters which just get initialised
-	private $no_trim_params = array('accept', 'make_relative_uris');
+	private $no_trim_params = array('accept', 'make_relative_uris', 'only_admins_login_to_live');
 	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'domain', 'domains', 'wp_dir' );
 	private $all_params; //set in __construct
 
@@ -38,6 +38,7 @@ class SitePushOptions
 
 	public $capability;
 	public $admin_capability;
+	public $only_admins_login_to_live; //if TRUE only users with admin_capability can log into a site flagges as 'live'
 
 	public $cache_key;
 
@@ -167,6 +168,7 @@ class SitePushOptions
 		if( !array_key_exists( 'sites_conf', $options ) ) $options['sites_conf'] = '';
 		if( !array_key_exists( 'dbs_conf', $options ) ) $options['dbs_conf'] = '';
 		if( !array_key_exists( 'make_relative_uris', $options ) ) $options['make_relative_urls'] = TRUE;
+		if( !array_key_exists( 'only_admins_login_to_live', $options ) ) $options['only_admins_login_to_live'] = FALSE;
 		if( !array_key_exists( 'timezone', $options ) ) $options['timezone'] = '';
 		if( !array_key_exists( 'debug_output_level', $options ) ) $options['debug_output_level'] = 0;
 

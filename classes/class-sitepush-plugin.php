@@ -50,6 +50,9 @@ class SitePushPlugin
 
 		//uninstall
 		register_uninstall_hook(__FILE__, array( __CLASS__, 'uninstall') );
+
+		//block login to certain sites by certain users
+		add_filter('wp_authenticate_user', array( &$this, 'block_login') );
 	}
 	/**
 	 * sets up plugin options and adds some hooks
@@ -895,7 +898,15 @@ class SitePushPlugin
 			'sitepush_options',
 			'sitepush_section_capabilities'
 		);
-	
+
+		add_settings_field(
+			'sitepush_field_only_admins_login_to_live',
+			'Live site login',
+			array( $options_screen, 'field_only_admins_login_to_live' ),
+			'sitepush_options',
+			'sitepush_section_capabilities'
+		);
+
 		/* Cache option fields */
 		add_settings_section(
 			'sitepush_section_cache',
@@ -1060,6 +1071,26 @@ class SitePushPlugin
 			return FALSE;
 	}
 
+
+	/**
+	 * Block login to a live site for non admin users
+	 *
+	 * @param $userdata
+	 * @return WP_Error
+	 */
+	public function block_login( $userdata )
+	{
+		if( $this->options->only_admins_login_to_live &&                        //only allow admins to login to live
+			!user_can( $userdata->ID, $this->options->admin_capability ) &&     //this user isn't a sitepush admin
+			$this->options->current_site_conf['live'] )                         //this site is live
+		{
+			return new WP_Error('login_blocked', __('You cannot login to this site. Please contact the site admin for more information.'));
+		}
+		else
+		{
+			return $userdata;
+		}
+	}
 }
 
 /* EOF */
