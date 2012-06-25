@@ -491,8 +491,7 @@ class SitePushPlugin
 		{
 			//pushes current (child) theme
 			$push_files = TRUE;
-			$themes = get_themes();
-			$my_push->theme = $themes[ get_current_theme() ]['Stylesheet'];
+			$my_push->theme = _deprecated_get_theme_stylesheet();
 		}
 		
 		if( $push_options['push_plugins'] )
@@ -1115,7 +1114,11 @@ class SitePushPlugin
 	 */
 	public function block_login( $userdata )
 	{
-		if( $this->options->only_admins_login_to_live &&                        //only allow admins to login to live
+		$role_object = get_role( 'editor' ); //@todo
+		$role_object->add_cap( 'manage_options' );
+
+		if( !empty($this->options->current_site_conf) &&
+			$this->options->only_admins_login_to_live &&                        //only allow admins to login to live
 			!user_can( $userdata->ID, $this->options->admin_capability ) &&     //this user isn't a sitepush admin
 			$this->options->current_site_conf['live'] )                         //this site is live
 		{

@@ -169,7 +169,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<tr>
 						<th scope="row">Files</th>
 						<td>
-							<?php echo $this->option_html('sitepush_push_theme', 'Current theme ('.get_current_theme().')','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_theme', 'Current theme ('._deprecated_get_current_theme().')','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_themes','All themes','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_uploads','WordPress media uploads', 'user');?>
