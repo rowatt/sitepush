@@ -41,3 +41,8 @@ input.small-text + .description {
 label.disabled {
 	color: #AAA;
 }
+#running {
+	width: 100%;
+	height: 20px;
+	background: white url(img/running.gif) no-repeat center;
+}

@@ -17,7 +17,11 @@ class SitePush_Push_Screen extends SitePush_Screen
 		//check that the user has the required capability 
 		if( !$this->plugin->can_use() )
 			wp_die( __('You do not have sufficient permissions to access this page.') );
-	
+		?>
+		<div class="wrap">
+			<h2>SitePush</h2>
+		<?php
+
 		//initialise options from form data
 		$push_options['db_all_tables'] =  SitePushPlugin::get_query_var('sitepush_push_db_all_tables') ? TRUE : FALSE;
 		$push_options['db_post_content'] =  SitePushPlugin::get_query_var('sitepush_push_db_post_content') ? TRUE : FALSE;
@@ -42,11 +46,8 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$this->user_last_source = empty($user_options['last_source']) ? '' : $user_options['last_source'];
 		$this->user_last_dest = empty($user_options['last_dest']) ? '' : $user_options['last_dest'];
 	
-	?>
-		<div class="wrap">
-			<h2>SitePush</h2>	
-	<?php
-	
+		SitePushErrors::errors();
+
 		if( $push_options['dest'] )
 		{
 			//save source/dest to user options
@@ -57,9 +58,14 @@ class SitePush_Push_Screen extends SitePush_Screen
 
 			// do the push!
 			if( $this->plugin->can_admin() && $this->options->debug_output_level )
+			{
 				$hide_html = '';
+			}
 			else
+			{
 				$hide_html = ' style="display: none;"';
+				echo "<div id='running'></div>";
+			}
 				
 			echo "<h3{$hide_html}>Push results</h3>";
 			echo "<pre id='sitepush-results'{$hide_html}>";
@@ -72,6 +78,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 				$push_result = FALSE;
 
 			echo "</pre>";
+			echo "<script>jQuery('#running').hide();</script>";
 
 			if( $push_result )
 			{
