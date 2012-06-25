@@ -80,7 +80,7 @@ class SitePushPlugin
 			add_filter( 'plugin_action_links', array( &$this, 'plugin_admin_override'), 10, 2 );
 
 			//content filters
-			add_filter('the_content', array( &$this, 'relative_urls') );
+			add_filter('the_content', array( &$this, 'fix_site_urls') );
 		}
 	}
 
@@ -294,10 +294,29 @@ class SitePushPlugin
 
 			$('#sitepush_dest-warning').text(warnText);
 		};
-		
+
+		function update_cache_option() {
+			if( $('#sitepush_dest').children('option:selected').attr('data-cache') == 'no' )
+			{
+				$('label[title=clear_cache]').addClass('disabled');
+				$('input[name=clear_cache]').attr("disabled", "disabled");
+				$('input[name=clear_cache]').removeAttr("checked");
+			}
+			else
+			{
+				$('input[name=clear_cache]').removeAttr("disabled");
+				$('label[title=clear_cache]').removeClass('disabled');
+			}
+		}
+
 		updateSourceDest();
 		$(".site-selector").change(function() {
 			updateSourceDest();
+		});
+
+		update_cache_option();
+		$("#sitepush_dest").change(function() {
+			update_cache_option();
 		});
 	<?php
 	}
@@ -308,22 +327,22 @@ class SitePushPlugin
 	/* -------------------------------------------------------------- */
 	
 	/**
-	 * Removes domain names from URLs on site to make them relative, so that links still work across versions of a site
-	 * Domains to remove is defined in SitePush options
+	 * Make sure that URLs to any defined site's domains link to the current site, so that links still work across versions of a site
 	 *
 	 * Called by the_content filter
 	 *
 	 * @param string
 	 * @return string
 	 */
-	function relative_urls( $content='' )
+	function fix_site_urls( $content='' )
 	{
-		if( !$this->options->make_relative_uris ) return $content;
+		if( !$this->options->fix_site_urls ) return $content;
 		
 		foreach( $this->options->all_domains as $domain )
 		{
 			$search = array( "http://{$domain}", "https://{$domain}" );
-			$content = str_ireplace( $search, '', $content );	
+			$replace = array( "http://{$this->options->current_site_conf['domains'][0]}", "https://{$this->options->current_site_conf['domains'][0]}" );
+			$content = str_ireplace( $search, $replace, $content );
 		}
 		
 		return $content;
@@ -420,7 +439,10 @@ class SitePushPlugin
 	{
 		//if we are going to do a push, check that we were referred from options page as expected
 		check_admin_referer('sitepush-dopush','sitepush-nonce');
-		
+
+		//final check everything is OK
+		$this->final_check( $my_push );
+
 		if( SitePushErrors::count_errors('all-errors') )
 			return FALSE;
 
@@ -469,8 +491,7 @@ class SitePushPlugin
 		{
 			//pushes current (child) theme
 			$push_files = TRUE;
-			$themes = get_themes();
-			$my_push->theme = $themes[ get_current_theme() ]['Stylesheet'];
+			$my_push->theme = _deprecated_get_theme_stylesheet();
 		}
 		
 		if( $push_options['push_plugins'] )
@@ -557,7 +578,20 @@ class SitePushPlugin
 
 		return SitePushErrors::is_error() ? FALSE : $done_push;
 	}
-	
+
+	/**
+	 * Run last minute final checks immediately before doing a push
+	 *
+	 * @param SitePushCore $my_push
+	 * @return void
+	 */
+	private function final_check( $my_push )
+	{
+		//check if source and dest DB are actually the same DB
+		if( $this->options->dbs[ $my_push->source_params['db'] ]['name'] == $this->options->dbs[ $my_push->dest_params['db'] ]['name'] )
+			SitePushErrors::add_error( "Unable to push - both sites use the same database ({$this->options->dbs[ $my_push->dest_params['db'] ]['name']})", 'error' );
+	}
+
 	/**
 	 * Get SitePush user options for all users who have SitePush user meta options set
 	 *
@@ -852,9 +886,9 @@ class SitePushPlugin
 		);
 
 		add_settings_field(
-			'sitepush_field_make_relative_uris',
-			'Relative URIs',
-			array( $options_screen, 'field_make_relative_uris' ),
+			'sitepush_field_fix_site_urls',
+			'Fix site URLs',
+			array( $options_screen, 'field_fix_site_urls' ),
 			'sitepush_options',
 			'sitepush_section_config'
 		);
@@ -1080,7 +1114,11 @@ class SitePushPlugin
 	 */
 	public function block_login( $userdata )
 	{
-		if( $this->options->only_admins_login_to_live &&                        //only allow admins to login to live
+		$role_object = get_role( 'editor' ); //@todo
+		$role_object->add_cap( 'manage_options' );
+
+		if( !empty($this->options->current_site_conf) &&
+			$this->options->only_admins_login_to_live &&                        //only allow admins to login to live
 			!user_can( $userdata->ID, $this->options->admin_capability ) &&     //this user isn't a sitepush admin
 			$this->options->current_site_conf['live'] )                         //this site is live
 		{

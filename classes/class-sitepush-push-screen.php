@@ -17,7 +17,11 @@ class SitePush_Push_Screen extends SitePush_Screen
 		//check that the user has the required capability 
 		if( !$this->plugin->can_use() )
 			wp_die( __('You do not have sufficient permissions to access this page.') );
-	
+		?>
+		<div class="wrap">
+			<h2>SitePush</h2>
+		<?php
+
 		//initialise options from form data
 		$push_options['db_all_tables'] =  SitePushPlugin::get_query_var('sitepush_push_db_all_tables') ? TRUE : FALSE;
 		$push_options['db_post_content'] =  SitePushPlugin::get_query_var('sitepush_push_db_post_content') ? TRUE : FALSE;
@@ -42,11 +46,8 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$this->user_last_source = empty($user_options['last_source']) ? '' : $user_options['last_source'];
 		$this->user_last_dest = empty($user_options['last_dest']) ? '' : $user_options['last_dest'];
 	
-	?>
-		<div class="wrap">
-			<h2>SitePush</h2>	
-	<?php
-	
+		SitePushErrors::errors();
+
 		if( $push_options['dest'] )
 		{
 			//save source/dest to user options
@@ -57,9 +58,14 @@ class SitePush_Push_Screen extends SitePush_Screen
 
 			// do the push!
 			if( $this->plugin->can_admin() && $this->options->debug_output_level )
+			{
 				$hide_html = '';
+			}
 			else
+			{
 				$hide_html = ' style="display: none;"';
+				echo "<div id='running'></div>";
+			}
 				
 			echo "<h3{$hide_html}>Push results</h3>";
 			echo "<pre id='sitepush-results'{$hide_html}>";
@@ -72,6 +78,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 				$push_result = FALSE;
 
 			echo "</pre>";
+			echo "<script>jQuery('#running').hide();</script>";
 
 			if( $push_result )
 			{
@@ -89,7 +96,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 			else
 			{
 				if( !SitePushErrors::is_error() )
-					SitePushErrors::add_error( "Nothing selected to push." );
+					SitePushErrors::add_error( "Nothing selected to push" );
 			}
 
 			SitePushErrors::errors();
@@ -137,7 +144,8 @@ class SitePush_Push_Screen extends SitePush_Screen
 							<?php
 								foreach( $this->plugin->get_sites() as $site )
 								{
-									echo "<option value='{$site}'";
+									$use_cache = $this->options->sites[$site]['use_cache'] ? 'yes' : 'no';
+									echo "<option value='{$site}' data-cache='{$use_cache}'";
 									if( $default_dest == $site ) echo " selected='selected'";
 									echo ">{$this->options->sites[$site]['label']}</option>";
 								}
@@ -151,7 +159,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 						<th scope="row">Database content</th>
 						<td>
 							<?php echo $this->option_html('sitepush_push_db_all_tables','Entire database (this will overwrite all content and settings)','admin_only');?>
-							<?php echo $this->option_html('sitepush_push_db_post_content','All post content (pages, posts, custom post types, link, post meta, categories, tags &amp; custom taxonomies)', 'user');?>
+							<?php echo $this->option_html('sitepush_push_db_post_content','All post content (pages, posts, media, links, custom post types, post meta, categories, tags &amp; custom taxonomies)', 'user');?>
 							<?php echo $this->option_html('sitepush_push_db_comments','Comments','user');?>
 							<?php echo $this->option_html('sitepush_push_db_users','Users &amp; user meta','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_db_options','WordPress options','admin_only');?>
@@ -161,7 +169,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<tr>
 						<th scope="row">Files</th>
 						<td>
-							<?php echo $this->option_html('sitepush_push_theme', 'Current theme ('.get_current_theme().')','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_theme', 'Current theme ('._deprecated_get_current_theme().')','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_themes','All themes','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_uploads','WordPress media uploads', 'user');?>
@@ -171,7 +179,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<?php
 						$output = '';
 
-						if( !empty($this->options->cache_key) )
+						if( !empty($this->options->cache_key) && $this->options->use_cache )
 							$output .= $this->option_html('clear_cache','Clear cache on destination','user','checked');
 
 						if( $this->options->backup_path )

@@ -13,20 +13,21 @@ class SitePushOptions
 	private $current_site = ''; //access through get_current_site method
 	public $current_site_conf = array();
 	public $all_domains = array();
+	public $use_cache = FALSE; //remember if any site uses cache
 
 
 	//default capabilities required to use SitePush
-	public static $default_capability = 'manage_options';
-	public static $default_admin_capability = 'manage_options';
-	public static $fallback_capability = 'manage_options'; //user with this capability will always be able to access options
+	public static $default_capability = 'install_plugins';
+	public static $default_admin_capability = 'install_plugins';
+	public static $fallback_capability = 'manage_sitepush_options'; //user with this capability will always be able to access options
 
 	//options which need keeping when user updates options
 	private $keep_options = array( 'accept', 'last_update' );
 	//parameters which get initialised and get whitespace trimmed
 	private $trim_params = array('sites_conf', 'dbs_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
 	//parameters which just get initialised
-	private $no_trim_params = array('accept', 'make_relative_uris', 'only_admins_login_to_live');
-	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'domain', 'domains', 'wp_dir' );
+	private $no_trim_params = array('accept', 'fix_site_urls', 'only_admins_login_to_live');
+	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'caches', 'domain', 'domains', 'wp_dir' );
 	private $all_params; //set in __construct
 
 	//options - these come from WordPress option sitepush_options
@@ -53,7 +54,10 @@ class SitePushOptions
 	public $mysql_path;
 	public $mysqldump_path;
 
-	public $make_relative_uris;
+	public $fix_site_urls;
+
+	//Internal options - can only be changed here
+	public $mask_passwords = TRUE; //mask passwords from results log
 
 	/**
 	 * Singleton instantiator
@@ -93,7 +97,7 @@ class SitePushOptions
 			$this->$option = $value;
 		}
 
-		if( !$this->options_validate( $options, FALSE ) ) return FALSE;
+		if( !$this->options_validate( $options ) ) return FALSE;
 
 		//initialise & validate db configs
 		$dbs_conf = $this->get_conf( $this->dbs_conf, 'DB ' );
@@ -103,14 +107,12 @@ class SitePushOptions
 		$this->sites = $this->sites_init( $sites_conf );
 		if( SitePushErrors::is_error() ) return FALSE;
 	
-		//initialise & validate site configs
-		//@todo should there be something here?
-		if( SitePushErrors::is_error() ) return FALSE;
-		if( SitePushErrors::is_error() ) return FALSE;
-
 		//set current site
 		$this->current_site_init();
 		if( SitePushErrors::is_error() ) return FALSE;
+
+		//final validation once everything setup
+		if( !$this->final_validate() ) return FALSE;
 
 		//no errors so everything appears to be OK
 		$this->OK = TRUE;
@@ -167,10 +169,12 @@ class SitePushOptions
 		//General parameters
 		if( !array_key_exists( 'sites_conf', $options ) ) $options['sites_conf'] = '';
 		if( !array_key_exists( 'dbs_conf', $options ) ) $options['dbs_conf'] = '';
-		if( !array_key_exists( 'make_relative_uris', $options ) ) $options['make_relative_urls'] = TRUE;
-		if( !array_key_exists( 'only_admins_login_to_live', $options ) ) $options['only_admins_login_to_live'] = FALSE;
 		if( !array_key_exists( 'timezone', $options ) ) $options['timezone'] = '';
 		if( !array_key_exists( 'debug_output_level', $options ) ) $options['debug_output_level'] = 0;
+
+		//checkbox params - can only initialise to FALSE or else they are always set to TRUE whatever user wants
+		if( !array_key_exists( 'fix_site_urls', $options ) ) $options['fix_site_urls'] = FALSE;
+		if( !array_key_exists( 'only_admins_login_to_live', $options ) ) $options['only_admins_login_to_live'] = FALSE;
 
 		//Capabilities
 		if( empty($options['capability']) ) $options['capability'] = self::$default_capability;
@@ -398,6 +402,41 @@ class SitePushOptions
 			}
 		}
 
+		return $valid && !SitePushErrors::is_error();
+	}
+
+	/**
+	 * Final validation after all params etc have been set, setting errors as appropriate.
+	 *
+	 * This is called when options are updated from settings screen, generating errors as appropriate, @todo
+	 * and when plugin is initialised, in which case errors not generated and capabilities not checked.
+	 *
+	 * @return bool TRUE if options OK, FALSE otherwise
+	 */
+	private function final_validate()
+	{
+		//check wp_content dir
+		$current_content_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_content_dir'];
+		if( WP_CONTENT_DIR <> $current_content_dir )
+			SitePushErrors::add_error( "Warning - currently configured WordPress content directory (".WP_CONTENT_DIR.") is different from the configured uploads directory in your sites config file ($current_content_dir)", 'warning' );
+
+		//check uploads dir
+		$uld = wp_upload_dir();
+		$current_uld = $this->current_site_conf['web_path'].$this->current_site_conf['wp_uploads_dir'];
+		if( $uld['basedir'] <> $current_uld )
+			SitePushErrors::add_error( "Warning - currently configured WordPress uploads directory ({$uld['basedir']}) is different from the configured uploads directory in your sites config file ($current_uld)", 'warning' );
+
+
+		//check plugins dir
+		$current_plugins_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_plugin_dir'];
+		if( WP_PLUGIN_DIR <> $current_plugins_dir )
+			SitePushErrors::add_error( "Warning - currently configured WordPress plugins directory (".WP_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_plugins_dir)", 'warning' );
+
+		//check themes dir
+		$current_themes_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_themes_dir'];
+		if( WP_CONTENT_DIR . '/themes' <> $current_themes_dir )
+			SitePushErrors::add_error( "Warning - currently configured WordPress themes directory (".WP_CONTENT_DIR."/themes) is different from the configured themes directory in your sites config file ($current_themes_dir)", 'warning' );
+
 		return ! SitePushErrors::is_error();
 	}
 
@@ -519,8 +558,11 @@ class SitePushOptions
 		if( array_key_exists('domains',$options) && empty($options['domain']) )
 			$options['domain'] = $options['domains'][0];
 
+		if( empty($options['domains']) )
+			$options['domains'][0] = $options['domain'];
+
 		//save all domains in array
-		$this->all_domains = array_merge( $this->all_domains, $options['domains'], (array) $options['domain'] );
+		$this->all_domains = array_unique( array_merge( $this->all_domains, $options['domains'], (array) $options['domain'] ) );
 
 		//make sure certain optional params are set correctly
 		if( !$options['label'] ) $options['label'] = $options['name'];
@@ -530,7 +572,11 @@ class SitePushOptions
 		if( empty($options['wp_plugin_dir']) ) $options['wp_plugin_dir'] = $options['wp_content_dir'] . '/plugins';
 		if( empty($options['wp_uploads_dir']) ) $options['wp_uploads_dir'] = $options['wp_content_dir'] . '/uploads';
 		if( empty($options['wp_themes_dir']) ) $options['wp_themes_dir'] = $options['wp_content_dir'] . '/themes';
-		
+
+		//remember if any site has caching turned on
+		$options['use_cache'] = (bool) $options['cache'] || (bool) $options['caches'];
+		$this->use_cache = $this->use_cache || $options['use_cache'];
+
 		return $options;
 	}
 	
