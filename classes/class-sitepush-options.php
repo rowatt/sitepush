@@ -17,9 +17,9 @@ class SitePushOptions
 
 
 	//default capabilities required to use SitePush
-	public static $default_capability = 'manage_options';
-	public static $default_admin_capability = 'manage_options';
-	public static $fallback_capability = 'manage_options'; //user with this capability will always be able to access options
+	public static $default_capability = 'install_plugins';
+	public static $default_admin_capability = 'install_plugins';
+	public static $fallback_capability = 'manage_sitepush_options'; //user with this capability will always be able to access options
 
 	//options which need keeping when user updates options
 	private $keep_options = array( 'accept', 'last_update' );
@@ -107,14 +107,12 @@ class SitePushOptions
 		$this->sites = $this->sites_init( $sites_conf );
 		if( SitePushErrors::is_error() ) return FALSE;
 	
-		//initialise & validate site configs
-		//@todo should there be something here?
-		if( SitePushErrors::is_error() ) return FALSE;
-		if( SitePushErrors::is_error() ) return FALSE;
-
 		//set current site
 		$this->current_site_init();
 		if( SitePushErrors::is_error() ) return FALSE;
+
+		//final validation once everything setup
+		if( !$this->final_validate() ) return FALSE;
 
 		//no errors so everything appears to be OK
 		$this->OK = TRUE;
@@ -403,6 +401,41 @@ class SitePushOptions
 				$options['admin_capability'] = self::$default_capability;
 			}
 		}
+
+		return $valid && !SitePushErrors::is_error();
+	}
+
+	/**
+	 * Final validation after all params etc have been set, setting errors as appropriate.
+	 *
+	 * This is called when options are updated from settings screen, generating errors as appropriate, @todo
+	 * and when plugin is initialised, in which case errors not generated and capabilities not checked.
+	 *
+	 * @return bool TRUE if options OK, FALSE otherwise
+	 */
+	private function final_validate()
+	{
+		//check wp_content dir
+		$current_content_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_content_dir'];
+		if( WP_CONTENT_DIR <> $current_content_dir )
+			SitePushErrors::add_error( "Warning - currently configured WordPress content directory (".WP_CONTENT_DIR.") is different from the configured uploads directory in your sites config file ($current_content_dir)", 'warning' );
+
+		//check uploads dir
+		$uld = wp_upload_dir();
+		$current_uld = $this->current_site_conf['web_path'].$this->current_site_conf['wp_uploads_dir'];
+		if( $uld['basedir'] <> $current_uld )
+			SitePushErrors::add_error( "Warning - currently configured WordPress uploads directory ({$uld['basedir']}) is different from the configured uploads directory in your sites config file ($current_uld)", 'warning' );
+
+
+		//check plugins dir
+		$current_plugins_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_plugin_dir'];
+		if( WP_PLUGIN_DIR <> $current_plugins_dir )
+			SitePushErrors::add_error( "Warning - currently configured WordPress plugins directory (".WP_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_plugins_dir)", 'warning' );
+
+		//check themes dir
+		$current_themes_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_themes_dir'];
+		if( WP_CONTENT_DIR . '/themes' <> $current_themes_dir )
+			SitePushErrors::add_error( "Warning - currently configured WordPress themes directory (".WP_CONTENT_DIR."/themes) is different from the configured themes directory in your sites config file ($current_themes_dir)", 'warning' );
 
 		return ! SitePushErrors::is_error();
 	}
