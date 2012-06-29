@@ -764,6 +764,11 @@ class SitePushOptions
 	 */	
 	private function db_init( $params, $name='' )
 	{
+		global $wpdb;
+
+		//DB prefix is set directly from WP global setting
+		$this->db_prefix = $wpdb->prefix;
+
 		$this->db_validate( $params, $name );
 		return $params;
 	}
@@ -780,7 +785,7 @@ class SitePushOptions
 	{
 		$errors = FALSE;
 		
-		$requireds = array( 'name', 'user', 'pw', 'prefix' );
+		$requireds = array( 'name', 'user', 'pw' );
 		
 		foreach( $requireds as $required )
 		{
@@ -790,15 +795,6 @@ class SitePushOptions
 				$errors = TRUE;
 			}
 		}
-
-		if( !$errors && !empty($this->db_prefix) && $params['prefix'] <> $this->db_prefix )
-		{
-			SitePushErrors::add_error( "Error in DB config file - database prefix must be the same for all databases." );
-			$errors = TRUE;
-		}
-
-		//save db_prefix property
-		$this->db_prefix = $params['prefix'];
 
 		return $errors;
 	}
