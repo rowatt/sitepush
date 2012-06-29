@@ -398,17 +398,21 @@ class SitePushPlugin
 	/* -------------------------------------------------------------- */
 	
 	/**
-	 * Is the current user access a SitePush admin
+	 * Is the current user a SitePush admin
+	 *
+	 * User is admin if, they have defined admin capability, a catchall 'fallback' capability
+	 * User is not admin if we are in multisite mode and user does not have certain superadmin capabilities
 	 *
 	 * @return bool TRUE if user is SitePush admin, FALSE otherwise
 	 */
 	public function can_admin()
 	{
-		if( !empty($this->options->admin_capability) && current_user_can( $this->options->admin_capability ) )
+		if( is_multisite() && ! ( current_user_can('manage_network') || current_user_can('manage_sites') || current_user_can('manage_network_options') ) )
+			return FALSE;
+		elseif( !empty($this->options->admin_capability) && current_user_can( $this->options->admin_capability ) )
 			return TRUE;
 		else
-			return current_user_can( SitePushOptions::$fallback_capability )
-					|| current_user_can( SitePushOptions::$default_admin_capability );
+			return  current_user_can( SitePushOptions::$default_admin_capability );
 	}
 	
 	/**
