@@ -23,7 +23,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 			if( ! empty($_GET['settings-updated']) )
 				SitePushErrors::errors();
 			else
-				SitePushErrors::errors('fatal-errors');
+				SitePushErrors::errors('fatal-error');
 
 			if( $this->plugin->abort )
 				return FALSE;

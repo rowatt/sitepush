@@ -92,7 +92,7 @@ class SitePushPlugin
 		if( version_compare( get_bloginfo( 'version' ), $this->min_wp_version, '<') )
 			SitePushErrors::add_error( "SitePush requires at least WordPress version {$this->min_wp_version}", 'error' );
 
-		if( (defined('WP_ALLOW_MULTISITE') && WP_ALLOW_MULTISITE) && ! (defined('SITEPUSH_ALLOW_MULTISITE') && SITEPUSH_ALLOW_MULTISITE) )
+		if( is_multisite() && ! (defined('SITEPUSH_ALLOW_MULTISITE') && SITEPUSH_ALLOW_MULTISITE) )
 			SitePushErrors::add_error( "SitePush does not support WordPress multisite installs. If you wish to use SitePush on a multisite install, add define('SITEPUSH_ALLOW_MULTISITE',TRUE) to your wp-config.php file and proceed with caution!", 'fatal-error' );
 
 		//get php version
