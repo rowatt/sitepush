@@ -97,7 +97,9 @@ class SitePushOptions
 			$this->$option = $value;
 		}
 
-		if( !$this->options_validate( $options ) ) return FALSE;
+		//only report errors if we are updating settings
+		$update_check = !empty($_GET['settings-updated']);
+		if( !$this->options_validate( $options, $update_check ) ) return FALSE;
 
 		//initialise & validate db configs
 		$dbs_conf = $this->get_conf( $this->dbs_conf, 'DB ' );
