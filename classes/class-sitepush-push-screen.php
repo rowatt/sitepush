@@ -67,8 +67,8 @@ class SitePush_Push_Screen extends SitePush_Screen
 				echo "<div id='running'></div>";
 			}
 				
-			echo "<h3{$hide_html}>Push results</h3>";
-			echo "<pre id='sitepush-results'{$hide_html}>";
+			echo "<h3{$hide_html} class='sitepush-results'>Push results</h3>";
+			echo "<pre id='sitepush-results' class='sitepush-results' {$hide_html}>";
 
 			//Do the push!
 			$obj_sitepushcore = new SitePushCore( $push_options['source'], $push_options['dest'] );
@@ -78,7 +78,10 @@ class SitePush_Push_Screen extends SitePush_Screen
 				$push_result = FALSE;
 
 			echo "</pre>";
-			echo "<script>jQuery('#running').hide();</script>";
+			echo "<script>";
+			echo "jQuery('#running').hide();";
+			echo "if( ! jQuery('#sitepush-results').text() ) jQuery('.sitepush-results').hide();";
+			echo "</script>";
 
 			if( $push_result )
 			{
