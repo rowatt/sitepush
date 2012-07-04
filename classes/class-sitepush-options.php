@@ -24,7 +24,7 @@ class SitePushOptions
 	//options which need keeping when user updates options
 	private $keep_options = array( 'accept', 'last_update' );
 	//parameters which get initialised and get whitespace trimmed
-	private $trim_params = array('sites_conf', 'dbs_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
+	private $trim_params = array('sites_conf', 'dbs_conf', 'domain_map_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
 	//parameters which just get initialised
 	private $no_trim_params = array('accept', 'fix_site_urls', 'only_admins_login_to_live');
 	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'caches', 'domain', 'domains', 'wp_dir' );
@@ -34,6 +34,7 @@ class SitePushOptions
 	public $accept;
 	public $sites_conf = '';
 	public $dbs_conf = '';
+	public $domain_map_conf = '';
 	public $timezone;
 	public $debug_output_level;
 
@@ -173,6 +174,7 @@ class SitePushOptions
 		//General parameters
 		if( !array_key_exists( 'sites_conf', $options ) ) $options['sites_conf'] = '';
 		if( !array_key_exists( 'dbs_conf', $options ) ) $options['dbs_conf'] = '';
+		if( !array_key_exists( 'domain_map_conf', $options ) ) $options['domain_map_conf'] = '';
 		if( !array_key_exists( 'timezone', $options ) ) $options['timezone'] = '';
 		if( !array_key_exists( 'debug_output_level', $options ) ) $options['debug_output_level'] = 0;
 
@@ -339,6 +341,12 @@ class SitePushOptions
 		if( empty( $options['dbs_conf'] ) ||  !file_exists( $options['dbs_conf'] ) )
 		{
 			if( $update_check ) SitePushErrors::add_error( 'Path not valid - DB config file not found.', 'error', 'dbs_conf' );
+			$valid = FALSE;
+		}
+
+		if( is_multisite() && empty( $options['domain_map_conf'] ) || !file_exists( $options['sites_conf'] ) )
+		{
+			if( $update_check ) SitePushErrors::add_error( 'Path not valid - domain map config file not found.', 'error', 'sites_conf' );
 			$valid = FALSE;
 		}
 
@@ -546,6 +554,9 @@ class SitePushOptions
 
 		$this->sites_validate( $sites );
 
+		if( is_multisite() )
+			$this->domain_map_validate( $sites );
+
 		//make sure we only have one of each domain
 		$this->all_domains = array_unique( $this->all_domains, SORT_STRING);
 
@@ -739,6 +750,21 @@ class SitePushOptions
 		}
 
 		return $errors;
+	}
+
+	private function domain_map_validate( $sites )
+	{
+		$sitepush_domain_map = parse_ini_file( $this->domain_map_conf, TRUE );
+		$valid = TRUE;
+
+		foreach( $sites as $site_name=>$site )
+		{
+			if( empty($sitepush_domain_map[$site_name]) )
+				SitePushErrors::add_error( "Domain map information not supplied for site <i>{$site['label']}</i> in domain map config." );
+				$valid = FALSE;
+		}
+
+		return $valid;
 	}
 
 	/* --------------------------------------------------------------

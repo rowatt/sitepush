@@ -124,6 +124,11 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_text('dbs_conf','','large-text');
 	}
 
+	function field_domain_map_conf()
+	{
+		echo $this->input_text('domain_map_conf','','large-text');
+	}
+
 	function field_fix_site_urls()
 	{
 		echo $this->input_checkbox('fix_site_urls', ' Convert site URLs to link to current site', 'Make sure that any URLs to any of your sites domains link to the current site. <br />For example http://dev.mysite.com/mypage would be converted to http://www.mysite.com/mypage when viewing www.mysite.com.<br />This helps to make sure that URLs work across different versions of your sites.<br />If a site has more than one domain defined, URLs will be converted to the first domain given for that site in your sites config file.');

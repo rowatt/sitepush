@@ -900,6 +900,15 @@ class SitePushPlugin
 			'sitepush_section_config'
 		);
 
+		if( SITEPUSH_SHOW_MULTISITE )
+			add_settings_field(
+				'sitepush_field_domain_map_conf',
+				'Full path to domain map file',
+				array( $options_screen, 'field_domain_map_conf' ),
+				'sitepush_options',
+				'sitepush_section_config'
+			);
+
 		add_settings_field(
 			'sitepush_field_fix_site_urls',
 			'Fix site URLs',
