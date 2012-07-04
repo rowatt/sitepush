@@ -11,6 +11,7 @@ class SitePushCore
 	public $dest;
 	public $theme; //name of specific theme to push
 	public $push_plugins = FALSE; //push plugins directory
+	public $push_mu_plugins = FALSE; //push mu_plugins directory
 	public $push_uploads = FALSE; //push uploads directory
 	public $push_themes = FALSE; //push themes directory (ie all themes)
 	public $push_wp_files = FALSE; //push WordPress files (ie everything in wp directory except wp-content)
@@ -185,7 +186,13 @@ class SitePushCore
 			$backup_file = $this->file_backup( $this->dest_params['web_path'] . $this->dest_params['wp_plugin_dir'] );
 			$this->copy_files( $this->source_params['web_path'] . $this->source_params['wp_plugin_dir'], $this->dest_params['web_path'] . $this->dest_params['wp_plugin_dir'], $backup_file, 'plugins', TRUE );
 		}
-		
+
+		if( $this->push_mu_plugins )
+		{
+			$backup_file = $this->file_backup( $this->dest_params['web_path'] . $this->dest_params['wpmu_plugin_dir'] );
+			$this->copy_files( $this->source_params['web_path'] . $this->source_params['wpmu_plugin_dir'], $this->dest_params['web_path'] . $this->dest_params['wpmu_plugin_dir'], $backup_file, 'mu_plugins', TRUE );
+		}
+
 		if( $this->push_uploads )
 		{
 			$backup_file = $this->file_backup( $this->dest_params['web_path'] . $this->dest_params['wp_uploads_dir'] );
@@ -521,13 +528,6 @@ class SitePushCore
 	/**
 	 * Get tables for any given push group.
 	 *
-	 * Table groups can be:-
-	 *  - content = wp_links, wp_postmeta, wp_posts, wp_term_relationships, wp_term_taxonomy, wp_terms
-	 *  - options = wp_options
-	 *  - comments = wp_commentmeta, wp_comments
-	 *  - users = wp_usermeta, wp_users
-	 *  - all-tables = the whole database
-	 *
 	 * @later add custom table groups
 	 *
 	 * @param string $group name of a table group
@@ -535,34 +535,40 @@ class SitePushCore
 	 */
 	private function get_tables( $group )
 	{
+		$use_base_prefix = FALSE;
 		switch( $group )
 		{
 			case 'options':
-				$tables = 'wp_options';
+				$tables = '%prefix%options';
 				break;
 			case 'comments':
-				$tables = 'wp_commentmeta wp_comments';
+				$tables = '%prefix%commentmeta %prefix%comments';
 				break;
 			case 'content':
-				$tables = 'wp_links wp_postmeta wp_posts wp_term_relationships wp_term_taxonomy wp_terms';
+				$tables = '%prefix%links %prefix%postmeta %prefix%posts %prefix%term_relationships %prefix%term_taxonomy %prefix%terms';
 				break;
 			case 'users':
-				$tables = 'wp_usermeta wp_users';
+				$tables = '%prefix%usermeta %prefix%users';
 				break;
-			case 'all-tables':
+			case 'multisite':
+				global $wpdb;
+				//get all MS tables from $wpdb and add base prefix
+				foreach( $wpdb->ms_global_tables as $ms_table )
+				{
+					$ms_tables[]  = $wpdb->base_prefix . $ms_table;
+				}
+				$tables = implode(' ', $ms_tables);
+				break;
+			case 'all_tables':
 				$tables = '';
 				break;
 			default:
 				die("Unknown or no db-type option.\n");
 		}
 		
-		//add correct DB prefix to all tables
+		//add correct DB prefix to all tables (except multisite tables - already done above)
 		if( $tables )
-		{
-			$tables = " {$tables}";
-			$tables = str_replace(' wp_',' '.$this->db_prefix,$tables);
-			$tables = trim($tables);
-		}
+			$tables = str_replace('%prefix%',$this->db_prefix,$tables);
 
 		return $tables;
 	}

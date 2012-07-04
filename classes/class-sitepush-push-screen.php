@@ -21,7 +21,6 @@ class SitePush_Push_Screen extends SitePush_Screen
 		<div class="wrap">
 			<h2>SitePush</h2>
 		<?php
-
 		//initialise options from form data
 		$push_options['db_all_tables'] =  SitePushPlugin::get_query_var('sitepush_push_db_all_tables') ? TRUE : FALSE;
 		$push_options['db_post_content'] =  SitePushPlugin::get_query_var('sitepush_push_db_post_content') ? TRUE : FALSE;
@@ -33,6 +32,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$push_options['push_theme'] = SitePushPlugin::get_query_var('sitepush_push_theme') ? TRUE : FALSE;
 		$push_options['push_themes'] = SitePushPlugin::get_query_var('sitepush_push_themes') ? TRUE : FALSE;
 		$push_options['push_plugins'] = SitePushPlugin::get_query_var('sitepush_push_plugins') ? TRUE : FALSE;
+		$push_options['push_mu_plugins'] =  SitePushPlugin::get_query_var('sitepush_push_mu_plugins') ? TRUE : FALSE;
 		$push_options['push_wp_core'] = SitePushPlugin::get_query_var('sitepush_push_wp_core') ? TRUE : FALSE;
 		
 		$push_options['clear_cache'] = SitePushPlugin::get_query_var('clear_cache') ? TRUE : FALSE;
@@ -41,7 +41,10 @@ class SitePush_Push_Screen extends SitePush_Screen
 		
 		$push_options['source'] = SitePushPlugin::get_query_var('sitepush_source') ? SitePushPlugin::get_query_var('sitepush_source') : '';
 		$push_options['dest'] = SitePushPlugin::get_query_var('sitepush_dest') ? SitePushPlugin::get_query_var('sitepush_dest') : '';
-	
+
+		//multisite specific options
+		$push_options['db_multisite_tables'] =  SitePushPlugin::get_query_var('sitepush_push_db_multisite_tables') ? TRUE : FALSE;
+
 		$user_options = get_user_option('sitepush_options');
 		$this->user_last_source = empty($user_options['last_source']) ? '' : $user_options['last_source'];
 		$this->user_last_dest = empty($user_options['last_dest']) ? '' : $user_options['last_dest'];
@@ -124,6 +127,15 @@ class SitePush_Push_Screen extends SitePush_Screen
 			<form method="post" action="">
 				<?php wp_nonce_field('sitepush-dopush','sitepush-nonce'); ?>
 				<table class="form-table">
+					<?php if( SITEPUSH_SHOW_MULTISITE ) : ?>
+					<tr>
+						<th scope="row"><label for="sitepush_source">Site</label></th>
+						<td>
+							<?php bloginfo('name');?>
+						</td>
+					</tr>
+					<?php endif; ?>
+
 					<tr>
 						<th scope="row"><label for="sitepush_source">Source</label></th>
 						<td>
@@ -161,7 +173,10 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<tr>
 						<th scope="row">Database content</th>
 						<td>
-							<?php echo $this->option_html('sitepush_push_db_all_tables','Entire database (this will overwrite all content and settings)','admin_only');?>
+							<?php
+								if( !SITEPUSH_SHOW_MULTISITE )
+									echo $this->option_html('sitepush_push_db_all_tables','Entire database (this will overwrite all content and settings)','admin_only');
+							?>
 							<?php echo $this->option_html('sitepush_push_db_post_content','All post content (pages, posts, media, links, custom post types, post meta, categories, tags &amp; custom taxonomies)', 'user');?>
 							<?php echo $this->option_html('sitepush_push_db_comments','Comments','user');?>
 							<?php echo $this->option_html('sitepush_push_db_users','Users &amp; user meta','admin_only');?>
@@ -172,13 +187,28 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<tr>
 						<th scope="row">Files</th>
 						<td>
+							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_theme', 'Current theme ('._deprecated_get_current_theme().')','admin_only');?>
+							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_themes','All themes','admin_only');?>
+							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');?>
+							<?php if( !SITEPUSH_SHOW_MULTISITE && file_exists($this->options->current_site_conf['web_path'] . $this->options->current_site_conf['wpmu_plugin_dir']) ) echo $this->option_html('sitepush_push_mu_plugins','WordPress must-use plugins','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_uploads','WordPress media uploads', 'user');?>
+						</td>
+					</tr>
+
+					<?php if( SITEPUSH_SHOW_MULTISITE && $this->plugin->can_admin() ) : ?>
+					<tr>
+						<th scope="row">Multisite (<i>affects all sites</i>)</th>
+						<td>
 							<?php echo $this->option_html('sitepush_push_theme', 'Current theme ('._deprecated_get_current_theme().')','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_themes','All themes','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');?>
-							<?php echo $this->option_html('sitepush_push_uploads','WordPress media uploads', 'user');?>
+							<?php if( file_exists($this->options->current_site_conf['web_path'] . $this->options->current_site_conf['wpmu_plugin_dir']) ) echo $this->option_html('sitepush_push_mu_plugins','WordPress must-use plugins','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_db_multisite_tables','Multisite tables (blog_versions, registration_log, signups, site, sitemeta, sitecategories)','admin_only'); ?>
+							<?php echo $this->option_html('sitepush_push_db_all_tables','Entire database for all sites (Caution! This will overwrite all content and settings for all sites in this network installation)','admin_only'); ?>
 						</td>
-					</tr>				
-	
+					</tr>
+					<?php endif; ?>
+
 					<?php
 						$output = '';
 
@@ -204,7 +234,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<tr>
 						<th scope="row">&nbsp;</th>
 						<td>
-							<br /><span class="description">To push plugins, theme code, users or site settings, please ask an administrator.</span>
+							<br /><span class="description">To push plugins, themes or settings, please ask an administrator.</span>
 						</td>
 					</tr>
 				<?php endif; ?>

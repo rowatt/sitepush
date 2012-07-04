@@ -82,6 +82,10 @@ class SitePushPlugin
 			//content filters
 			add_filter('the_content', array( &$this, 'fix_site_urls') );
 		}
+
+		//constant to show if we show multisite features
+		//in future we may allow for not showing multisite features even if running in multisite mode
+		define( 'SITEPUSH_SHOW_MULTISITE', is_multisite() );
 	}
 
 	/**
@@ -93,7 +97,7 @@ class SitePushPlugin
 			SitePushErrors::add_error( "SitePush requires at least WordPress version {$this->min_wp_version}", 'error' );
 
 		if( is_multisite() && ! (defined('SITEPUSH_ALLOW_MULTISITE') && SITEPUSH_ALLOW_MULTISITE) )
-			SitePushErrors::add_error( "SitePush does not support WordPress multisite installs. If you wish to use SitePush on a multisite install, add define('SITEPUSH_ALLOW_MULTISITE',TRUE) to your wp-config.php file and proceed with caution!", 'fatal-error' );
+			SitePushErrors::add_error( "Support for WordPress multisite installs is experimental.<br />If you wish to use SitePush on a multisite install, add define('SITEPUSH_ALLOW_MULTISITE',TRUE) to your wp-config.php file and proceed with caution!", 'fatal-error' );
 
 		//get php version
 		if (!defined('PHP_VERSION_ID'))
@@ -503,7 +507,13 @@ class SitePushPlugin
 			$push_files = TRUE;
 			$my_push->push_plugins = TRUE;
 		}
-		
+
+		if( $push_options['push_mu_plugins'] )
+		{
+			$push_files = TRUE;
+			$my_push->push_mu_plugins = TRUE;
+		}
+
 		if( $push_options['push_wp_core'] )
 		{
 			$push_files = TRUE;
@@ -534,6 +544,7 @@ class SitePushPlugin
 			if( $push_options['db_comments'] ) $db_types[] = 'comments';
 			if( $push_options['db_users'] ) $db_types[] = 'users';
 			if( $push_options['db_options'] ) $db_types[] = 'options';
+			if( $push_options['db_multisite_tables'] ) $db_types[] = 'multisite';
 		
 			//do the push
 			if( $db_types )

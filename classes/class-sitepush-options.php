@@ -428,11 +428,15 @@ class SitePushOptions
 		if( $uld['basedir'] <> $current_uld )
 			SitePushErrors::add_error( "Warning - currently configured WordPress uploads directory ({$uld['basedir']}) is different from the configured uploads directory in your sites config file ($current_uld)", 'warning' );
 
-
 		//check plugins dir
 		$current_plugins_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_plugin_dir'];
 		if( WP_PLUGIN_DIR <> $current_plugins_dir )
 			SitePushErrors::add_error( "Warning - currently configured WordPress plugins directory (".WP_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_plugins_dir)", 'warning' );
+
+		//check mu-plugins dir
+		$current_muplugins_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wpmu_plugin_dir'];
+		if( WPMU_PLUGIN_DIR <> $current_muplugins_dir )
+			SitePushErrors::add_error( "Warning - currently configured WordPress must-use plugins directory (".WPMU_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_muplugins_dir)", 'warning' );
 
 		//check themes dir
 		$current_themes_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_themes_dir'];
@@ -569,11 +573,16 @@ class SitePushOptions
 		//make sure certain optional params are set correctly
 		if( !$options['label'] ) $options['label'] = $options['name'];
 		if( empty($options['admin_only']) ) $options['admin_only'] = FALSE;
-		if( empty($options['wp_dir']) ) $options['wp_dir'] = '';
-		if( empty($options['wp_content_dir']) ) $options['wp_content_dir'] = '/wp-content';
-		if( empty($options['wp_plugin_dir']) ) $options['wp_plugin_dir'] = $options['wp_content_dir'] . '/plugins';
-		if( empty($options['wp_uploads_dir']) ) $options['wp_uploads_dir'] = $options['wp_content_dir'] . '/uploads';
-		if( empty($options['wp_themes_dir']) ) $options['wp_themes_dir'] = $options['wp_content_dir'] . '/themes';
+		if( empty($options['wp_dir']) )	$options['wp_dir'] = str_replace( home_url(), '', site_url() );
+		if( empty($options['wp_content_dir']) )	$options['wp_content_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', WP_CONTENT_DIR );
+		if( empty($options['wp_plugin_dir']) ) $options['wp_plugin_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', WP_PLUGIN_DIR );
+		if( empty($options['wpmu_plugin_dir']) ) $options['wpmu_plugin_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', WPMU_PLUGIN_DIR );
+		if( empty($options['wp_uploads_dir']) )
+		{
+			$uld = wp_upload_dir();
+			$options['wp_uploads_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', $uld['basedir'] );
+		}
+		if( empty($options['wp_themes_dir']) ) $options['wp_themes_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', get_theme_root() );
 
 		//remember if any site has caching turned on
 		$options['use_cache'] = (bool) $options['cache'] || (bool) $options['caches'];
