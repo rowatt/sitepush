@@ -6,7 +6,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 	private $user_last_source = '';
 	private $user_last_dest = '';
 
-	public function __construct( $plugin )
+	public function __construct( &$plugin )
 	{
 		parent::__construct( $plugin );
 	}

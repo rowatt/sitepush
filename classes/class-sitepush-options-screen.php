@@ -5,7 +5,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	public $notices = array();
 
-	public function __construct( $plugin )
+	public function __construct( &$plugin )
 	{
 		parent::__construct( $plugin );
 	}

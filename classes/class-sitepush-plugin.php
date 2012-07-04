@@ -163,8 +163,8 @@ class SitePushPlugin
 	public function register_options_menu_help()
 	{
 		//instantiate menu classes
-		$push_screen = new SitePush_Push_Screen( &$this );
-		$options_screen = new SitePush_Options_Screen( &$this );
+		$push_screen = new SitePush_Push_Screen( $this );
+		$options_screen = new SitePush_Options_Screen( $this );
 		
 		//register the settings
 		$this->register_options( $options_screen );
