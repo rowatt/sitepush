@@ -19,11 +19,9 @@ class SitePush_Options_Screen extends SitePush_Screen
 			<h2>SitePush Options</h2>
 
 			<?php
-			//show errors/notices but only if we are updating, unless it's a fatal error
-			if( ! empty($_GET['settings-updated']) )
-				SitePushErrors::errors();
-			else
-				SitePushErrors::errors('fatal-error');
+			//show errors/notices
+			//validation doesn't add errors if we haven't set anything yet, in which case nothing will show here
+			SitePushErrors::errors();
 
 			if( $this->plugin->abort )
 				return FALSE;

@@ -123,6 +123,8 @@ class SitePushOptions
 	
 	/**
 	 * Update plugin options in WP DB.
+	 * Note - this is only called when options initialised and when pushing.
+	 * Normal settings updates are handled by WP core.
 	 *
 	 * @param array $options
 	 * @return void
@@ -317,7 +319,7 @@ class SitePushOptions
 	private function options_validate( &$options=array(), $update_check = TRUE )
 	{
 		//if nothing is configured we don't validate, but no error generated
-		if( empty( $options ) )
+		if( empty($options['sites_conf']) && empty($options['dbs_conf']) && empty($options['accept'])  && empty($options['debug_output_level']))
 			return FALSE;
 
 		$valid = TRUE;
