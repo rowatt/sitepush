@@ -97,7 +97,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 
 				//bit of a hack... do one page load for destination site to make sure SitePush has activated plugins etc
 				//before any user accesses the site
-				echo "<iframe src='http://{$obj_sitepushcore->dest_params['domain']}' class='hidden-iframe'></iframe>";
+				wp_remote_get( $obj_sitepushcore->dest_params['domain'] );
 			}
 			else
 			{
@@ -106,7 +106,6 @@ class SitePush_Push_Screen extends SitePush_Screen
 			}
 
 			SitePushErrors::errors();
-
 		}
 
 		
