@@ -641,7 +641,6 @@ class SitePushPlugin
 		}
 	}
 	
-	//@todo test destination cache clearing
 	/**
 	 * Clear cache(s) based on HTTP GET parameters. Allows another site to tell this site to clear its cache.
 	 * Will only run if GET params include correct secret key, which is defined in SitePush options

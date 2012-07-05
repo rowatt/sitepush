@@ -179,9 +179,9 @@ class SitePush_Push_Screen extends SitePush_Screen
 							<span id='sitepush_dest-warning'><span>
 						</td>
 					</tr>
-	
+					<?php $ms_message = SITEPUSH_SHOW_MULTISITE ? "<br /><i>current site only</i>" : ''; ?>
 					<tr>
-						<th scope="row">Database content</th>
+						<th scope="row">Database content<?php echo $ms_message; ?></th>
 						<td>
 							<?php
 								if( !SITEPUSH_SHOW_MULTISITE )
@@ -195,7 +195,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					</tr>
 	
 					<tr>
-						<th scope="row">Files</th>
+						<th scope="row">Files<?php echo $ms_message; ?></th>
 						<td>
 							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_theme', 'Current theme ('._deprecated_get_current_theme().')','admin_only');?>
 							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_themes','All themes','admin_only');?>

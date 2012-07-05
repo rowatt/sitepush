@@ -420,7 +420,7 @@ class SitePushOptions
 	/**
 	 * Final validation after all params etc have been set, setting errors as appropriate.
 	 *
-	 * This is called when options are updated from settings screen, generating errors as appropriate, @todo
+	 * This is called when options are updated from settings screen, generating errors as appropriate,
 	 * and when plugin is initialised, in which case errors not generated and capabilities not checked.
 	 *
 	 * @return bool TRUE if options OK, FALSE otherwise
