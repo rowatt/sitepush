@@ -185,9 +185,9 @@ class SitePush_Push_Screen extends SitePush_Screen
 						<td>
 							<?php
 								if( !SITEPUSH_SHOW_MULTISITE )
-									echo $this->option_html('sitepush_push_db_all_tables','Entire database (this will overwrite all content and settings)','admin_only');
+									echo $this->option_html('sitepush_push_db_all_tables','Entire database <i>(this will overwrite all content and settings)</i>','admin_only');
 							?>
-							<?php echo $this->option_html('sitepush_push_db_post_content','All post content (pages, posts, media, links, custom post types, post meta, categories, tags &amp; custom taxonomies)', 'user');?>
+							<?php echo $this->option_html('sitepush_push_db_post_content','All post content <i>(pages, posts, media, links, custom post types, post meta, categories, tags &amp; custom taxonomies)</i>', 'user');?>
 							<?php echo $this->option_html('sitepush_push_db_comments','Comments','user');?>
 							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_db_users','Users &amp; user meta','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_db_options','WordPress options','user');?>
@@ -197,7 +197,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 					<tr>
 						<th scope="row">Files<?php echo $ms_message; ?></th>
 						<td>
-							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_theme', 'Current theme ('._deprecated_get_current_theme().')','admin_only');?>
+							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_theme', 'Current theme <i>('._deprecated_get_current_theme().')</i>','admin_only');?>
 							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_themes','All themes','admin_only');?>
 							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');?>
 							<?php if( !SITEPUSH_SHOW_MULTISITE && file_exists($this->options->current_site_conf['web_path'] . $this->options->current_site_conf['wpmu_plugin_dir']) ) echo $this->option_html('sitepush_push_mu_plugins','WordPress must-use plugins','admin_only');?>
@@ -210,14 +210,14 @@ class SitePush_Push_Screen extends SitePush_Screen
 						<th scope="row">Multisite database content<br /><i>affects all sites</i></th>
 						<td>
 							<?php echo $this->option_html('sitepush_push_db_users','Users &amp; user meta','admin_only');?>
-							<?php echo $this->option_html('sitepush_push_db_multisite_tables','Multisite tables (blog_versions, registration_log, signups, site, sitemeta, sitecategories)','admin_only'); ?>
-							<?php echo $this->option_html('sitepush_push_db_all_tables','Entire database for all sites (Caution! This will overwrite all content and settings for all sites in this network installation)','admin_only'); ?>
+							<?php echo $this->option_html('sitepush_push_db_multisite_tables','Multisite tables <i>(blog_versions, registration_log, signups, site, sitemeta, sitecategories)</i>','admin_only'); ?>
+							<?php echo $this->option_html('sitepush_push_db_all_tables','Entire database for all sites <i>(Caution! This will overwrite all content and settings for all sites in this network installation)</i>','admin_only'); ?>
 						</td>
 					</tr>
 					<tr>
 						<th scope="row">Multisite files<br /><i>affects all sites</i></th>
 						<td>
-							<?php echo $this->option_html('sitepush_push_theme', 'Current theme ('._deprecated_get_current_theme().')','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_theme', 'Current theme <i>('._deprecated_get_current_theme().')</i>','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_themes','All themes','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');?>
 							<?php if( file_exists($this->options->current_site_conf['web_path'] . $this->options->current_site_conf['wpmu_plugin_dir']) ) echo $this->option_html('sitepush_push_mu_plugins','WordPress must-use plugins','admin_only');?>
@@ -232,10 +232,10 @@ class SitePush_Push_Screen extends SitePush_Screen
 							$output .= $this->option_html('clear_cache','Clear cache on destination','user','checked');
 
 						if( $this->options->backup_path )
-							$output .= $this->option_html('sitepush_push_backup','Backup push (note - restoring from a backup is currently a manual process and requires command line access)','user','checked');
+							$output .= $this->option_html('sitepush_push_backup','Backup push <i>(note - restoring from a backup is currently a manual process and requires command line access)</i>','user','checked');
 
 						if( $this->options->debug_output_level >= 3 )
-							$output .= $this->option_html('sitepush_dry_run','Dry run (show what actions would be performed by push, but don\'t actually do anything)','admin_only');
+							$output .= $this->option_html('sitepush_dry_run','Dry run <i>(show what actions would be performed by push, but don\'t actually do anything)</i>','admin_only');
 
 
 					/* No undo till we get it working properly!
