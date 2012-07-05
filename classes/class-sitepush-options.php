@@ -24,7 +24,7 @@ class SitePushOptions
 	//options which need keeping when user updates options
 	private $keep_options = array( 'accept', 'last_update' );
 	//parameters which get initialised and get whitespace trimmed
-	private $trim_params = array('sites_conf', 'dbs_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
+	private $trim_params = array('sites_conf', 'dbs_conf', 'domain_map_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
 	//parameters which just get initialised
 	private $no_trim_params = array('accept', 'fix_site_urls', 'only_admins_login_to_live');
 	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'caches', 'domain', 'domains', 'wp_dir' );
@@ -34,6 +34,7 @@ class SitePushOptions
 	public $accept;
 	public $sites_conf = '';
 	public $dbs_conf = '';
+	public $domain_map_conf = '';
 	public $timezone;
 	public $debug_output_level;
 
@@ -97,7 +98,9 @@ class SitePushOptions
 			$this->$option = $value;
 		}
 
-		if( !$this->options_validate( $options ) ) return FALSE;
+		//only report errors if we are updating settings
+		$update_check = !empty($_GET['settings-updated']);
+		if( !$this->options_validate( $options, $update_check ) ) return FALSE;
 
 		//initialise & validate db configs
 		$dbs_conf = $this->get_conf( $this->dbs_conf, 'DB ' );
@@ -121,6 +124,8 @@ class SitePushOptions
 	
 	/**
 	 * Update plugin options in WP DB.
+	 * Note - this is only called when options initialised and when pushing.
+	 * Normal settings updates are handled by WP core.
 	 *
 	 * @param array $options
 	 * @return void
@@ -169,6 +174,7 @@ class SitePushOptions
 		//General parameters
 		if( !array_key_exists( 'sites_conf', $options ) ) $options['sites_conf'] = '';
 		if( !array_key_exists( 'dbs_conf', $options ) ) $options['dbs_conf'] = '';
+		if( !array_key_exists( 'domain_map_conf', $options ) ) $options['domain_map_conf'] = '';
 		if( !array_key_exists( 'timezone', $options ) ) $options['timezone'] = '';
 		if( !array_key_exists( 'debug_output_level', $options ) ) $options['debug_output_level'] = 0;
 
@@ -315,7 +321,7 @@ class SitePushOptions
 	private function options_validate( &$options=array(), $update_check = TRUE )
 	{
 		//if nothing is configured we don't validate, but no error generated
-		if( empty( $options ) )
+		if( empty($options['sites_conf']) && empty($options['dbs_conf']) && empty($options['accept'])  && empty($options['debug_output_level']))
 			return FALSE;
 
 		$valid = TRUE;
@@ -335,6 +341,12 @@ class SitePushOptions
 		if( empty( $options['dbs_conf'] ) ||  !file_exists( $options['dbs_conf'] ) )
 		{
 			if( $update_check ) SitePushErrors::add_error( 'Path not valid - DB config file not found.', 'error', 'dbs_conf' );
+			$valid = FALSE;
+		}
+
+		if( is_multisite() && empty( $options['domain_map_conf'] ) || !file_exists( $options['sites_conf'] ) )
+		{
+			if( $update_check ) SitePushErrors::add_error( 'Path not valid - domain map config file not found.', 'error', 'sites_conf' );
 			$valid = FALSE;
 		}
 
@@ -426,11 +438,15 @@ class SitePushOptions
 		if( $uld['basedir'] <> $current_uld )
 			SitePushErrors::add_error( "Warning - currently configured WordPress uploads directory ({$uld['basedir']}) is different from the configured uploads directory in your sites config file ($current_uld)", 'warning' );
 
-
 		//check plugins dir
 		$current_plugins_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_plugin_dir'];
 		if( WP_PLUGIN_DIR <> $current_plugins_dir )
 			SitePushErrors::add_error( "Warning - currently configured WordPress plugins directory (".WP_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_plugins_dir)", 'warning' );
+
+		//check mu-plugins dir
+		$current_muplugins_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wpmu_plugin_dir'];
+		if( WPMU_PLUGIN_DIR <> $current_muplugins_dir )
+			SitePushErrors::add_error( "Warning - currently configured WordPress must-use plugins directory (".WPMU_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_muplugins_dir)", 'warning' );
 
 		//check themes dir
 		$current_themes_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_themes_dir'];
@@ -538,6 +554,9 @@ class SitePushOptions
 
 		$this->sites_validate( $sites );
 
+		if( is_multisite() )
+			$this->domain_map_validate( $sites );
+
 		//make sure we only have one of each domain
 		$this->all_domains = array_unique( $this->all_domains, SORT_STRING);
 
@@ -567,11 +586,16 @@ class SitePushOptions
 		//make sure certain optional params are set correctly
 		if( !$options['label'] ) $options['label'] = $options['name'];
 		if( empty($options['admin_only']) ) $options['admin_only'] = FALSE;
-		if( empty($options['wp_dir']) ) $options['wp_dir'] = '';
-		if( empty($options['wp_content_dir']) ) $options['wp_content_dir'] = '/wp-content';
-		if( empty($options['wp_plugin_dir']) ) $options['wp_plugin_dir'] = $options['wp_content_dir'] . '/plugins';
-		if( empty($options['wp_uploads_dir']) ) $options['wp_uploads_dir'] = $options['wp_content_dir'] . '/uploads';
-		if( empty($options['wp_themes_dir']) ) $options['wp_themes_dir'] = $options['wp_content_dir'] . '/themes';
+		if( empty($options['wp_dir']) )	$options['wp_dir'] = str_replace( home_url(), '', site_url() );
+		if( empty($options['wp_content_dir']) )	$options['wp_content_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', WP_CONTENT_DIR );
+		if( empty($options['wp_plugin_dir']) ) $options['wp_plugin_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', WP_PLUGIN_DIR );
+		if( empty($options['wpmu_plugin_dir']) ) $options['wpmu_plugin_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', WPMU_PLUGIN_DIR );
+		if( empty($options['wp_uploads_dir']) )
+		{
+			$uld = wp_upload_dir();
+			$options['wp_uploads_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', $uld['basedir'] );
+		}
+		if( empty($options['wp_themes_dir']) ) $options['wp_themes_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', get_theme_root() );
 
 		//remember if any site has caching turned on
 		$options['use_cache'] = (bool) $options['cache'] || (bool) $options['caches'];
@@ -728,6 +752,21 @@ class SitePushOptions
 		return $errors;
 	}
 
+	private function domain_map_validate( $sites )
+	{
+		$sitepush_domain_map = parse_ini_file( $this->domain_map_conf, TRUE );
+		$valid = TRUE;
+
+		foreach( $sites as $site_name=>$site )
+		{
+			if( empty($sitepush_domain_map[$site_name]) )
+				SitePushErrors::add_error( "Domain map information not supplied for site <i>{$site['label']}</i> in domain map config." );
+				$valid = FALSE;
+		}
+
+		return $valid;
+	}
+
 	/* --------------------------------------------------------------
 	/* !INITIALISE & VALIDATE DB CONFIGS
 	/* -------------------------------------------------------------- */
@@ -764,6 +803,11 @@ class SitePushOptions
 	 */	
 	private function db_init( $params, $name='' )
 	{
+		global $wpdb;
+
+		//DB prefix is set directly from WP global setting
+		$this->db_prefix = $wpdb->prefix;
+
 		$this->db_validate( $params, $name );
 		return $params;
 	}
@@ -780,7 +824,7 @@ class SitePushOptions
 	{
 		$errors = FALSE;
 		
-		$requireds = array( 'name', 'user', 'pw', 'prefix' );
+		$requireds = array( 'name', 'user', 'pw' );
 		
 		foreach( $requireds as $required )
 		{
@@ -790,15 +834,6 @@ class SitePushOptions
 				$errors = TRUE;
 			}
 		}
-
-		if( !$errors && !empty($this->db_prefix) && $params['prefix'] <> $this->db_prefix )
-		{
-			SitePushErrors::add_error( "Error in DB config file - database prefix must be the same for all databases." );
-			$errors = TRUE;
-		}
-
-		//save db_prefix property
-		$this->db_prefix = $params['prefix'];
 
 		return $errors;
 	}

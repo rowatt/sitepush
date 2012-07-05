@@ -11,6 +11,7 @@ class SitePushCore
 	public $dest;
 	public $theme; //name of specific theme to push
 	public $push_plugins = FALSE; //push plugins directory
+	public $push_mu_plugins = FALSE; //push mu_plugins directory
 	public $push_uploads = FALSE; //push uploads directory
 	public $push_themes = FALSE; //push themes directory (ie all themes)
 	public $push_wp_files = FALSE; //push WordPress files (ie everything in wp directory except wp-content)
@@ -48,7 +49,8 @@ class SitePushCore
 	//where we look for info about the sites we are pushing
 	public $sites_conf_path; //full path to sites.conf file **required**
 	public $dbs_conf_path; //full path to sites.conf file **required**
-	
+	public $domain_map_conf_path; //full path to domain_map.conf file **required if multisite**
+
 	//do we want to save undo files
 	public $save_undo = TRUE;
 
@@ -57,7 +59,7 @@ class SitePushCore
 	public $dest_backup_path; //file archives, db_dumps etc **required**
 
 	//mysqldump options
-	private $dump_options = "--opt";
+	private $dump_options = "--opt --verbose";
 	
 	//rsync/ssh options - used for pushing to remote site
 	public $remote_user; //user account on remote destination //???
@@ -80,6 +82,11 @@ class SitePushCore
 	 * @var SitePushOptions object holding options
 	 */
 	private $options;
+
+	/**
+	 * @var bool if set to TRUE, fix_multisite_domains method will be run when pushing DB
+	 */
+	private $fix_domains = FALSE;
 
 	/**
 	 * @var string $source name of push source
@@ -185,7 +192,13 @@ class SitePushCore
 			$backup_file = $this->file_backup( $this->dest_params['web_path'] . $this->dest_params['wp_plugin_dir'] );
 			$this->copy_files( $this->source_params['web_path'] . $this->source_params['wp_plugin_dir'], $this->dest_params['web_path'] . $this->dest_params['wp_plugin_dir'], $backup_file, 'plugins', TRUE );
 		}
-		
+
+		if( $this->push_mu_plugins )
+		{
+			$backup_file = $this->file_backup( $this->dest_params['web_path'] . $this->dest_params['wpmu_plugin_dir'] );
+			$this->copy_files( $this->source_params['web_path'] . $this->source_params['wpmu_plugin_dir'], $this->dest_params['web_path'] . $this->dest_params['wpmu_plugin_dir'], $backup_file, 'mu_plugins', TRUE );
+		}
+
 		if( $this->push_uploads )
 		{
 			$backup_file = $this->file_backup( $this->dest_params['web_path'] . $this->dest_params['wp_uploads_dir'] );
@@ -239,6 +252,8 @@ class SitePushCore
 		$tables = trim($tables);
 		if( $tables ) 
 			$tables = "--tables {$tables}"; //tables parameter isn't strictly speaking necessary, but we'll use it just to be safe
+		elseif( is_multisite() )
+			$this->fix_domains = TRUE; //we are pushing all tables, and in multisite, so we need to fix domains after push
 
 		//backup database
 		$backup_file = $this->database_backup($db_dest);
@@ -272,6 +287,9 @@ class SitePushCore
 
 		//run the command
 		$result = $this->my_exec($command);
+
+		//fix multisite domains if required
+		if( $this->fix_domains ) $this->fix_multisite_domains();
 
 		//turn maintenance mode off
 		$this->set_maintenance_mode('off');
@@ -521,13 +539,6 @@ class SitePushCore
 	/**
 	 * Get tables for any given push group.
 	 *
-	 * Table groups can be:-
-	 *  - content = wp_links, wp_postmeta, wp_posts, wp_term_relationships, wp_term_taxonomy, wp_terms
-	 *  - options = wp_options
-	 *  - comments = wp_commentmeta, wp_comments
-	 *  - users = wp_usermeta, wp_users
-	 *  - all-tables = the whole database
-	 *
 	 * @later add custom table groups
 	 *
 	 * @param string $group name of a table group
@@ -538,35 +549,127 @@ class SitePushCore
 		switch( $group )
 		{
 			case 'options':
-				$tables = 'wp_options';
+				$tables = '%prefix%options';
+				if( is_multisite() ) $this->fix_domains = TRUE;
 				break;
 			case 'comments':
-				$tables = 'wp_commentmeta wp_comments';
+				$tables = '%prefix%commentmeta %prefix%comments';
 				break;
 			case 'content':
-				$tables = 'wp_links wp_postmeta wp_posts wp_term_relationships wp_term_taxonomy wp_terms';
+				$tables = '%prefix%links %prefix%postmeta %prefix%posts %prefix%term_relationships %prefix%term_taxonomy %prefix%terms';
 				break;
 			case 'users':
-				$tables = 'wp_usermeta wp_users';
+				$tables = '%prefix%usermeta %prefix%users';
 				break;
-			case 'all-tables':
+			case 'multisite':
+				global $wpdb;
+				//get all MS tables from $wpdb and add base prefix
+				foreach( $wpdb->ms_global_tables as $ms_table )
+				{
+					$ms_tables[]  = $wpdb->base_prefix . $ms_table;
+				}
+				$tables = implode(' ', $ms_tables);
+				$this->fix_domains = TRUE;
+				break;
+			case 'all_tables':
 				$tables = '';
+				if( is_multisite() ) $this->fix_domains = TRUE;
 				break;
 			default:
 				die("Unknown or no db-type option.\n");
 		}
 		
-		//add correct DB prefix to all tables
+		//add correct DB prefix to all tables (except multisite tables - already done above)
 		if( $tables )
-		{
-			$tables = " {$tables}";
-			$tables = str_replace(' wp_',' '.$this->db_prefix,$tables);
-			$tables = trim($tables);
-		}
+			$tables = str_replace('%prefix%',$this->db_prefix,$tables);
 
 		return $tables;
 	}
-	
+
+	/**
+	 * In multisite mode WordPress uses site domain to work out which blog to show. Domains are stored in the database.
+	 * However, domains will be different for different SitePush versions of a site, so this won't work unless
+	 * we make sure the database has the right domains for the right sites.
+	 *
+	 * This method makes sure the database has the correct domains in place.
+	 *
+	 * @requires domain map file (path set in options)
+	 */
+	private function fix_multisite_domains()
+	{
+		$sitepush_domain_map = parse_ini_file( $this->options->domain_map_conf, TRUE );
+
+		if( $this->dry_run )
+		{
+			$this->add_result("Fixing destination domains for multisite (not done because this is a dry run)",2);
+			return FALSE;
+		}
+		else
+		{
+			$this->add_result("Fixing destination domains for multisite",2);
+		}
+
+		//create a new WPDB object for the database we are pushing to
+		$db_dest = $this->options->get_db_params( $this->dest );
+		$dest_host = empty($db_dest['host']) ? DB_HOST : $db_dest['host'];
+		$spdb = new wpdb( $db_dest['user'], $db_dest['pw'], $db_dest['name'], $dest_host );
+
+		//set up $spdb properties
+		global $table_prefix;
+		$spdb->set_prefix( $table_prefix );
+
+		$sitepush_replace_urls = $sitepush_domain_map[ $this->dest ];
+		unset( $sitepush_domain_map[ $this->dest ] );
+		$sitepush_search_sites = array_keys( $sitepush_domain_map );
+
+		$blogs = $spdb->get_results( $spdb->prepare("SELECT blog_id FROM $spdb->blogs"), ARRAY_A );
+
+		//cycle through each domain for this site
+		foreach( $sitepush_replace_urls as $site_id=>$sitepush_replace_url )
+		{
+			//cycle through each sitepush site
+			foreach( $sitepush_search_sites as $sitepush_search_site )
+			{
+				$sitepush_search_url = empty($sitepush_domain_map[ $sitepush_search_site ][ $site_id ]) ? '' : $sitepush_domain_map[ $sitepush_search_site ][ $site_id ] ;
+				if( !$sitepush_search_url ) continue; //domain wasn't specified for that site
+
+				//update domain in wp_site
+				$spdb->query( $spdb->prepare(
+					"UPDATE {$spdb->site} SET domain = %s WHERE domain = %s",
+					array( $sitepush_replace_url, $sitepush_search_url )
+				));
+
+				//update domain in wp_sitemeta
+				$spdb->query( $spdb->prepare(
+					"UPDATE {$spdb->sitemeta} SET meta_value = REPLACE(meta_value, %s, %s) WHERE meta_key = 'siteurl'",
+					array( $sitepush_search_url, $sitepush_replace_url )
+				));
+
+				//update domain in wp_blogs
+				$spdb->query( $spdb->prepare(
+					"UPDATE {$spdb->blogs} SET domain = %s WHERE domain = %s",
+					array( $sitepush_replace_url, $sitepush_search_url )
+				));
+
+				//update domain in main wp_options
+				$spdb->query( $spdb->prepare(
+					"UPDATE {$spdb->base_prefix}options SET option_value = REPLACE(option_value, %s, %s) WHERE option_name = 'siteurl' OR option_name = 'home' OR option_name = 'fileupload_url' ",
+					array( $sitepush_search_url, $sitepush_replace_url )
+				));
+
+				//update domain in wp_options for each site
+				foreach( $blogs as $blog_id )
+				{
+					$spdb->query( $spdb->prepare(
+						"UPDATE {$spdb->base_prefix}{$blog_id['blog_id']}_options SET option_value = REPLACE(option_value, %s, %s) WHERE option_name = 'siteurl' OR option_name = 'home' OR option_name = 'fileupload_url' ",
+						array( $sitepush_search_url, $sitepush_replace_url )
+					));
+				}
+
+			}
+		}
+	}
+
 	/**
 	 * Copy files from source to dest deleting anything in dest not in source.
 	 * Aborts if either source or dest is a symlink.
@@ -764,9 +867,26 @@ class SitePushCore
 			$this->add_result("RUN: {$log_command}",$log_level);
 			
 			if( $this->echo_output )
-				return system($command . ' 2>&1' );
+			{
+				//return system($command . ' 2>&1' );
+				$result = '';
+				if(!$fh = popen($command, "r"))
+				{
+					die ("Could not fork: $command");
+				}
+				while(!feof($fh))
+				{
+					$output = fgetc($fh);
+					echo( $output );
+					$result .= $output;
+				}
+				pclose($fh);
+				return $result;
+			}
 			else
+			{
 				return shell_exec($command . ' 2>&1' );
+			}
 		}
 		else
 		{

@@ -3,7 +3,7 @@
 Plugin Name: SitePush
 Plugin URI: http://rowatt.com/sitepush
 Description: Easily move code and content between versions of a site
-Version: 0.2.3-alpha
+Version: 0.2.4-alpha
 Author: Mark Rowatt Anderson
 Author URI: http://rowatt.com
 License: GPL2
@@ -68,7 +68,7 @@ function _deprecated_get_current_theme()
 {
 	if( function_exists('wp_get_theme') )
 	{
-		return wp_get_theme();
+		return (string) wp_get_theme();
 	}
 	else
 	{
@@ -85,11 +85,10 @@ function _deprecated_get_current_theme()
  */
 function _deprecated_get_theme_stylesheet()
 {
-
 	if( function_exists('wp_get_theme') )
 	{
 		$theme = wp_get_theme();
-		return (string) $theme->get('stylesheet');
+		return $theme->stylesheet;
 	}
 	else
 	{
