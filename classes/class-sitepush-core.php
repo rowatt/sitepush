@@ -59,7 +59,7 @@ class SitePushCore
 	public $dest_backup_path; //file archives, db_dumps etc **required**
 
 	//mysqldump options
-	private $dump_options = "--opt";
+	private $dump_options = "--opt --verbose";
 	
 	//rsync/ssh options - used for pushing to remote site
 	public $remote_user; //user account on remote destination //???
@@ -867,9 +867,26 @@ class SitePushCore
 			$this->add_result("RUN: {$log_command}",$log_level);
 			
 			if( $this->echo_output )
-				return system($command . ' 2>&1' );
+			{
+				//return system($command . ' 2>&1' );
+				$result = '';
+				if(!$fh = popen($command, "r"))
+				{
+					die ("Could not fork: $command");
+				}
+				while(!feof($fh))
+				{
+					$output = fgetc($fh);
+					echo( $output );
+					$result .= $output;
+				}
+				pclose($fh);
+				return $result;
+			}
 			else
+			{
 				return shell_exec($command . ' 2>&1' );
+			}
 		}
 		else
 		{

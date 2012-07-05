@@ -53,6 +53,9 @@ class SitePush_Push_Screen extends SitePush_Screen
 
 		if( $push_options['dest'] )
 		{
+			//output directly to screen... doesn't work on all browsers.
+			ob_implicit_flush();
+
 			//save source/dest to user options
 			$user_options = get_user_option('sitepush_options');
 			$user_options['last_source'] = $push_options['source'];
@@ -69,7 +72,13 @@ class SitePush_Push_Screen extends SitePush_Screen
 				$hide_html = ' style="display: none;"';
 				echo "<div id='running'></div>";
 			}
-				
+
+			echo "<script>
+				var scrollIntervalID = window.setInterval(function(){
+					jQuery('#sitepush-results').scrollTop( jQuery('#sitepush-results').prop('scrollHeight') );
+				}, 100);
+			</script>";
+
 			echo "<h3{$hide_html} class='sitepush-results'>Push results</h3>";
 			echo "<pre id='sitepush-results' class='sitepush-results' {$hide_html}>";
 
@@ -81,10 +90,12 @@ class SitePush_Push_Screen extends SitePush_Screen
 				$push_result = FALSE;
 
 			echo "</pre>";
-			echo "<script>";
-			echo "jQuery('#running').hide();";
-			echo "if( ! jQuery('#sitepush-results').text() ) jQuery('.sitepush-results').hide();";
-			echo "</script>";
+			echo "<script>
+				jQuery('#running').hide();
+				if( ! jQuery('#sitepush-results').text() ) jQuery('.sitepush-results').hide();
+				clearInterval( scrollIntervalID );
+				jQuery('#sitepush-results').scrollTop( jQuery('#sitepush-results').prop('scrollHeight') );
+			</script>";
 
 			if( $push_result )
 			{
