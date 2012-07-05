@@ -203,7 +203,7 @@ class SitePushPlugin
 		{	
 			$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $function);
 			add_action('admin_print_styles-' . $page, array( __CLASS__, 'admin_styles' ) ); //add custom stylesheet
-			add_action('load-' . $page, array( __CLASS__, 'push_help' ) ); //add contextual help for main push screen
+			add_action('load-' . $page, array( $this, 'push_help' ) ); //add contextual help for main push screen
 		}
 
 		if( $this->can_admin() || $this->abort )
@@ -370,13 +370,14 @@ class SitePushPlugin
 		 * @var WP_Screen
 		 */
 		$screen = get_current_screen();
+
 		$screen->add_help_tab( array(
-			'id'      => 'sitepush-options-help',
-			'title'   => 'Special Instructions',
-			'content' => '<p>This is the content for the tab.</p>',
-		) );
-		
-		$screen->set_help_sidebar( "<p>Help sidebar here...</p>" );
+		                            'id'      => 'sitepush-options-help-overview',
+		                            'title'   => 'Overview',
+		                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/options.overview.html')
+		                       ) );
+
+		$screen->set_help_sidebar( "<p>More help and information is available from the <a href='http://wordpress.org/extend/plugins/sitepush/' target='_blank'>SitePush plugin page</a>.</p>" );
 	}
 
 	/**
@@ -385,33 +386,28 @@ class SitePushPlugin
 	 *
 	 * @static
 	 */
-	static public function push_help()
+	public function push_help()
 	{
 		$screen = get_current_screen();
 
-		$screen->add_help_tab( array(
-		                            'id'      => 'sitepush-push-help',
-		                            'title'   => 'Main',
-		                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/push.options.main.phtml'),
-		                       ) );
+		if( $this->can_admin() )
+		{
+			$screen->add_help_tab( array(
+			                            'id'      => 'sitepush-push-help',
+			                            'title'   => 'Overview',
+			                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/sitepush.overview.admin.html'),
+			                       ) );
 
-		$screen->add_help_tab( array(
-		                            'id'      => 'sitepush-push-help-database-content',
-		                            'title'   => 'Database content',
-		                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/push.options.database-content.phtml'),
-		                       ) );
-
-		$screen->add_help_tab( array(
-		                            'id'      => 'sitepush-push-help-files',
-		                            'title'   => 'Files',
-		                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/push.options.files.phtml'),
-		                       ) );
-
-		$screen->add_help_tab( array(
-		                            'id'      => 'sitepush-push-help-push-options',
-		                            'title'   => 'Push options',
-		                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/push.options.push-options.phtml'),
-		                       ) );
+			$screen->set_help_sidebar( "<p>More help and information is available from the <a href='http://wordpress.org/extend/plugins/sitepush/' target='_blank'>SitePush plugin page</a>.</p>" );
+		}
+		else
+		{
+			$screen->add_help_tab( array(
+			                            'id'      => 'sitepush-push-help',
+			                            'title'   => 'Overview',
+			                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/sitepush.overview.non-admin.html'),
+			                       ) );
+		}
 	}
 
 	/* -------------------------------------------------------------- */

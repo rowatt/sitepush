@@ -9,7 +9,7 @@ Author URI: http://rowatt.com
 License: GPL2
 */
 
-/*  Copyright 2009-2011  Mark Rowatt Anderson  (sitepush -at- mark.anderson.vg)
+/*  Copyright 2009-2012  Mark Rowatt Anderson  (http://rowatt.com)
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License, version 2, as 

@@ -46,3 +46,30 @@ label.disabled {
 	height: 20px;
 	background: white url(img/running.gif) no-repeat center;
 }
+
+
+.contextual-help-tabs-wrap h1 {
+	font-size: 1.17em;
+	margin-bottom: 0;
+	clear: both;
+}
+
+.contextual-help-tabs-wrap h1 + p {
+	margin-top: 0;
+}
+
+.contextual-help-tabs-wrap dt {
+	font-style: italic;
+	font-weight: bold;
+	float: left;
+	clear: both;
+}
+
+.contextual-help-tabs-wrap dt:after {
+	content: ':';
+	padding-right: 5px;
+}
+
+.contextual-help-tabs-wrap dd {
+	margin-left: 0;
+}

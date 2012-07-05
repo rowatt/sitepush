@@ -210,7 +210,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 						<th scope="row">Multisite database content<br /><i>affects all sites</i></th>
 						<td>
 							<?php echo $this->option_html('sitepush_push_db_users','Users &amp; user meta','admin_only');?>
-							<?php echo $this->option_html('sitepush_push_db_multisite_tables','Multisite tables <i>(blog_versions, registration_log, signups, site, sitemeta, sitecategories)</i>','admin_only'); ?>
+							<?php echo $this->option_html('sitepush_push_db_multisite_tables','Multisite tables <i>(blogs, blog_versions, registration_log, signups, site, sitemeta, sitecategories)</i>','admin_only'); ?>
 							<?php echo $this->option_html('sitepush_push_db_all_tables','Entire database for all sites <i>(Caution! This will overwrite all content and settings for all sites in this network installation)</i>','admin_only'); ?>
 						</td>
 					</tr>
@@ -232,7 +232,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 							$output .= $this->option_html('clear_cache','Clear cache on destination','user','checked');
 
 						if( $this->options->backup_path )
-							$output .= $this->option_html('sitepush_push_backup','Backup push <i>(note - restoring from a backup is currently a manual process and requires command line access)</i>','user','checked');
+							$output .= $this->option_html('sitepush_push_backup','Backup push <i>(note - restoring from a backup is currently a manual process and ideally requires command line access)</i>','user','checked');
 
 						if( $this->options->debug_output_level >= 3 )
 							$output .= $this->option_html('sitepush_dry_run','Dry run <i>(show what actions would be performed by push, but don\'t actually do anything)</i>','admin_only');
