@@ -17,8 +17,8 @@ class SitePushOptions
 
 
 	//default capabilities required to use SitePush
-	public static $default_capability = 'install_plugins';
-	public static $default_admin_capability = 'install_plugins';
+	public static $default_capability = 'edit_others_posts'; //user has editor privileges
+	public static $default_admin_capability = 'activate_plugins'; //user has site admin privileges
 	public static $fallback_capability = 'manage_sitepush_options'; //user with this capability will always be able to access options
 
 	//options which need keeping when user updates options
@@ -26,7 +26,7 @@ class SitePushOptions
 	//parameters which get initialised and get whitespace trimmed
 	private $trim_params = array('sites_conf', 'dbs_conf', 'domain_map_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
 	//parameters which just get initialised
-	private $no_trim_params = array('accept', 'fix_site_urls', 'only_admins_login_to_live');
+	private $no_trim_params = array('accept', 'fix_site_urls', 'only_admins_login_to_live', 'non_admin_exclude_comments', 'non_admin_exclude_options');
 	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'caches', 'domain', 'domains', 'wp_dir' );
 	private $all_params; //set in __construct
 
@@ -41,6 +41,8 @@ class SitePushOptions
 	public $capability;
 	public $admin_capability;
 	public $only_admins_login_to_live; //if TRUE only users with admin_capability can log into a site flagges as 'live'
+	public $non_admin_exclude_comments; //if TRUE non-admins can't push comments
+	public $non_admin_exclude_options; //if TRUE non-admins can't push site options
 
 	public $cache_key;
 
@@ -181,6 +183,8 @@ class SitePushOptions
 		//checkbox params - can only initialise to FALSE or else they are always set to TRUE whatever user wants
 		if( !array_key_exists( 'fix_site_urls', $options ) ) $options['fix_site_urls'] = FALSE;
 		if( !array_key_exists( 'only_admins_login_to_live', $options ) ) $options['only_admins_login_to_live'] = FALSE;
+		if( !array_key_exists( 'non_admin_exclude_comments', $options ) ) $options['non_admin_exclude_comments'] = FALSE;
+		if( !array_key_exists( 'non_admin_exclude_options', $options ) ) $options['non_admin_exclude_options'] = FALSE;
 
 		//Capabilities
 		if( empty($options['capability']) ) $options['capability'] = self::$default_capability;
@@ -263,6 +267,7 @@ class SitePushOptions
 	{
 		foreach( $this->trim_params as $trim_opt )
 		{
+			if( empty($options[$trim_opt]) ) continue;
 			$options[$trim_opt] = trim( $options[$trim_opt] );
 		}
 
@@ -420,7 +425,7 @@ class SitePushOptions
 	/**
 	 * Final validation after all params etc have been set, setting errors as appropriate.
 	 *
-	 * This is called when options are updated from settings screen, generating errors as appropriate, @todo
+	 * This is called when options are updated from settings screen, generating errors as appropriate,
 	 * and when plugin is initialised, in which case errors not generated and capabilities not checked.
 	 *
 	 * @return bool TRUE if options OK, FALSE otherwise

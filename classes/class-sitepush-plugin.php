@@ -192,7 +192,7 @@ class SitePushPlugin
 		$menu_title = 'SitePush';
 		$menu_slug = ($this->options->OK && ! $this->abort) ? 'sitepush' : 'sitepush_options';
 		$function = ($this->options->OK && ! $this->abort) ? array( $push_screen, 'display_screen') : array( $options_screen, 'display_screen');
-		$icon_url = '';
+		$icon_url = SITEPUSH_PLUGIN_DIR_URL . '/img/icon-16.png';
 		$position = 3;
 		add_menu_page( $page_title, $menu_title, $capability, $menu_slug, $function, $icon_url, $position );
 	
@@ -203,7 +203,7 @@ class SitePushPlugin
 		{	
 			$page = add_submenu_page( $parent_slug, $page_title, $menu_title, $capability, $menu_slug, $function);
 			add_action('admin_print_styles-' . $page, array( __CLASS__, 'admin_styles' ) ); //add custom stylesheet
-			add_action('load-' . $page, array( __CLASS__, 'push_help' ) ); //add contextual help for main push screen
+			add_action('load-' . $page, array( $this, 'push_help' ) ); //add contextual help for main push screen
 		}
 
 		if( $this->can_admin() || $this->abort )
@@ -370,13 +370,14 @@ class SitePushPlugin
 		 * @var WP_Screen
 		 */
 		$screen = get_current_screen();
+
 		$screen->add_help_tab( array(
-			'id'      => 'sitepush-options-help',
-			'title'   => 'Special Instructions',
-			'content' => '<p>This is the content for the tab.</p>',
-		) );
-		
-		$screen->set_help_sidebar( "<p>Help sidebar here...</p>" );
+		                            'id'      => 'sitepush-options-help-overview',
+		                            'title'   => 'Overview',
+		                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/options.overview.html')
+		                       ) );
+
+		$screen->set_help_sidebar( "<p>More help and information is available from the <a href='http://wordpress.org/extend/plugins/sitepush/' target='_blank'>SitePush plugin page</a>.</p>" );
 	}
 
 	/**
@@ -385,18 +386,30 @@ class SitePushPlugin
 	 *
 	 * @static
 	 */
-	static public function push_help()
+	public function push_help()
 	{
 		$screen = get_current_screen();
-		$screen->add_help_tab( array(
-			'id'      => 'sitepush-push-help',
-			'title'   => 'Special Instructions',
-			'content' => '<p>This is the content for the tab.</p>',
-		) );
-		
-		$screen->set_help_sidebar( "<p>Help sidebar here...</p>" );
+
+		if( $this->can_admin() )
+		{
+			$screen->add_help_tab( array(
+			                            'id'      => 'sitepush-push-help',
+			                            'title'   => 'Overview',
+			                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/sitepush.overview.admin.html'),
+			                       ) );
+
+			$screen->set_help_sidebar( "<p>More help and information is available from the <a href='http://wordpress.org/extend/plugins/sitepush/' target='_blank'>SitePush plugin page</a>.</p>" );
+		}
+		else
+		{
+			$screen->add_help_tab( array(
+			                            'id'      => 'sitepush-push-help',
+			                            'title'   => 'Overview',
+			                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/sitepush.overview.non-admin.html'),
+			                       ) );
+		}
 	}
-	
+
 	/* -------------------------------------------------------------- */
 	/* !SITEPUSH FUNCTIONS */
 	/* -------------------------------------------------------------- */
@@ -475,11 +488,7 @@ class SitePushPlugin
 		$results = array(); //should be empty at end if everything worked as expected
 		$db_types = array();
 		
-		//save various options which we don't want overwritten if we are doing a pull
-		$current_options = get_option('sitepush_options');
-		$current_user_options = $this->get_all_user_options();
-		$current_active_plugins = get_option('active_plugins');
-		
+
 	/* -------------------------------------------------------------- */
 	/* !Push WordPress Files */
 	/* -------------------------------------------------------------- */
@@ -533,26 +542,40 @@ class SitePushPlugin
 		$db_push = FALSE;
 		if( $push_options['db_all_tables'] )
 		{
-			//with no params entire DB is pushed
-			$results[] = $my_push->push_db();
-			$done_push = TRUE;
+			$db_types[] = 'all_tables';
 			$db_push = TRUE;
 		}
 		else
 		{
+			//we only check other options if we're not pushing whole DB
 			if( $push_options['db_post_content'] ) $db_types[] = 'content';
 			if( $push_options['db_comments'] ) $db_types[] = 'comments';
 			if( $push_options['db_users'] ) $db_types[] = 'users';
 			if( $push_options['db_options'] ) $db_types[] = 'options';
 			if( $push_options['db_multisite_tables'] ) $db_types[] = 'multisite';
 		
-			//do the push
-			if( $db_types )
+			if( $db_types ) $db_push = TRUE;
+		}
+
+		if( $db_push )
+		{
+			//save various options which we don't want overwritten if we are doing a pull
+			$restore_options = ( $this->options->get_current_site() == $push_options['dest'] ) ;
+			if( $restore_options )
 			{
-				$results[] = $my_push->push_db( $db_types );
-				$done_push = TRUE;
-				$db_push = TRUE;
+				$current_options = get_option('sitepush_options');
+				$current_user_options = $this->get_all_user_options();
+				$current_active_plugins = get_option('active_plugins');
+
+				//if we don't delete the options before DB push then WP won't restore options properly if
+				//option wasn't present in DB we are pulling from
+				delete_option('sitepush_options');
+				$this->delete_all_user_options();
 			}
+
+			//push DB
+			$results[] = $my_push->push_db( $db_types );
+			$done_push = TRUE;
 		}
 
 	/* -------------------------------------------------------------- */
@@ -576,10 +599,9 @@ class SitePushPlugin
 		}
 	
 		//save current site & user options back to DB so options on site we are pulling from won't overwrite
-		if( $db_push && $this->options->get_current_site() == $push_options['dest'] )
+		if( $restore_options )
 		{
-			$this->options->update( $current_options);
-
+			$this->options->update( $current_options );
 			$this->save_all_user_options( $current_user_options );
 
 			//deactivating sitepush ensures that when we update option cached value isn't used
@@ -625,7 +647,26 @@ class SitePushPlugin
 
 		return $results;
 	}
-	
+
+	/**
+	 * Delete SitePush user options for all users who have SitePush user meta options set
+	 *
+	 * @return array array of SitePush user option arrays
+	 */
+	private function delete_all_user_options()
+	{
+		global $wpdb;
+
+		$results = array();
+
+		foreach( get_users( "meta_key={$wpdb->prefix}sitepush_options&fields=ID" ) as $user_id )
+		{
+			$results[$user_id] = delete_user_option( 'sitepush_options', $user_id );
+		}
+
+		return $results;
+	}
+
 	/**
 	 * Set SitePush user options for many users
 	 *
@@ -641,7 +682,6 @@ class SitePushPlugin
 		}
 	}
 	
-	//@todo test destination cache clearing
 	/**
 	 * Clear cache(s) based on HTTP GET parameters. Allows another site to tell this site to clear its cache.
 	 * Will only run if GET params include correct secret key, which is defined in SitePush options
@@ -815,23 +855,32 @@ class SitePushPlugin
 	
 		return $links;
 	}
-	
+
 	/**
 	 * Get all sites which are valid given current capability
 	 *
-	 * @param string $exclude_current
+	 * @param string $context only return sites in this context, source or destination
+	 * @param string $exclude exclude certain sites. current=exclude current site we are on
+	 *
 	 * @return array
 	 */
-	public function get_sites( $exclude_current='no' )
+	public function get_sites( $context='', $exclude='' )
 	{
 		$sites_list = array();
-		
-		$exclude = ('exclude_current'==$exclude_current) ? $this->options->get_current_site() : '';
+		$exclude_current = ('current'==$exclude) ? $this->options->get_current_site() : '';
 	
 		foreach( $this->options->sites as $site=>$site_conf )
 		{
-			if( $site<>$exclude && ($this->can_admin() || !$site_conf['admin_only']) )
-				$sites_list[] = $site;
+			//exclude current site if required
+			if( $site==$exclude_current ) continue;
+
+			//if not admin, exclude sites limited to only source/dest context
+			if( !$this->can_admin() )
+			{
+				if( 'destination'==$context && !empty($site_conf['source_only']) ) continue;
+				if( 'source'==$context && !empty($site_conf['destination_only']) ) continue;
+			}
+			$sites_list[] = $site;
 		}
 		return $sites_list;
 	}
@@ -961,6 +1010,22 @@ class SitePushPlugin
 			'sitepush_field_only_admins_login_to_live',
 			'Live site login',
 			array( $options_screen, 'field_only_admins_login_to_live' ),
+			'sitepush_options',
+			'sitepush_section_capabilities'
+		);
+
+		add_settings_field(
+			'sitepush_field_non_admin_exclude_comments',
+			'Restrict non-admin capabilities',
+			array( $options_screen, 'field_non_admin_exclude_comments' ),
+			'sitepush_options',
+			'sitepush_section_capabilities'
+		);
+
+		add_settings_field(
+			'sitepush_field_non_admin_exclude_options',
+			'',
+			array( $options_screen, 'field_non_admin_exclude_options' ),
 			'sitepush_options',
 			'sitepush_section_capabilities'
 		);
@@ -1131,27 +1196,37 @@ class SitePushPlugin
 
 
 	/**
-	 * Block login to a live site for non admin users
+	 * Block login to a live site for non admin users, if option is set to do that.
+	 *
+	 * When in multisite mode, this blocks login from all users apart from Super Admins.
 	 *
 	 * @param $userdata
 	 * @return WP_Error
 	 */
 	public function block_login( $userdata )
 	{
-		$role_object = get_role( 'editor' ); //@todo
-		$role_object->add_cap( 'manage_options' );
-
-		if( !empty($this->options->current_site_conf) &&
-			$this->options->only_admins_login_to_live &&                        //only allow admins to login to live
-			!user_can( $userdata->ID, $this->options->admin_capability ) &&     //this user isn't a sitepush admin
-			$this->options->current_site_conf['live'] )                         //this site is live
-		{
-			return new WP_Error('login_blocked', __('You cannot login to this site. Please contact the site admin for more information.'));
-		}
-		else
-		{
+		//no config for current site, so allow login
+		if( empty($this->options->current_site_conf) )
 			return $userdata;
-		}
+
+		//we're not blocking logins to live sites
+		if( ! $this->options->only_admins_login_to_live )
+			return $userdata;
+
+		//it's not a live site, so never block login
+		if( !$this->options->current_site_conf['live'] )
+			return $userdata;
+
+		//multisite super admins can always login
+		if( is_multisite() && is_super_admin( $userdata->ID ) )
+			return $userdata;
+
+		//not multisite & user has admin capability, so allow login
+		if( !is_multisite() &&	user_can( $userdata->ID, $this->options->admin_capability ) )
+			return $userdata;
+
+		//not allowed to login, so throw error and block login
+		return new WP_Error('login_blocked', __('You cannot login to this site. Please contact the site admin for more information.'));
 	}
 }
 

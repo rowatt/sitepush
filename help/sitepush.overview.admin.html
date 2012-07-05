@@ -1,0 +1,25 @@
+<p>Select the source and destination for the sites you wish to push from/to, and check the required options to specify what you want to push.</p>
+
+<p>Available options include:-</p>
+
+<dl>
+	<dt>Database content</dt>
+	<dd>Select the required set of database tables to push. In Multisite, some groups of tables apply only to the current site, others apply to all sites. If you wish to push custom tables (e.g. tables added by a plugin) you need to push the entire database.</dd>
+
+	<dt>Files</dt>
+	<dd>Select the files you wish to push. If you want to avoid duplicating media files, you can try symlinking media folders between sites. See documentation files for more information.</dd>
+
+	<dt>Dry run</dt>
+	<dd>This option is only visible if you have set the debug output level to 3 in SitePush options. If set, SitePush will show you what it would do, but won't actually move any database tables or files.</dd>
+
+	<dt>Clear cache on destination</dt>
+	<dd>This option is only visible if you have set the cache key in SitePush options, and is only enabled if you have set the parameter <code>cache</code> to yes in the config file section for the selected destination site. When selected, SitePush will attempt to clear the cache on the destination after a push to ensure that content is updated. It currently works with <a href="http://wordpress.org/extend/plugins/w3-total-cache/" target="_blank">W3 Total Cache</a> and <a href="http://wordpress.org/extend/plugins/wp-super-cache/" target="_blank">WP Super Cache</a></dd>
+
+	<dt>Backup push</dt>
+	<dd>This option is only visible if you have defined a backup directory in SitePush options. When selected SitePush will backup the entire destination database (if you are pushing any database tables), and plugin/theme/upload directories if you are pushing those files. Note that if you need to restore from a backup, it is currently a manual process and ideally requires command line access.</dd>
+</dl>
+
+<p><i>Options available may differ depending on how you have configured SitePush.</i></p>
+
+<h3>Note</h3>
+<p>If you have a Multisite setup and you are pushing Multisite database tables, themes or plugins, you will be affecting all blogs on your installation irrespective of what blog you are pushing from.</p>

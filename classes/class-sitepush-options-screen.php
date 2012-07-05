@@ -55,7 +55,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function section_config_text()
 	{
-		echo '<p>Configuration and backup files should not be placed anywhere which is web readable. If possible, place these outside your web document root.<br />For this site, the document root is at <i>'.$_SERVER['DOCUMENT_ROOT'].'</i></p>';
+		echo '<p>Configuration and backup files should not be placed anywhere which is web readable. If possible, place these outside your web document root.<br />For this site, the document root is at <code>'.$_SERVER['DOCUMENT_ROOT'].'</code></p>';
 	}
 
 	function section_capabilities_text()
@@ -91,7 +91,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 		foreach( $this->get_other_plugins() as $plugin )
 		{
-			$others .= "<li class='description'>{$plugin}</li>";
+			$others .= "<li class='description'><code>{$plugin}</code></li>";
 		}
 
 		if( $others )
@@ -151,7 +151,10 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_admin_capability()
 	{
-		echo $this->input_text('admin_capability');
+		if( SITEPUSH_SHOW_MULTISITE )
+			echo "Only Network Super Admins can administer SitePush";
+		else
+			echo $this->input_text('admin_capability');
 	}
 
 	function field_only_admins_login_to_live()
@@ -159,9 +162,20 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_checkbox('only_admins_login_to_live', ' Only admins can login to live sites', 'Prevent login to any site labelled as <i>live</i> (in site config file) by any user who does not have the SitePush admin capability.');
 	}
 
+	function field_non_admin_exclude_comments()
+	{
+		echo $this->input_checkbox('non_admin_exclude_comments', ' Prevent non-admins from pushing comments' );
+	}
+
+	function field_non_admin_exclude_options()
+	{
+		echo $this->input_checkbox('non_admin_exclude_options', ' Prevent non-admins from pushing site options', 'You can also prevent non-admins from pushing to/from specific sites by adding <code>source_only = 1</code> or <code>destination_only = 1</code> to the relevant section of your site config file.' );
+	}
+
+
 	function field_cache_key()
 	{
-		$extra_text = empty( $this->options->cache_key ) ? "<br />A random string you could use: " .  md5( microtime() ) : '';
+		$extra_text = empty( $this->options->cache_key ) ? "<br />A random string you could use: <code>" .  md5( microtime() ) . "</code>" : '';
 
 		echo $this->input_text('cache_key', "A hard to guess secret key. This ensures that the cache is only cleared on a destination site when you want it to.<br />This key must be the same on all sites which you push to from this site.{$extra_text}");
 	}
@@ -171,7 +185,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_textarea(	array(
 		                                    'field' => 'plugin_activates'
 		                                    , 'value' => implode( "\n", $this->options->plugins['activate'] )
-		                                    , 'description' => 'Plugins which are to be automatically activated for any site which is classed as live, and deactivated on all others. One plugin per line, use the full path to the plugin from your plugins directory, e.g. "myplugin/myplugin.php"'
+		                                    , 'description' => 'Plugins which are to be automatically activated for any site which is classed as live, and deactivated on all others. One plugin per line, use the full path to the plugin from your plugins directory, e.g. <code>myplugin/myplugin.php</code>'
 		                                    , 'rows' => max( 3, 2+count($this->options->plugins['activate']) )
 		                               ));
 	}
@@ -181,7 +195,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_textarea(	array(
 		                                    'field' => 'plugin_deactivates'
 		                                    , 'value' => implode( "\n", $this->options->plugins['deactivate'] )
-		                                    , 'description' => 'Plugins which are to be automatically deactivated for any site which is not classed as live, and activated on all others. One plugin per line, use the full path to the plugin from your plugins directory, e.g. "myplugin/myplugin.php"'
+		                                    , 'description' => 'Plugins which are to be automatically deactivated for any site which is not classed as live, and activated on all others. One plugin per line, use the full path to the plugin from your plugins directory, e.g. <code>myplugin/myplugin.php</code>'
 		                                    , 'rows' => max( 3, 2+count($this->options->plugins['deactivate']) )
 		                               ));
 	}
