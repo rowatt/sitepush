@@ -54,7 +54,6 @@ class SitePushErrors
 
 	static public function errors( $force_type=NULL )
 	{
-		$errors = self::$errors;
 		$show_wp_errors = self::$force_show_wp_errors || get_transient('sitepush_force_show_wp_errors');
 		delete_transient('sitepush_force_show_wp_errors');
 
@@ -83,10 +82,7 @@ class SitePushErrors
 		else
 		{
 			if( !empty(self::$errors[$force_type]) )
-			{
-				echo self::get_error_html( self::$errors[$force_type], $force_type );
-				unset( self::$errors[$force_type] );
-			}
+				echo self::get_error_html( $force_type );
 		}
 	}
 

@@ -82,6 +82,10 @@ class SitePushPlugin
 			//content filters
 			add_filter('the_content', array( &$this, 'fix_site_urls') );
 		}
+
+		//constant to show if we show multisite features
+		//in future we may allow for not showing multisite features even if running in multisite mode
+		define( 'SITEPUSH_SHOW_MULTISITE', is_multisite() );
 	}
 
 	/**
@@ -92,8 +96,8 @@ class SitePushPlugin
 		if( version_compare( get_bloginfo( 'version' ), $this->min_wp_version, '<') )
 			SitePushErrors::add_error( "SitePush requires at least WordPress version {$this->min_wp_version}", 'error' );
 
-		if( (defined('WP_ALLOW_MULTISITE') && WP_ALLOW_MULTISITE) && ! (defined('SITEPUSH_ALLOW_MULTISITE') && SITEPUSH_ALLOW_MULTISITE) )
-			SitePushErrors::add_error( "SitePush does not support WordPress multisite installs. If you wish to use SitePush on a multisite install, add define('SITEPUSH_ALLOW_MULTISITE',TRUE) to your wp-config.php file and proceed with caution!", 'fatal-error' );
+		if( is_multisite() && ! (defined('SITEPUSH_ALLOW_MULTISITE') && SITEPUSH_ALLOW_MULTISITE) )
+			SitePushErrors::add_error( "Support for WordPress multisite installs is experimental.<br />If you wish to use SitePush on a multisite install, add define('SITEPUSH_ALLOW_MULTISITE',TRUE) to your wp-config.php file and proceed with caution!", 'fatal-error' );
 
 		//get php version
 		if (!defined('PHP_VERSION_ID'))
@@ -163,8 +167,8 @@ class SitePushPlugin
 	public function register_options_menu_help()
 	{
 		//instantiate menu classes
-		$push_screen = new SitePush_Push_Screen( &$this );
-		$options_screen = new SitePush_Options_Screen( &$this );
+		$push_screen = new SitePush_Push_Screen( $this );
+		$options_screen = new SitePush_Options_Screen( $this );
 		
 		//register the settings
 		$this->register_options( $options_screen );
@@ -398,17 +402,21 @@ class SitePushPlugin
 	/* -------------------------------------------------------------- */
 	
 	/**
-	 * Is the current user access a SitePush admin
+	 * Is the current user a SitePush admin
+	 *
+	 * User is admin if, they have defined admin capability, a catchall 'fallback' capability
+	 * User is not admin if we are in multisite mode and user does not have certain superadmin capabilities
 	 *
 	 * @return bool TRUE if user is SitePush admin, FALSE otherwise
 	 */
 	public function can_admin()
 	{
-		if( !empty($this->options->admin_capability) && current_user_can( $this->options->admin_capability ) )
+		if( is_multisite() && ! ( is_super_admin() || current_user_can('manage_network') || current_user_can('manage_sites') || current_user_can('manage_network_options') ) )
+			return FALSE;
+		elseif( !empty($this->options->admin_capability) && current_user_can( $this->options->admin_capability ) )
 			return TRUE;
 		else
-			return current_user_can( SitePushOptions::$fallback_capability )
-					|| current_user_can( SitePushOptions::$default_admin_capability );
+			return  current_user_can( SitePushOptions::$default_admin_capability );
 	}
 	
 	/**
@@ -499,7 +507,13 @@ class SitePushPlugin
 			$push_files = TRUE;
 			$my_push->push_plugins = TRUE;
 		}
-		
+
+		if( $push_options['push_mu_plugins'] )
+		{
+			$push_files = TRUE;
+			$my_push->push_mu_plugins = TRUE;
+		}
+
 		if( $push_options['push_wp_core'] )
 		{
 			$push_files = TRUE;
@@ -530,6 +544,7 @@ class SitePushPlugin
 			if( $push_options['db_comments'] ) $db_types[] = 'comments';
 			if( $push_options['db_users'] ) $db_types[] = 'users';
 			if( $push_options['db_options'] ) $db_types[] = 'options';
+			if( $push_options['db_multisite_tables'] ) $db_types[] = 'multisite';
 		
 			//do the push
 			if( $db_types )
@@ -884,6 +899,15 @@ class SitePushPlugin
 			'sitepush_options',
 			'sitepush_section_config'
 		);
+
+		if( SITEPUSH_SHOW_MULTISITE )
+			add_settings_field(
+				'sitepush_field_domain_map_conf',
+				'Full path to domain map file',
+				array( $options_screen, 'field_domain_map_conf' ),
+				'sitepush_options',
+				'sitepush_section_config'
+			);
 
 		add_settings_field(
 			'sitepush_field_fix_site_urls',

@@ -5,7 +5,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	public $notices = array();
 
-	public function __construct( $plugin )
+	public function __construct( &$plugin )
 	{
 		parent::__construct( $plugin );
 	}
@@ -19,11 +19,9 @@ class SitePush_Options_Screen extends SitePush_Screen
 			<h2>SitePush Options</h2>
 
 			<?php
-			//show errors/notices but only if we are updating, unless it's a fatal error
-			if( ! empty($_GET['settings-updated']) )
-				SitePushErrors::errors();
-			else
-				SitePushErrors::errors('fatal-errors');
+			//show errors/notices
+			//validation doesn't add errors if we haven't set anything yet, in which case nothing will show here
+			SitePushErrors::errors();
 
 			if( $this->plugin->abort )
 				return FALSE;
@@ -124,6 +122,11 @@ class SitePush_Options_Screen extends SitePush_Screen
 	function field_dbs_conf()
 	{
 		echo $this->input_text('dbs_conf','','large-text');
+	}
+
+	function field_domain_map_conf()
+	{
+		echo $this->input_text('domain_map_conf','','large-text');
 	}
 
 	function field_fix_site_urls()
