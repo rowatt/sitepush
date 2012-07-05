@@ -192,7 +192,7 @@ class SitePushPlugin
 		$menu_title = 'SitePush';
 		$menu_slug = ($this->options->OK && ! $this->abort) ? 'sitepush' : 'sitepush_options';
 		$function = ($this->options->OK && ! $this->abort) ? array( $push_screen, 'display_screen') : array( $options_screen, 'display_screen');
-		$icon_url = '';
+		$icon_url = SITEPUSH_PLUGIN_DIR_URL . '/img/icon-16.png';
 		$position = 3;
 		add_menu_page( $page_title, $menu_title, $capability, $menu_slug, $function, $icon_url, $position );
 	
@@ -388,15 +388,32 @@ class SitePushPlugin
 	static public function push_help()
 	{
 		$screen = get_current_screen();
+
 		$screen->add_help_tab( array(
-			'id'      => 'sitepush-push-help',
-			'title'   => 'Special Instructions',
-			'content' => '<p>This is the content for the tab.</p>',
-		) );
-		
-		$screen->set_help_sidebar( "<p>Help sidebar here...</p>" );
+		                            'id'      => 'sitepush-push-help',
+		                            'title'   => 'Main',
+		                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/push.options.main.phtml'),
+		                       ) );
+
+		$screen->add_help_tab( array(
+		                            'id'      => 'sitepush-push-help-database-content',
+		                            'title'   => 'Database content',
+		                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/push.options.database-content.phtml'),
+		                       ) );
+
+		$screen->add_help_tab( array(
+		                            'id'      => 'sitepush-push-help-files',
+		                            'title'   => 'Files',
+		                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/push.options.files.phtml'),
+		                       ) );
+
+		$screen->add_help_tab( array(
+		                            'id'      => 'sitepush-push-help-push-options',
+		                            'title'   => 'Push options',
+		                            'content' => file_get_contents( SITEPUSH_PLUGIN_DIR.'/help/push.options.push-options.phtml'),
+		                       ) );
 	}
-	
+
 	/* -------------------------------------------------------------- */
 	/* !SITEPUSH FUNCTIONS */
 	/* -------------------------------------------------------------- */
