@@ -389,14 +389,14 @@ If you do have problems with timeouts, you can also try pushing things separatel
 
 == Changelog ==
 
-= 0.3-alpha =
+= 0.3 =
 
-* Initial public release
+* Initial public alpha release
 
 
 
 == Upgrade Notice ==
 
-= 0.3-alpha =
+= 0.3 =
 
-* Initial public release
+* Initial public alpha release
