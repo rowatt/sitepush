@@ -188,9 +188,9 @@ class SitePush_Push_Screen extends SitePush_Screen
 									echo $this->option_html('sitepush_push_db_all_tables','Entire database <i>(this will overwrite all content and settings)</i>','admin_only');
 							?>
 							<?php echo $this->option_html('sitepush_push_db_post_content','All post content <i>(pages, posts, media, links, custom post types, post meta, categories, tags &amp; custom taxonomies)</i>', 'user');?>
-							<?php echo $this->option_html('sitepush_push_db_comments','Comments','user');?>
+							<?php if( $this->plugin->can_admin() || !$this->options->non_admin_exclude_comments ) echo $this->option_html('sitepush_push_db_comments','Comments','user');?>
 							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_db_users','Users &amp; user meta','admin_only');?>
-							<?php echo $this->option_html('sitepush_push_db_options','WordPress options','user');?>
+							<?php if( $this->plugin->can_admin() || !$this->options->non_admin_exclude_options ) echo $this->option_html('sitepush_push_db_options','WordPress options','user');?>
 						</td>
 					</tr>
 	

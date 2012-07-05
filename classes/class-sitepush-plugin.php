@@ -990,6 +990,22 @@ class SitePushPlugin
 			'sitepush_section_capabilities'
 		);
 
+		add_settings_field(
+			'sitepush_field_non_admin_exclude_comments',
+			'Restrict non-admin capabilities',
+			array( $options_screen, 'field_non_admin_exclude_comments' ),
+			'sitepush_options',
+			'sitepush_section_capabilities'
+		);
+
+		add_settings_field(
+			'sitepush_field_non_admin_exclude_options',
+			'',
+			array( $options_screen, 'field_non_admin_exclude_options' ),
+			'sitepush_options',
+			'sitepush_section_capabilities'
+		);
+
 		/* Cache option fields */
 		add_settings_section(
 			'sitepush_section_cache',
