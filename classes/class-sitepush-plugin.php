@@ -1131,27 +1131,37 @@ class SitePushPlugin
 
 
 	/**
-	 * Block login to a live site for non admin users
+	 * Block login to a live site for non admin users, if option is set to do that.
+	 *
+	 * When in multisite mode, this blocks login from all users apart from Super Admins.
 	 *
 	 * @param $userdata
 	 * @return WP_Error
 	 */
 	public function block_login( $userdata )
 	{
-		$role_object = get_role( 'editor' ); //@todo
-		$role_object->add_cap( 'manage_options' );
-
-		if( !empty($this->options->current_site_conf) &&
-			$this->options->only_admins_login_to_live &&                        //only allow admins to login to live
-			!user_can( $userdata->ID, $this->options->admin_capability ) &&     //this user isn't a sitepush admin
-			$this->options->current_site_conf['live'] )                         //this site is live
-		{
-			return new WP_Error('login_blocked', __('You cannot login to this site. Please contact the site admin for more information.'));
-		}
-		else
-		{
+		//no config for current site, so allow login
+		if( empty($this->options->current_site_conf) )
 			return $userdata;
-		}
+
+		//we're not blocking logins to live sites
+		if( ! $this->options->only_admins_login_to_live )
+			return $userdata;
+
+		//it's not a live site, so never block login
+		if( !$this->options->current_site_conf['live'] )
+			return $userdata;
+
+		//multisite super admins can always login
+		if( is_multisite() && is_super_admin( $userdata->ID ) )
+			return $userdata;
+
+		//not multisite & user has admin capability, so allow login
+		if( !is_multisite() &&	user_can( $userdata->ID, $this->options->admin_capability ) )
+			return $userdata;
+
+		//not allowed to login, so throw error and block login
+		return new WP_Error('login_blocked', __('You cannot login to this site. Please contact the site admin for more information.'));
 	}
 }
 

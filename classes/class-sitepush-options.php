@@ -17,8 +17,8 @@ class SitePushOptions
 
 
 	//default capabilities required to use SitePush
-	public static $default_capability = 'install_plugins';
-	public static $default_admin_capability = 'install_plugins';
+	public static $default_capability = 'edit_others_posts'; //user has editor privileges
+	public static $default_admin_capability = 'activate_plugins'; //user has site admin privileges
 	public static $fallback_capability = 'manage_sitepush_options'; //user with this capability will always be able to access options
 
 	//options which need keeping when user updates options
