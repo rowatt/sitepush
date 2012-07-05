@@ -151,7 +151,10 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_admin_capability()
 	{
-		echo $this->input_text('admin_capability');
+		if( SITEPUSH_SHOW_MULTISITE )
+			echo "Only Network Super Admins can administer SitePush";
+		else
+			echo $this->input_text('admin_capability');
 	}
 
 	function field_only_admins_login_to_live()
