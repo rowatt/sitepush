@@ -492,11 +492,7 @@ class SitePushPlugin
 		$results = array(); //should be empty at end if everything worked as expected
 		$db_types = array();
 		
-		//save various options which we don't want overwritten if we are doing a pull
-		$current_options = get_option('sitepush_options');
-		$current_user_options = $this->get_all_user_options();
-		$current_active_plugins = get_option('active_plugins');
-		
+
 	/* -------------------------------------------------------------- */
 	/* !Push WordPress Files */
 	/* -------------------------------------------------------------- */
@@ -550,26 +546,40 @@ class SitePushPlugin
 		$db_push = FALSE;
 		if( $push_options['db_all_tables'] )
 		{
-			//with no params entire DB is pushed
-			$results[] = $my_push->push_db();
-			$done_push = TRUE;
+			$db_types[] = 'all_tables';
 			$db_push = TRUE;
 		}
 		else
 		{
+			//we only check other options if we're not pushing whole DB
 			if( $push_options['db_post_content'] ) $db_types[] = 'content';
 			if( $push_options['db_comments'] ) $db_types[] = 'comments';
 			if( $push_options['db_users'] ) $db_types[] = 'users';
 			if( $push_options['db_options'] ) $db_types[] = 'options';
 			if( $push_options['db_multisite_tables'] ) $db_types[] = 'multisite';
 		
-			//do the push
-			if( $db_types )
+			if( $db_types ) $db_push = TRUE;
+		}
+
+		if( $db_push )
+		{
+			//save various options which we don't want overwritten if we are doing a pull
+			$restore_options = ( $this->options->get_current_site() == $push_options['dest'] ) ;
+			if( $restore_options )
 			{
-				$results[] = $my_push->push_db( $db_types );
-				$done_push = TRUE;
-				$db_push = TRUE;
+				$current_options = get_option('sitepush_options');
+				$current_user_options = $this->get_all_user_options();
+				$current_active_plugins = get_option('active_plugins');
+
+				//if we don't delete the options before DB push then WP won't restore options properly if
+				//option wasn't present in DB we are pulling from
+				delete_option('sitepush_options');
+				$this->delete_all_user_options();
 			}
+
+			//push DB
+			$results[] = $my_push->push_db( $db_types );
+			$done_push = TRUE;
 		}
 
 	/* -------------------------------------------------------------- */
@@ -593,10 +603,9 @@ class SitePushPlugin
 		}
 	
 		//save current site & user options back to DB so options on site we are pulling from won't overwrite
-		if( $db_push && $this->options->get_current_site() == $push_options['dest'] )
+		if( $restore_options )
 		{
-			$this->options->update( $current_options);
-
+			$this->options->update( $current_options );
 			$this->save_all_user_options( $current_user_options );
 
 			//deactivating sitepush ensures that when we update option cached value isn't used
@@ -642,7 +651,26 @@ class SitePushPlugin
 
 		return $results;
 	}
-	
+
+	/**
+	 * Delete SitePush user options for all users who have SitePush user meta options set
+	 *
+	 * @return array array of SitePush user option arrays
+	 */
+	private function delete_all_user_options()
+	{
+		global $wpdb;
+
+		$results = array();
+
+		foreach( get_users( "meta_key={$wpdb->prefix}sitepush_options&fields=ID" ) as $user_id )
+		{
+			$results[$user_id] = delete_user_option( 'sitepush_options', $user_id );
+		}
+
+		return $results;
+	}
+
 	/**
 	 * Set SitePush user options for many users
 	 *
