@@ -151,7 +151,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 						<td>
 							<select name="sitepush_source" id="sitepush_source" class="site-selector">
 							<?php
-								foreach( $this->plugin->get_sites() as $site )
+								foreach( $this->plugin->get_sites('source') as $site )
 								{
 									echo "<option value='{$site}'";
 									if( $default_source == $site ) echo " selected='selected'";
@@ -167,7 +167,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 						<td>
 							<select name="sitepush_dest" id="sitepush_dest" class="site-selector">
 							<?php
-								foreach( $this->plugin->get_sites() as $site )
+								foreach( $this->plugin->get_sites('destination') as $site )
 								{
 									$use_cache = $this->options->sites[$site]['use_cache'] ? 'yes' : 'no';
 									echo "<option value='{$site}' data-cache='{$use_cache}'";

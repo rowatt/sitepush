@@ -831,23 +831,32 @@ class SitePushPlugin
 	
 		return $links;
 	}
-	
+
 	/**
 	 * Get all sites which are valid given current capability
 	 *
-	 * @param string $exclude_current
+	 * @param string $context only return sites in this context, source or destination
+	 * @param string $exclude exclude certain sites. current=exclude current site we are on
+	 *
 	 * @return array
 	 */
-	public function get_sites( $exclude_current='no' )
+	public function get_sites( $context='', $exclude='' )
 	{
 		$sites_list = array();
-		
-		$exclude = ('exclude_current'==$exclude_current) ? $this->options->get_current_site() : '';
+		$exclude_current = ('current'==$exclude) ? $this->options->get_current_site() : '';
 	
 		foreach( $this->options->sites as $site=>$site_conf )
 		{
-			if( $site<>$exclude && ($this->can_admin() || !$site_conf['admin_only']) )
-				$sites_list[] = $site;
+			//exclude current site if required
+			if( $site==$exclude_current ) continue;
+
+			//if not admin, exclude sites limited to only source/dest context
+			if( !$this->can_admin() )
+			{
+				if( 'destination'==$context && !empty($site_conf['source_only']) ) continue;
+				if( 'source'==$context && !empty($site_conf['destination_only']) ) continue;
+			}
+			$sites_list[] = $site;
 		}
 		return $sites_list;
 	}
