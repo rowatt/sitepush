@@ -411,7 +411,7 @@ class SitePushPlugin
 	 */
 	public function can_admin()
 	{
-		if( is_multisite() && ! ( current_user_can('manage_network') || current_user_can('manage_sites') || current_user_can('manage_network_options') ) )
+		if( is_multisite() && ! ( is_super_admin() || current_user_can('manage_network') || current_user_can('manage_sites') || current_user_can('manage_network_options') ) )
 			return FALSE;
 		elseif( !empty($this->options->admin_capability) && current_user_can( $this->options->admin_capability ) )
 			return TRUE;

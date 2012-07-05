@@ -189,8 +189,8 @@ class SitePush_Push_Screen extends SitePush_Screen
 							?>
 							<?php echo $this->option_html('sitepush_push_db_post_content','All post content (pages, posts, media, links, custom post types, post meta, categories, tags &amp; custom taxonomies)', 'user');?>
 							<?php echo $this->option_html('sitepush_push_db_comments','Comments','user');?>
-							<?php echo $this->option_html('sitepush_push_db_users','Users &amp; user meta','admin_only');?>
-							<?php echo $this->option_html('sitepush_push_db_options','WordPress options','admin_only');?>
+							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_db_users','Users &amp; user meta','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_db_options','WordPress options','user');?>
 						</td>
 					</tr>
 	
@@ -207,14 +207,20 @@ class SitePush_Push_Screen extends SitePush_Screen
 
 					<?php if( SITEPUSH_SHOW_MULTISITE && $this->plugin->can_admin() ) : ?>
 					<tr>
-						<th scope="row">Multisite (<i>affects all sites</i>)</th>
+						<th scope="row">Multisite database content<br /><i>affects all sites</i></th>
+						<td>
+							<?php echo $this->option_html('sitepush_push_db_users','Users &amp; user meta','admin_only');?>
+							<?php echo $this->option_html('sitepush_push_db_multisite_tables','Multisite tables (blog_versions, registration_log, signups, site, sitemeta, sitecategories)','admin_only'); ?>
+							<?php echo $this->option_html('sitepush_push_db_all_tables','Entire database for all sites (Caution! This will overwrite all content and settings for all sites in this network installation)','admin_only'); ?>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">Multisite files<br /><i>affects all sites</i></th>
 						<td>
 							<?php echo $this->option_html('sitepush_push_theme', 'Current theme ('._deprecated_get_current_theme().')','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_themes','All themes','admin_only');?>
 							<?php echo $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');?>
 							<?php if( file_exists($this->options->current_site_conf['web_path'] . $this->options->current_site_conf['wpmu_plugin_dir']) ) echo $this->option_html('sitepush_push_mu_plugins','WordPress must-use plugins','admin_only');?>
-							<?php echo $this->option_html('sitepush_push_db_multisite_tables','Multisite tables (blog_versions, registration_log, signups, site, sitemeta, sitecategories)','admin_only'); ?>
-							<?php echo $this->option_html('sitepush_push_db_all_tables','Entire database for all sites (Caution! This will overwrite all content and settings for all sites in this network installation)','admin_only'); ?>
 						</td>
 					</tr>
 					<?php endif; ?>
