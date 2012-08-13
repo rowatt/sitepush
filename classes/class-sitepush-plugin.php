@@ -555,6 +555,7 @@ class SitePushPlugin
 			if( $db_types ) $db_push = TRUE;
 		}
 
+		$restore_options = FALSE;
 		if( $db_push )
 		{
 			//save various options which we don't want overwritten if we are doing a pull
