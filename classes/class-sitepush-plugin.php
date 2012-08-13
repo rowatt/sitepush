@@ -551,6 +551,7 @@ class SitePushPlugin
 			if( $push_options['db_users'] ) $db_types[] = 'users';
 			if( $push_options['db_options'] ) $db_types[] = 'options';
 			if( $push_options['db_multisite_tables'] ) $db_types[] = 'multisite';
+			if( $push_options['db_custom_table_groups'] ) $db_types[] = $push_options['db_custom_table_groups'];
 		
 			if( $db_types ) $db_push = TRUE;
 		}
@@ -1093,6 +1094,20 @@ class SitePushPlugin
 			'sitepush_section_backup'
 		);	
 
+		/* Custom DB tables option fields */
+		add_settings_section(
+			'sitepush_section_db_custom_table_groups',
+			'Custom DB table groups',
+			array( $options_screen, 'section_db_custom_table_groups_text' ),
+			'sitepush_options'
+		);
+		add_settings_field(
+			'sitepush_field_db_custom_table_groups',
+			'Custom DB table groups',
+			array( $options_screen, 'field_db_custom_table_groups' ),
+			'sitepush_options',
+			'sitepush_section_db_custom_table_groups'
+		);
 
 		/* rsync options */
 		add_settings_section(

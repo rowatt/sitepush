@@ -24,7 +24,7 @@ class SitePushOptions
 	//options which need keeping when user updates options
 	private $keep_options = array( 'accept', 'last_update' );
 	//parameters which get initialised and get whitespace trimmed
-	private $trim_params = array('sites_conf', 'dbs_conf', 'domain_map_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
+	private $trim_params = array('sites_conf', 'dbs_conf', 'domain_map_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'db_custom_table_groups', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
 	//parameters which just get initialised
 	private $no_trim_params = array('accept', 'fix_site_urls', 'only_admins_login_to_live', 'non_admin_exclude_comments', 'non_admin_exclude_options');
 	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'caches', 'domain', 'domains', 'wp_dir' );
@@ -50,6 +50,9 @@ class SitePushOptions
 
 	public $backup_path;
 	public $backup_keep_time;
+
+	public $db_custom_table_groups; //table groups as saved in DB
+	public $db_custom_table_groups_array = array(); //parsed table groups
 
 	public $rsync_path;
 	public $dont_sync;
@@ -238,6 +241,29 @@ class SitePushOptions
 		if( !array_key_exists( 'backup_path', $options ) ) $options['backup_path'] = '';
 		if( !array_key_exists( 'backup_keep_time', $options ) || ''==$options['backup_keep_time'] ) $options['backup_keep_time'] = 10;
 
+		//Custom DB tables options
+		if( !array_key_exists( 'db_custom_table_groups', $options ) ) $options['db_custom_table_groups'] = '';
+		if( $options['db_custom_table_groups'] )
+		{
+			//set $db_custom_table_groups_array from db_custom_table_groups option
+			$db_custom_table_groups = explode( "\n", $options['db_custom_table_groups'] );
+			foreach( $db_custom_table_groups as $table_group )
+			{
+				//skip blank lines
+				if( ! trim($table_group) )
+					continue;
+
+				$fields = explode( '|',$table_group );
+
+				$tables = explode( ',', $fields[1] );
+				array_walk( $tables, array( __CLASS__, 'trim_array' ) );
+
+				$this->db_custom_table_groups_array[] = array(
+					'label' => $fields[0],
+					'tables' => $tables
+				);
+			}
+		}
 		//rsync options
 		if( !array_key_exists( 'rsync_path', $options ) )
 			$options['rsync_path'] = $this->guess_path( 'rsync' );
@@ -367,6 +393,11 @@ class SitePushOptions
 			$valid = FALSE;
 		}
 
+		if( !$this->validate_db_custom_table_groups( $options ) )
+		{
+			if( $update_check ) SitePushErrors::add_error( 'Custom database table groups is not in the correct format.', 'error', 'backup_path' );
+			$valid = FALSE;
+		}
 		if( $options['rsync_path'] && !file_exists( $options['rsync_path'] ) )
 		{
 			if( $update_check ) SitePushErrors::add_error( 'Path not valid - rsync not found.', 'error', 'rsync_path' );
@@ -420,6 +451,29 @@ class SitePushOptions
 		}
 
 		return $valid && !SitePushErrors::is_error();
+	}
+
+	private function validate_db_custom_table_groups( $options=array() )
+	{
+		//nothing set, which is OK
+		if( empty($options['db_custom_table_groups']) )
+			return TRUE;
+
+		$db_custom_table_groups = explode( "\n", $options['db_custom_table_groups'] );
+		foreach( $db_custom_table_groups as $key=>$table_group )
+		{
+			//note !strpos is correct - if position is 0 or not found we are configured incorrectly
+			if( !strpos($table_group, '|') )
+				return FALSE;
+
+			$fields = explode( '|',$table_group );
+
+			//check we have at least 1 table defined
+			if( ! trim($fields[1]) )
+				return FALSE;
+		}
+
+		return TRUE;
 	}
 
 	/**
@@ -916,6 +970,16 @@ class SitePushOptions
 			$options = get_option( 'sitepush_options' );
 			return empty($options['sitepush_version']) ? '' : $options['sitepush_version'];
 		}
+	}
+
+	/**
+	 * Trim elements of an array
+	 *
+	 * @param $value
+	 */
+	private function trim_array(&$value)
+	{
+		$value = trim($value);
 	}
 
 }

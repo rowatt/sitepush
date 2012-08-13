@@ -246,7 +246,11 @@ class SitePushCore
 		{
 			foreach( $table_groups as $table_group )
 			{
-				$tables .= ' ' . $this->get_tables( $table_group );
+				//if table group is an array, then it is an array of custom table groups
+				if( is_array($table_group) )
+					$tables .= ' ' . $this->get_custom_tables( $table_group );
+				else
+					$tables .= ' ' . $this->get_tables( $table_group );
 			}
 		}
 		$tables = trim($tables);
@@ -539,8 +543,6 @@ class SitePushCore
 	/**
 	 * Get tables for any given push group.
 	 *
-	 * @later add custom table groups
-	 *
 	 * @param string $group name of a table group
 	 * @return string list of tables for group
 	 */
@@ -584,6 +586,26 @@ class SitePushCore
 			$tables = str_replace('%prefix%',$this->db_prefix,$tables);
 
 		return $tables;
+	}
+
+	/**
+	 * Get tables for custom table groups
+	 *
+	 * @param array $groups custom table groups. key is equal to number for group in order added in options screen.
+	 *
+	 * @return string list of tables
+	 */
+	private function get_custom_tables( $groups )
+	{
+		$tables = array();
+		foreach( $groups as $group )
+		{
+			$group_array = $this->options->db_custom_table_groups_array[ $group ];
+			$tables = array_merge( $tables, $group_array['tables']);
+		}
+
+		//add db_prefix to each table and return
+		return $this->db_prefix . implode( ' ' . $this->db_prefix, $tables );
 	}
 
 	/**
