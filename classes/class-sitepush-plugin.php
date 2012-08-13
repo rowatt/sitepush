@@ -355,9 +355,7 @@ class SitePushPlugin
 	/* -------------------------------------------------------------- */
 	/* !HELP FUNCTIONS */
 	/* -------------------------------------------------------------- */
-	
-	//@todo add help
-	
+
 	/**
 	 * Help for options screen
 	 * Called by load-$page hook
