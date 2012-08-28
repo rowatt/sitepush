@@ -107,15 +107,15 @@ The sites config file contains information about all the sites you wish to push/
 
 	[live]
 	label = Live Site
-	domains[] = www.mysite.com
-	domains[] = www.mysite.co.uk
+	domains[] = live.example.com
+	domains[] = live.example.co.uk
 	web_path = /var/www/vhosts/mysite-live
 	db = live
 	live = yes
 
 	[dev]
 	label = Dev Site
-	domain = dev.mysite.com
+	domain = dev.example.com
 	web_path = /var/www/vhosts/mysite-dev
 	db = dev
 	live = no
@@ -125,7 +125,7 @@ Each section represents parameters for a web site, with the exception of *[all]*
 * **[sitename]** = a unique name for this site. It's only used internally (or as label if you don't supply the label parameter), and can be anything you like.
 * **web_path** = the full filesystem path to the web root for the site (not the root of the WordPress install if you have WordPress in a subdirectory).
 * **domain** = the domain this site is at. If the site uses more than one domain, use the domains[] parameter for each domain instead. Optional if domains[] parameters supplied.
-* **domains[]** (optional if domain parameter supplied) = if your site can be accessed via multiple domains (e.g. site.com, site.co.uk) then list each domain with the domains[] parameter. Make sure you include the *[]*.
+* **domains[]** (optional if domain parameter supplied) = if your site can be accessed via multiple domains (e.g. example.com, example.co.uk) then list each domain with the domains[] parameter. Make sure you include the *[]*.
 * **db** = the SitePush label of the database this site uses, as defined in your databases config file (see below).
 
 The following parameters are optional:-
@@ -179,23 +179,40 @@ The following parameters are optional:-
 
 = Domain map config file =
 
-If you are running a Multisite installation, you will also need to create a domain map file so that SitePush knows which domains apply to which sites. The file should have as many sections as you have SitePush sites defined in your sites config file, and each section should contain one entry for each blog in your multisite setup. For example:-
+If you are running a Multisite installation, you will also need to create a domain map file so that SitePush knows which domains apply to which sites. The file should have as many sections as you have SitePush sites defined in your sites config file, and each section should contain one entry for each blog in your multisite setup. If your multisite installation is set up as a subdomain install, then you should list the full domains for each site, for example:-
 
 	; <?php die('Forbidden'); ?> -*- conf -*-
 	; Do not remove the above line, it is all that prevents this file from being downloaded.
 
 	[live]
-	1 = www.mysite.com
-	2 = site2.mysite.com
-	3 = site3.mysite.com
+	1 = site1.example.com
+	2 = site2.example.com
+	3 = site3.example.com
 
 	[dev]
-	1 = dev1.mysite.com
-	2 = dev2.mysite.com
-	3 = dev3.mysite.com
+	1 = dev1.example.com
+	2 = dev2.example.com
+	3 = dev3.example.com
 
 * **[sitename]** = the name you have given this site. It should be exactly the same as *[sitename]* in your sites config file.
 * **blogid = domain** = define the primary domain for each blogid in your network. If you are using a sub-directory set up, then the domain would be the same for each blog, but you still need to enter it for each one.
+
+If, on the other hand, your installation is set up as a subdirectory install, then the domains in each section will be the same, for example:-
+
+	; <?php die('Forbidden'); ?> -*- conf -*-
+	; Do not remove the above line, it is all that prevents this file from being downloaded.
+
+	[live]
+	1 = live.example.com
+	2 = live.example.com
+	3 = live.example.com
+
+	[dev]
+	1 = dev.example.com
+	2 = dev.example.com
+	3 = dev.example.com
+
+** do not include the subdirectory path for each site **
 
 If you do not configure this correctly, you will not be able to access blogs where you have pushed multisite tables (or if you pushed the whole database) and may have problems accessing individual blogs where you pushed options for that blog. If this does happen, you will need to manually edit the wp_blogs, wp_site, wp_sitemeta and options tables, or restore from a backup.
 
@@ -270,11 +287,11 @@ Let's say you want to have three versions of your site - live, test, and dev.
 
 First make sure that you can set up domain aliases on your host - so that multiple domains point to the same files. For example, you might set up:-
 
-	www.mysite.com
-	test.mysite.com
-	dev.mysite.com
+	live.example.com
+	test.example.com
+	dev.example.com
 
-If your host allows wildcard domain setups, so for example anything.mysite.com would point to your files, that would also work
+If your host allows wildcard domain setups, so for example anything.example.com would point to your files, that would also work
 
 Set up a subdirectory for each site. Where they all sit on your server will depend on your hosting setup, but let's say they are at:-
 
@@ -319,22 +336,22 @@ The exact paths will depend on your setup.
 Next you need to make some changes to your wp-config.php file so that it will point to the correct site files and database depending on what domain name was used. The exact details will vary depending on your setup, but you will want something like this, which should be inserted immediately above the line `/* That's all, stop editing! Happy blogging. */`:-
 
 	switch ( $_SERVER['SERVER_NAME'] ) {
-		case 'test.mysite.com':
+		case 'test.example.com':
 			$site_dir='test';
 			define('DB_NAME', 'database_name_here');
 			define('DB_USER', 'username_here');
 			define('DB_PASSWORD', 'password_here');
 			break;
 
-		case 'dev.mysite.com':
+		case 'dev.example.com':
 			define('DB_NAME', 'database_name_here');
 			define('DB_USER', 'username_here');
 			define('DB_PASSWORD', 'password_here');
 			$site_dir='dev';
 			break;
 
-		case 'www.mysite.com':
-		case 'live.mysite.com':
+		case 'www.example.com':
+		case 'live.example.com':
 		default:
 			define('DB_NAME', 'database_name_here');
 			define('DB_USER', 'username_here');
@@ -355,9 +372,9 @@ You can now log into your live site, activate and configure SitePush. Once that 
 
 == Screenshots ==
 
-1. Main options screen.
-2. Push screen as seen by admins.
-3. Simplified push screen for non-admins.
+1. Push screen for non-admins. Site admin can configure what non-admins can push, so they can't push anything too dangerous.
+2. Push screen as seen by admins. Admins can push any set of files or DB tables.
+3. Main options screen.
 
 
 
@@ -389,14 +406,19 @@ If you do have problems with timeouts, you can also try pushing things separatel
 
 == Changelog ==
 
-= 0.3 =
+= 0.4 (2012-08-31) =
+* SitePush no longer depends on rsync to push files. If you don't have rsync on your server, SitePush will copy files using PHP.
+* You can now define custom groups of database tables to push, allowing any custom tables created by plugins to be pushed without pushing the whole database.
+* Various bug fixes.
 
+= 0.3 (2012-07-06) =
 * Initial public alpha release
-
 
 
 == Upgrade Notice ==
 
-= 0.3 =
+= 0.4 =
+SitePush no longer depends on rsync to push files, and allows you to define custom groups of DB tables to push.
 
-* Initial public alpha release
+= 0.3 =
+Initial public alpha release
