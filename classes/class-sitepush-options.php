@@ -24,7 +24,7 @@ class SitePushOptions
 	//options which need keeping when user updates options
 	private $keep_options = array( 'accept', 'last_update' );
 	//parameters which get initialised and get whitespace trimmed
-	private $trim_params = array('sites_conf', 'dbs_conf', 'domain_map_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'db_custom_table_groups', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
+	private $trim_params = array('sites_conf', 'dbs_conf', 'domain_map_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
 	//parameters which just get initialised
 	private $no_trim_params = array('accept', 'fix_site_urls', 'only_admins_login_to_live', 'non_admin_exclude_comments', 'non_admin_exclude_options');
 	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'caches', 'domain', 'domains', 'wp_dir' );
@@ -51,11 +51,9 @@ class SitePushOptions
 	public $backup_path;
 	public $backup_keep_time;
 
-	public $db_custom_table_groups; //table groups as saved in DB
-	public $db_custom_table_groups_array = array(); //parsed table groups
-
 	public $rsync_path;
-	public $dont_sync;
+	private $dont_sync; //see $this->get_dont_syncs method
+	private $default_dont_sync = '.git,.svn,.htaccess,tmp,wp-config.php,.DS_Store';
 
 	public $mysql_path;
 	public $mysqldump_path;
@@ -268,7 +266,7 @@ class SitePushOptions
 		if( !array_key_exists( 'rsync_path', $options ) )
 			$options['rsync_path'] = $this->guess_path( 'rsync' );
 		if( !array_key_exists('dont_sync', $options) )
-			$options['dont_sync'] = '.git, .svn, .htaccess, tmp/, wp-config.php';
+			$options['dont_sync'] = $this->default_dont_sync;
 
 		//mysql options
 		if( !array_key_exists( 'mysql_path', $options ) )
@@ -970,6 +968,22 @@ class SitePushOptions
 			$options = get_option( 'sitepush_options' );
 			return empty($options['sitepush_version']) ? '' : $options['sitepush_version'];
 		}
+	}
+
+	/**
+	 * Gets dont_sync option, making sure it is an array
+	 *
+	 * @return mixed
+	 */
+	public function get_dont_syncs()
+	{
+		if( ! is_array( $this->dont_sync) )
+		{
+			$this->dont_sync = explode( ',', $this->dont_sync );
+			$this->dont_sync = array_map( 'trim', $this->dont_sync );
+		}
+
+		return $this->dont_sync;
 	}
 
 	/**

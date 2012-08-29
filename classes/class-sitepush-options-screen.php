@@ -70,7 +70,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function section_rsync_text()
 	{
-		echo '<p class="description">Files are copied between sites using rsync. These options can normally be left as they are.</p>';
+		echo '<p class="description">If your server has rsync, files can be copied between sites using rsync. If not, files will be copied using PHP, but this will be slower.</p>';
 	}
 
 	function section_mysql_text()
@@ -236,20 +236,19 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_rsync_path()
 	{
-		$rsync_help = 'Path to rsync on this server. ';
 		if( $this->options->rsync_path && file_exists($this->options->rsync_path) )
-			$rsync_help .= 'The current path appears to be OK.';
+			$rsync_help = 'Path to rsync binary on this server. The current path appears to be OK.';
 		elseif( $this->options->rsync_path && ! file_exists($this->options->rsync_path) )
-			$rsync_help .= '<b>rsync was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/rsync, or leave blank.';
+			$rsync_help = '<b>rsync was not found at this path!</b> Please make sure you enter the correct path to the rsync binary, e.g. /usr/bin/rsync, or leave blank.';
 		else
-			$rsync_help .= ' Please enter a path to rsync, e.g. /usr/bin/rsync, or leave blank.';
+			$rsync_help = 'If you have rsync installed on this server, enter a path to the rsync binary, e.g. /usr/bin/rsync. Leave blank if you do not want to use rsync.';
 
 		echo $this->input_text('rsync_path',$rsync_help,'large-text');
 	}
 
 	function field_dont_sync()
 	{
-		echo $this->input_text('dont_sync','Comma separated list of files or directories that will never be synced. You probably don\'t need or want to change this.','large-text');
+		echo $this->input_text('dont_sync','Comma separated list of files or directories that will never be synced. You probably don\'t need to change this.','large-text');
 	}
 
 	function field_mysql_path()

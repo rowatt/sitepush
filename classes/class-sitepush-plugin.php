@@ -1112,18 +1112,11 @@ class SitePushPlugin
 		/* rsync options */
 		add_settings_section(
 			'sitepush_section_rsync',
-			'rsync options',
+			'Sync options',
 			array( $options_screen, 'section_rsync_text' ),
 			'sitepush_options'	
 		);
-		
-		add_settings_field(
-			'sitepush_field_rsync_path',
-			'Path to rsync',
-			array( $options_screen, 'field_rsync_path' ),
-			'sitepush_options',
-			'sitepush_section_rsync'
-		);	
+
 
 		add_settings_field(
 			'sitepush_field_dont_sync',
@@ -1132,6 +1125,14 @@ class SitePushPlugin
 			'sitepush_options',
 			'sitepush_section_rsync'
 		);
+
+		add_settings_field(
+			'sitepush_field_rsync_path',
+			'Path to rsync',
+			array( $options_screen, 'field_rsync_path' ),
+			'sitepush_options',
+			'sitepush_section_rsync'
+		);	
 
 		/* mysql options */
 		add_settings_section(
