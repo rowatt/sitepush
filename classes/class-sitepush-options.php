@@ -254,7 +254,7 @@ class SitePushOptions
 				$fields = explode( '|',$table_group );
 
 				$tables = explode( ',', $fields[1] );
-				array_walk( $tables, array( __CLASS__, 'trim_array' ) );
+				$tables = array_map( 'trim', $tables );
 
 				$this->db_custom_table_groups_array[] = array(
 					'label' => $fields[0],
@@ -984,16 +984,6 @@ class SitePushOptions
 		}
 
 		return $this->dont_sync;
-	}
-
-	/**
-	 * Trim elements of an array
-	 *
-	 * @param $value
-	 */
-	private function trim_array(&$value)
-	{
-		$value = trim($value);
 	}
 
 }
