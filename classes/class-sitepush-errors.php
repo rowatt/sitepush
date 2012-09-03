@@ -6,6 +6,7 @@
  *   - error
  *   - warning
  *   - notice
+ *   - options (notice only shows on options screen)
  *
  * When displaying errors, only errors of the most serious type are shown.
  */
@@ -52,7 +53,13 @@ class SitePushErrors
 			return (bool) self::count_errors( $type );
 	}
 
-	static public function errors( $force_type=NULL )
+	/**
+	 * @static
+	 *
+	 * @param string $force_type only show errors of this type, or all errors if 'all' or NULL
+	 * @param string $context certain error types aren't shown in certain contexts when showing all errors
+	 */
+	static public function errors( $force_type=NULL, $context=NULL )
 	{
 		$show_wp_errors = self::$force_show_wp_errors || get_transient('sitepush_force_show_wp_errors');
 		delete_transient('sitepush_force_show_wp_errors');
@@ -71,8 +78,11 @@ class SitePushErrors
 			}
 
 			//if no errors, show warnings, notices etc
-			foreach( array( 'warning', 'notice' ) as $type )
+			foreach( array( 'warning', 'notice', 'options-notice' ) as $type )
 			{
+				//don't show certain errors in certain contexts
+				if( 'sitepush'==$context && 'options-notice'==$type ) break;
+
 				if( !empty(self::$errors[$type]) )
 					echo self::get_error_html( $type );
 			}

@@ -63,7 +63,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$this->user_last_source = empty($user_options['last_source']) ? '' : $user_options['last_source'];
 		$this->user_last_dest = empty($user_options['last_dest']) ? '' : $user_options['last_dest'];
 	
-		SitePushErrors::errors();
+		SitePushErrors::errors( 'all', 'sitepush' );
 
 		if( $push_options['dest'] )
 		{
