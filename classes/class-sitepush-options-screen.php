@@ -17,8 +17,8 @@ class SitePush_Options_Screen extends SitePush_Screen
 		<div class='wrap'>
 			<?php screen_icon( 'options-general' ); ?>
 			<h2>SitePush Options</h2>
-
-			<?php
+			<p>You are using SitePush version <?php echo $this->options->get_plugin_version(); ?> (PHP <?php echo phpversion(); ?>, WordPress <?php bloginfo('version'); echo( ini_get('safe_mode') ? ', Safe mode on' : '' ); ?>)
+				<?php
 			//show errors/notices
 			//validation doesn't add errors if we haven't set anything yet, in which case nothing will show here
 			SitePushErrors::errors();
@@ -27,8 +27,6 @@ class SitePush_Options_Screen extends SitePush_Screen
 				return FALSE;
 
 			?>
-			<p>You are using SitePush version <?php echo $this->options->get_plugin_version(); ?>
-
 			<form action='options.php' method='post'>
 			<?php
 				settings_fields('sitepush_options');
