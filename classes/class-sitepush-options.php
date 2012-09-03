@@ -48,6 +48,8 @@ class SitePushOptions
 
 	public $plugins;
 
+	public $db_custom_table_groups_array = array();
+
 	public $backup_path;
 	public $backup_keep_time;
 
@@ -373,7 +375,7 @@ class SitePushOptions
 			$valid = FALSE;
 		}
 
-		if( is_multisite() && empty( $options['domain_map_conf'] ) || !file_exists( $options['sites_conf'] ) )
+		if( is_multisite() && empty( $options['domain_map_conf'] ) || !file_exists( $options['domain_map_conf'] ) )
 		{
 			if( $update_check ) SitePushErrors::add_error( 'Path not valid - domain map config file not found.', 'error', 'sites_conf' );
 			$valid = FALSE;
