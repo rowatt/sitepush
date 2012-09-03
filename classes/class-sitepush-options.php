@@ -363,21 +363,40 @@ class SitePushOptions
 			$valid = FALSE;
 		}
 
-		if( empty( $options['sites_conf'] ) || !file_exists( $options['sites_conf'] ) )
+		if( empty( $options['sites_conf'] ) || !file_exists( $options['sites_conf'] ) || @parse_ini_file( $options['sites_conf'] )===FALSE )
 		{
-			if( $update_check ) SitePushErrors::add_error( 'Path not valid - sites config file not found.', 'error', 'sites_conf' );
+			if( $update_check )
+			{
+				if( file_exists( $options['sites_conf'] ) )
+					SitePushErrors::add_error( 'Sites config file present, but it cannot not be read.', 'error', 'sites_conf' );
+				else
+					SitePushErrors::add_error( 'Path not valid - sites config file not found.', 'error', 'sites_conf' );
+
+			}
 			$valid = FALSE;
 		}
 
-		if( empty( $options['dbs_conf'] ) ||  !file_exists( $options['dbs_conf'] ) )
+		if( empty( $options['dbs_conf'] ) ||  !file_exists( $options['dbs_conf'] ) || @parse_ini_file( $options['dbs_conf'] )===FALSE )
 		{
-			if( $update_check ) SitePushErrors::add_error( 'Path not valid - DB config file not found.', 'error', 'dbs_conf' );
+			if( $update_check )
+			{
+				if( file_exists( $options['dbs_conf'] ) )
+					SitePushErrors::add_error( 'DB config file present, but it cannot not be read.', 'error', 'dbs_conf' );
+				else
+					SitePushErrors::add_error( 'Path not valid - DB config file not found.', 'error', 'dbs_conf' );
+			}
 			$valid = FALSE;
 		}
 
-		if( is_multisite() && empty( $options['domain_map_conf'] ) || !file_exists( $options['domain_map_conf'] ) )
+		if( is_multisite() && empty( $options['domain_map_conf'] ) || !file_exists( $options['domain_map_conf'] ) || @parse_ini_file( $options['domain_map_conf'] )===FALSE )
 		{
-			if( $update_check ) SitePushErrors::add_error( 'Path not valid - domain map config file not found.', 'error', 'sites_conf' );
+			if( $update_check )
+			{
+				if( file_exists( $options['domain_map_conf'] ) )
+					SitePushErrors::add_error( 'Domain map config file present, but it cannot not be read.', 'error', 'sites_conf' );
+				else
+					SitePushErrors::add_error( 'Path not valid - domain map config file not found.', 'error', 'sites_conf' );
+			}
 			$valid = FALSE;
 		}
 
@@ -566,14 +585,19 @@ class SitePushOptions
 	{
 		if( !$conf_file ) return array();
 
-		if( !file_exists($conf_file) )
+		//config file should exist because settings can't be saved unless file is found
+		//however sometimes the file is there but can't be read, so we try to read it
+		//without throwing an error, and then check if parse_ini_file was successful
+
+		//get site info from the sites.conf file
+		$configs = @parse_ini_file($conf_file,TRUE);
+
+		if( FALSE===$configs )
 		{
 			SitePushErrors::add_error( "{$type} config file not found at {$conf_file}" );
 			return array();
 		}
-		//get site info from the sites.conf file
-		$configs = parse_ini_file($conf_file,TRUE);
-		
+
 		//check if conf file has 'all' section and if so merge that config with config for each other section	
 		if( !empty( $configs['all'] ) )
 		{
