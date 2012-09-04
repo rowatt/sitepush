@@ -368,7 +368,7 @@ class SitePushOptions
 			if( $update_check )
 			{
 				if( file_exists( $options['sites_conf'] ) )
-					SitePushErrors::add_error( 'Sites config file present, but it cannot not be read.', 'error', 'sites_conf' );
+					SitePushErrors::add_error( 'Sites config file present, but it cannot be read.', 'error', 'sites_conf' );
 				else
 					SitePushErrors::add_error( 'Path not valid - sites config file not found.', 'error', 'sites_conf' );
 
@@ -381,7 +381,7 @@ class SitePushOptions
 			if( $update_check )
 			{
 				if( file_exists( $options['dbs_conf'] ) )
-					SitePushErrors::add_error( 'DB config file present, but it cannot not be read.', 'error', 'dbs_conf' );
+					SitePushErrors::add_error( 'DB config file present, but it cannot be read.', 'error', 'dbs_conf' );
 				else
 					SitePushErrors::add_error( 'Path not valid - DB config file not found.', 'error', 'dbs_conf' );
 			}
@@ -393,7 +393,7 @@ class SitePushOptions
 			if( $update_check )
 			{
 				if( file_exists( $options['domain_map_conf'] ) )
-					SitePushErrors::add_error( 'Domain map config file present, but it cannot not be read.', 'error', 'sites_conf' );
+					SitePushErrors::add_error( 'Domain map config file present, but it cannot be read.', 'error', 'sites_conf' );
 				else
 					SitePushErrors::add_error( 'Path not valid - domain map config file not found.', 'error', 'sites_conf' );
 			}
@@ -1010,6 +1010,55 @@ class SitePushOptions
 		}
 
 		return $this->dont_sync;
+	}
+
+	public function get_server_info()
+	{
+		$output = "SitePush version: {$this->get_plugin_version()}<br />";
+		$output .= "SitePush options: " . ($this->OK ? 'OK' : 'not OK' ) . "<br />";
+		$output .= "WordPress version: " . get_bloginfo('version') . "<br />";
+		$output .= "PHP version: " . phpversion() . "<br />";
+		$output .= "PHP safe mode: " . ( ini_get('safe_mode') ? "on" : "off" ) . "<br />" ;
+
+		$output .= "SitePush dir: " . SITEPUSH_PLUGIN_DIR . "</br />";
+		$output .= "WordPress abspath: " . ABSPATH . "</br />";
+
+		$files = array( 'sites_conf', 'dbs_conf', 'domain_map_conf' );
+		foreach( $files as $file )
+		{
+			$info = $this->get_file_info( $this->$file );
+			$readable = @parse_ini_file( $this->$file ) ? ' (readable)' : ' (file not readable!)';
+			if( $info )
+				$output .= "{$file}: {$info}{$readable}<br />";
+		}
+
+		if( file_exists( ABSPATH . 'wp-config.php' ) )
+			$info = $this->get_file_info( ABSPATH . 'wp-config.php' );
+		elseif ( file_exists( dirname(ABSPATH) . '/wp-config.php' ) && ! file_exists( dirname(ABSPATH) . '/wp-settings.php' ) )
+			$info = $this->get_file_info( dirname(ABSPATH) . '/wp-config.php' );
+		else
+			$info = '';
+
+		if( $info )
+			$output .= "wp-config: " . $this->get_file_info( $this->$file ) . "<br />";
+		else
+			$output .= "wp-config: could not get file info<br />";
+
+		return $output;
+	}
+
+	public function get_file_info( $file='' )
+	{
+		if( !$file ) return '';
+
+		if( !file_exists($file) )
+			return 'file not found';
+
+		$perms = substr(sprintf('%o', fileperms($file)), -4);
+		$owner = posix_getpwuid(fileowner($file));
+		$group = posix_getgrgid(filegroup($file));
+
+		return "{$perms} {$owner['name']}({$owner['uid']}) {$group['name']}({$group['gid']})";
 	}
 
 }
