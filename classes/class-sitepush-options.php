@@ -388,7 +388,7 @@ class SitePushOptions
 			$valid = FALSE;
 		}
 
-		if( is_multisite() && empty( $options['domain_map_conf'] ) || !file_exists( $options['domain_map_conf'] ) || @parse_ini_file( $options['domain_map_conf'] )===FALSE )
+		if( is_multisite() && ( empty( $options['domain_map_conf'] ) || !file_exists( $options['domain_map_conf'] ) || @parse_ini_file( $options['domain_map_conf'] )===FALSE ) )
 		{
 			if( $update_check )
 			{
