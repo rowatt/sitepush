@@ -1024,6 +1024,7 @@ class SitePushOptions
 		$output .= "WordPress version: " . get_bloginfo('version') . "<br />";
 		$output .= "PHP version: " . phpversion() . "<br />";
 		$output .= "PHP safe mode: " . ( ini_get('safe_mode') ? "on" : "off" ) . "<br />" ;
+		$output .= "Server: " . php_uname() . "<br />";
 
 		$output .= "SitePush dir: " . SITEPUSH_PLUGIN_DIR . "</br />";
 		$output .= "WordPress abspath: " . ABSPATH . "</br />";
@@ -1032,9 +1033,10 @@ class SitePushOptions
 		foreach( $files as $file )
 		{
 			$info = $this->get_file_info( $this->$file );
-			$readable = @parse_ini_file( $this->$file ) ? ' (readable)' : ' (file not readable!)';
+			$readable = is_readable( $this->$file ) ? ' (readable' : ' (file not readable';
+			$parseable = @parse_ini_file( $this->$file ) ? '/parseable)' : '/file not parseable)';
 			if( $info )
-				$output .= "{$file}: {$info}{$readable}<br />";
+				$output .= "{$file}: {$info}{$readable}{$parseable}<br />";
 		}
 
 		if( file_exists( ABSPATH . 'wp-config.php' ) )
@@ -1045,7 +1047,7 @@ class SitePushOptions
 			$info = '';
 
 		if( $info )
-			$output .= "wp-config: " . $this->get_file_info( $this->$file ) . "<br />";
+			$output .= "wp-config: " . $info . "<br />";
 		else
 			$output .= "wp-config: could not get file info<br />";
 
