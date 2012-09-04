@@ -1012,6 +1012,11 @@ class SitePushOptions
 		return $this->dont_sync;
 	}
 
+	/**
+	 * Get information about the server/environment we are running in to help with debug
+	 *
+	 * @return string
+	 */
 	public function get_server_info()
 	{
 		$output = "SitePush version: {$this->get_plugin_version()}<br />";
@@ -1047,6 +1052,13 @@ class SitePushOptions
 		return $output;
 	}
 
+	/**
+	 * Get info about a file
+	 *
+	 * @param string $file
+	 *
+	 * @return string
+	 */
 	public function get_file_info( $file='' )
 	{
 		if( !$file ) return '';
@@ -1055,10 +1067,13 @@ class SitePushOptions
 			return 'file not found';
 
 		$perms = substr(sprintf('%o', fileperms($file)), -4);
-		$owner = posix_getpwuid(fileowner($file));
-		$group = posix_getgrgid(filegroup($file));
+		$uid = fileowner($file);
+		$gid = filegroup($file);
 
-		return "{$perms} {$owner['name']}({$owner['uid']}) {$group['name']}({$group['gid']})";
+		$owner = function_exists('posix_getpwuid') ? posix_getpwuid($uid) : '???';
+		$group = function_exists('posix_getgrgid') ? posix_getgrgid($gid) : '???';
+
+		return "{$perms} {$owner}({$uid}) {$group}({$gid})";
 	}
 
 }
