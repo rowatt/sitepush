@@ -1072,8 +1072,18 @@ class SitePushOptions
 		$uid = fileowner($file);
 		$gid = filegroup($file);
 
-		$owner = function_exists('posix_getpwuid') ? posix_getpwuid($uid) : '???';
-		$group = function_exists('posix_getgrgid') ? posix_getgrgid($gid) : '???';
+		if( function_exists('posix_getpwuid') && function_exists('posix_getgrgid') )
+		{
+			$owner = posix_getpwuid($uid);
+			$owner = $owner['name'];
+			$group = posix_getgrgid($gid);
+			$group = $group['name'];
+		}
+		else
+		{
+			$owner = '???';
+			$group = '???';
+		}
 
 		return "{$perms} {$owner}({$uid}) {$group}({$gid})";
 	}
