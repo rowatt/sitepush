@@ -866,7 +866,11 @@ class SitePushCore
 				continue;
 			}
 
-			if( file_exists( $dest_file_path ) && md5_file( $source_file_path ) ===  md5_file( $dest_file_path ) ) continue;
+			if( file_exists( $dest_file_path ) && md5_file( $source_file_path ) ===  md5_file( $dest_file_path ) )
+			{
+				$this->add_result("php_rsyc: did not copy (files are the same)  {$source_file_path} -> {$dest_file_path}",5);
+				continue;
+			}
 
 			$this->add_result("php_rsync: {$source_file_path} -> {$dest_file_path}",4);
 			if( !copy( $source_file_path, $dest_file_path ) )
@@ -892,16 +896,25 @@ class SitePushCore
 					foreach($del_files as $del_file)
 					{
 						if ($del_file->isDir())
-							rmdir($del_file->getRealPath());
+						{
+							$rp = $del_file->getRealPath();
+							rmdir($rp);
+							$this->add_result("php_rsync: removing empty directory {$rp}",4);
+						}
 						else
-							unlink($del_file->getRealPath());
+						{
+							$rp = $del_file->getRealPath();
+							unlink($rp);
+							$this->add_result("php_rsync: deleting file {$rp}",5);
+						}
 					}
 
-					$this->add_result("php_rsync: deleting {$dest_file_path}",4);
+					$this->add_result("php_rsync: removing empty directory {$dest_file_path}",4);
 					rmdir( $dest_file_path );
 				}
 				else
 				{
+					$this->add_result("php_rsync: deleting file {$dest_file_path}",5);
 					unlink( $dest_file_path );
 				}
 			}
