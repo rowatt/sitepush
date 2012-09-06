@@ -511,28 +511,35 @@ class SitePushOptions
 		//check wp_content dir
 		$current_content_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_content_dir'];
 		if( WP_CONTENT_DIR <> $current_content_dir )
-			SitePushErrors::add_error( "Warning - currently configured WordPress content directory (".WP_CONTENT_DIR.") is different from the configured uploads directory in your sites config file ($current_content_dir)", 'warning' );
+			SitePushErrors::add_error( "Currently configured WordPress content directory (".WP_CONTENT_DIR.") is different from the configured uploads directory in your sites config file ($current_content_dir)", 'warning' );
 
 		//check uploads dir
 		$uld = wp_upload_dir();
-		$current_uld = $this->current_site_conf['web_path'].$this->current_site_conf['wp_uploads_dir'];
-		if( $uld['basedir'] <> $current_uld )
-			SitePushErrors::add_error( "Warning - currently configured WordPress uploads directory ({$uld['basedir']}) is different from the configured uploads directory in your sites config file ($current_uld)", 'warning' );
+		if( $uld['error'] )
+		{
+			SitePushErrors::add_error( "Could not get path of upload directory. SitePush should still work, but won't be able to push files in your uploads directory. WordPress returned the following error:<br />{$uld['error']}", 'warning' );
+		}
+		else
+		{
+			$current_uld = $this->current_site_conf['web_path'].$this->current_site_conf['wp_uploads_dir'];
+			if( $uld['basedir'] <> $current_uld )
+				SitePushErrors::add_error( "Currently configured WordPress uploads directory ({$uld['basedir']}) is different from the configured uploads directory in your sites config file ($current_uld)", 'warning', 'options' );
+		}
 
 		//check plugins dir
 		$current_plugins_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_plugin_dir'];
 		if( WP_PLUGIN_DIR <> $current_plugins_dir )
-			SitePushErrors::add_error( "Warning - currently configured WordPress plugins directory (".WP_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_plugins_dir)", 'warning' );
+			SitePushErrors::add_error( "Currently configured WordPress plugins directory (".WP_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_plugins_dir)", 'warning' );
 
 		//check mu-plugins dir
 		$current_muplugins_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wpmu_plugin_dir'];
 		if( WPMU_PLUGIN_DIR <> $current_muplugins_dir )
-			SitePushErrors::add_error( "Warning - currently configured WordPress must-use plugins directory (".WPMU_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_muplugins_dir)", 'warning' );
+			SitePushErrors::add_error( "Currently configured WordPress must-use plugins directory (".WPMU_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_muplugins_dir)", 'warning' );
 
 		//check themes dir
 		$current_themes_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_themes_dir'];
 		if( WP_CONTENT_DIR . '/themes' <> $current_themes_dir )
-			SitePushErrors::add_error( "Warning - currently configured WordPress themes directory (".WP_CONTENT_DIR."/themes) is different from the configured themes directory in your sites config file ($current_themes_dir)", 'warning' );
+			SitePushErrors::add_error( "Currently configured WordPress themes directory (".WP_CONTENT_DIR."/themes) is different from the configured themes directory in your sites config file ($current_themes_dir)", 'warning' );
 
 		return ! SitePushErrors::is_error();
 	}
@@ -679,7 +686,14 @@ class SitePushOptions
 		if( empty($options['wp_uploads_dir']) )
 		{
 			$uld = wp_upload_dir();
-			$options['wp_uploads_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', $uld['basedir'] );
+			if( $uld['error'] )
+			{
+				$options['wp_uploads_dir'] = 'ERROR';
+			}
+			else
+			{
+				$options['wp_uploads_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', $uld['basedir'] );
+			}
 		}
 		if( empty($options['wp_themes_dir']) ) $options['wp_themes_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', get_theme_root() );
 

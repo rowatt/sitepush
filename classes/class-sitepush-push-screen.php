@@ -224,17 +224,21 @@ class SitePush_Push_Screen extends SitePush_Screen
 							?>
 						</td>
 					</tr>
-	
-					<tr>
-						<th scope="row">Files<?php echo $ms_message; ?></th>
-						<td>
-							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_theme', 'Current theme <i>('._deprecated_get_current_theme().')</i>','admin_only');?>
-							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_themes','All themes','admin_only');?>
-							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');?>
-							<?php if( !SITEPUSH_SHOW_MULTISITE && file_exists($this->options->current_site_conf['web_path'] . $this->options->current_site_conf['wpmu_plugin_dir']) ) echo $this->option_html('sitepush_push_mu_plugins','WordPress must-use plugins','admin_only');?>
-							<?php echo $this->option_html('sitepush_push_uploads','WordPress media uploads', 'user');?>
-						</td>
-					</tr>
+
+					<?php
+						$files_output = '';
+						if( !SITEPUSH_SHOW_MULTISITE ) $files_output .= $this->option_html('sitepush_push_theme', 'Current theme <i>('._deprecated_get_current_theme().')</i>','admin_only');
+						if( !SITEPUSH_SHOW_MULTISITE ) $files_output .= $this->option_html('sitepush_push_themes','All themes','admin_only');
+						if( !SITEPUSH_SHOW_MULTISITE ) $files_output .= $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');
+						if( !SITEPUSH_SHOW_MULTISITE && file_exists($this->options->current_site_conf['web_path'] . $this->options->current_site_conf['wpmu_plugin_dir']) ) $files_output .= $this->option_html('sitepush_push_mu_plugins','WordPress must-use plugins','admin_only');
+						if( 'ERROR' <> $this->options->current_site_conf['wp_uploads_dir'] )
+							$files_output .= $this->option_html('sitepush_push_uploads','WordPress media uploads', 'user');
+						elseif( $this->plugin->can_admin() )
+							$files_output .= "Uploads directory could not be determined, so uploaded media files cannot be pushed.<br />";
+
+						if( $files_output )
+							echo "<tr><th scope='row'>Files{$ms_message}</th><td>{$files_output}</td></tr>";
+					?>
 
 					<?php if( SITEPUSH_SHOW_MULTISITE && $this->plugin->can_admin() ) : ?>
 					<tr>
