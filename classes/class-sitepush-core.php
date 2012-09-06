@@ -1112,7 +1112,7 @@ class SitePushCore
 	 * @param string $result
 	 * @param int $log_level log level for this result
 	 */
-	private function add_result( $result, $log_level=1 )
+	public function add_result( $result, $log_level=1 )
 	{
 		$this->results[] = array( 'level'=>$log_level, 'msg'=>trim($this->sanitize_cmd($result)) );
 		
