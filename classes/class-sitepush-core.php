@@ -35,9 +35,6 @@ class SitePushCore
 	 */
 	private $results = array();
 
-	//array of file patterns to exclude from all pushes
-	public $excludes = array( '.git', '.svn', '.htaccess', 'tmp/', 'wp-config.php' );
-	
 	//timestamp for backup files
 	protected $timestamp;
 	
@@ -148,29 +145,26 @@ class SitePushCore
 	public function check_requirements()
 	{
 		//if we can't find rsync/mysql/mysqldump at defined path, try without any path
-		if( !file_exists( $this->options->rsync_path ) )
+		if( $this->options->rsync_path && !file_exists( $this->options->rsync_path ) )
 		{
-			$this->options->rsync_path = 'rsync';
-			if( !$this->options->rsync_path )
-				$this->add_result("rsync path not set, using 'rsync'",3);
-			else
-				$this->add_result("rsync not found at {$this->options->rsync_path}, using 'rsync' instead and hoping system path is set correctly",3);
+			$this->add_result("rsync not found or not readable at {$this->options->rsync_path}, using PHP instead",3);
+			$this->options->rsync_path = '';
 		}
 		if( !file_exists( $this->options->mysql_path ) )
 		{
-			$this->options->mysql_path = 'mysql';
 			if( !$this->options->mysql_path )
 				$this->add_result("mysql path not set, using 'mysql'",3);
 			else
-				$this->add_result("mysql not found at {$this->options->mysql_path}, using 'mysql' instead and hoping system path is set correctly",3);
+				$this->add_result("mysql not found or not readable at {$this->options->mysql_path}, using 'mysql' instead and hoping system path is set correctly",3);
+			$this->options->mysql_path = 'mysql';
 		}
 		if( !file_exists( $this->options->mysqldump_path ) )
 		{
-			$this->options->mysqldump_path = 'mysqldump';
 			if( !$this->options->mysqldump_path )
 				$this->add_result("mysqldump path not set, using 'mysqldump'",3);
 			else
-				$this->add_result("mysqldump not found at {$this->options->mysqldump_path}, using 'mysqldump' instead and hoping system path is set correctly",3);
+				$this->add_result("mysqldump not found or not readable at {$this->options->mysqldump_path}, using 'mysqldump' instead and hoping system path is set correctly",3);
+			$this->options->mysqldump_path = 'mysqldump';
 		}
 
 		return TRUE;
@@ -234,10 +228,10 @@ class SitePushCore
 		//last minute error checking
 		if( $db_source['name'] == $db_dest['name'] )
 			SitePushErrors::add_error( 'Database not pushed. Source and destination databases cannot be the same.', 'fatal-error' );
-		if( ! shell_exec("{$this->options->mysql_path} --version") )
-			SitePushErrors::add_error( 'mysql not found or not configured properly.' );
-		if( ! shell_exec("{$this->options->mysqldump_path} --version") )
-			SitePushErrors::add_error( 'mysqldump not found or not configured properly.' );
+		if( ! @shell_exec("{$this->options->mysql_path} --version") )
+			SitePushErrors::add_error( 'mysql not found, not configured properly or PHP safe mode is preventing it from being run.' );
+		if( ! @shell_exec("{$this->options->mysqldump_path} --version") )
+			SitePushErrors::add_error( 'mysqldump not found, not configured properly or PHP safe mode is preventing it from being run.' );
 		if( SitePushErrors::is_error() ) return FALSE;
 
 		//work out which table(s) to push
@@ -246,7 +240,11 @@ class SitePushCore
 		{
 			foreach( $table_groups as $table_group )
 			{
-				$tables .= ' ' . $this->get_tables( $table_group );
+				//if table group is an array, then it is an array of custom table groups
+				if( is_array($table_group) )
+					$tables .= ' ' . $this->get_custom_tables( $table_group );
+				else
+					$tables .= ' ' . $this->get_tables( $table_group );
 			}
 		}
 		$tables = trim($tables);
@@ -539,8 +537,6 @@ class SitePushCore
 	/**
 	 * Get tables for any given push group.
 	 *
-	 * @later add custom table groups
-	 *
 	 * @param string $group name of a table group
 	 * @return string list of tables for group
 	 */
@@ -584,6 +580,26 @@ class SitePushCore
 			$tables = str_replace('%prefix%',$this->db_prefix,$tables);
 
 		return $tables;
+	}
+
+	/**
+	 * Get tables for custom table groups
+	 *
+	 * @param array $groups custom table groups. key is equal to number for group in order added in options screen.
+	 *
+	 * @return string list of tables
+	 */
+	private function get_custom_tables( $groups )
+	{
+		$tables = array();
+		foreach( $groups as $group )
+		{
+			$group_array = $this->options->db_custom_table_groups_array[ $group ];
+			$tables = array_merge( $tables, $group_array['tables']);
+		}
+
+		//add db_prefix to each table and return
+		return $this->db_prefix . implode( ' ' . $this->db_prefix, $tables );
 	}
 
 	/**
@@ -676,26 +692,13 @@ class SitePushCore
 	 *
 	 * @param string $source_path
 	 * @param string $dest_path
-	 * @param string $backup_file
-	 * @param string $dir
-	 * @param bool $maint_mode
+	 * @param string $backup_file path to backup file - for undo logging
+	 * @param string $dir name of directory backed up - for undo logging
+	 * @param bool $maint_mode if TRUE, turn on maintenance mode when running
 	 * @return bool TRUE if copy was run, FALSE if not
 	 */
-	private function copy_files($source_path,$dest_path,$backup_file='',$dir='',$maint_mode=FALSE)
+	private function copy_files( $source_path, $dest_path, $backup_file='', $dir='', $maint_mode=FALSE )
 	{
-		//check that rsync is present
-		if( !shell_exec("{$this->options->rsync_path} --version") )
-		{
-			SitePushErrors::add_error( 'rsync not found or not configured properly.', 'error' );
-			return FALSE;
-		}
-
-		//rsync option parameters
-		$rsync_options = "-avz --delete";
-		
-		$source_path = $this->trailing_slashit( $source_path );
-		$dest_path = $this->trailing_slashit( $dest_path );
-		
 		//don't copy if source or dest are symlinks
 		if( is_link( rtrim($source_path,'/') ) )
 		{
@@ -708,48 +711,10 @@ class SitePushCore
 			return FALSE;
 		}
 		
-		//are we syncing to a remote server?
-		//@later still to implement remote
-		$remote_site = '';
-		if( !empty($this->dest_params['remote']) )
-		{
-			$rsync_options .= " -e 'ssh -i {$this->ssh_key_dir}{$this->dest_params['domain']}'";
-			$remote_site = "{$this->remote_user}@{$this->dest_params['domain']}:";
-			
-			//make sure remote dest dir exists
-			$command = $this->make_remote("mkdir -p {$dest_path}");
-			$this->my_exec($command);
-		}
-		else
-		{
-			//make sure dest dir exists
-			//note - mkdir gives warning if dir or parent already exists
-			if( ! file_exists($dest_path) ) @mkdir($dest_path,0755,TRUE);
-		}
-		
-		//add the excludes to the options
-		$excludes = is_array($this->options->dont_sync) ? $this->options->dont_sync : explode( ',', $this->options->dont_sync );
-		foreach( $excludes as $exclude )
-		{
-			$exclude = trim($exclude);
-			$rsync_options .= " --exclude='{$exclude}'";
-		}
-		
-		//create the command
-		$command = "{$this->options->rsync_path} {$rsync_options} '{$source_path}' '{$remote_site}{$dest_path}'";
-		
-		//write file which will undo the push
-		if( $this->source_backup_path && $this->save_undo && $dir && $backup_file )
-		{
-			$undo_dir = "{$this->dest}-{$this->timestamp}-undo_files";
-			$undo['type'] = 'rsync';
-			$undo['original'] = $command;
-			//$undo['remote'] = $this->remote_shell; //@later add remote
-			$undo['undo'][] = "cd '{$this->dest_backup_path}'; mkdir '{$undo_dir}'; cd '{$undo_dir}'; tar -zpxf '{$backup_file}'"; //prep
-			$undo['undo'][] = "'{$this->options->rsync_path}' {$rsync_options} '{$this->dest_backup_path}/{$undo_dir}/{$dir}/' '{$dest_path}'"; //sync
-			$this->write_undo_file( $undo );
-		}
-		
+		//make sure dest dir exists
+		//note - mkdir gives warning if dir or parent already exists
+		if( ! file_exists($dest_path) ) @mkdir($dest_path,0755,TRUE);
+
 		//turn maintenance mode on, if required
 		if( $maint_mode ) $this->set_maintenance_mode('on');
 		
@@ -758,12 +723,228 @@ class SitePushCore
 		$this->add_result("Files source path: {$source_path}",2);
 		$this->add_result("Files dest path: {$dest_path}",2);
 
-		//run the command
-		$this->my_exec($command);
+		//copy the files
+		if( $this->options->rsync_path )
+			$result = $this->linux_rsync( $source_path, $dest_path, $backup_file, $dir );
+		else
+			$result = $this->php_rsync( $source_path, $dest_path, $backup_file, $dir );
 
 		//turn maintenance mode off
 		if( $maint_mode ) $this->set_maintenance_mode('off');
 
+		//check we have copied OK
+		if( !$result )
+		{
+			SitePushErrors::add_error( "One or more files failed to copy correctly. Please make sure that the destination files and directories have the correct file permissions.", 'error' );
+		}
+		else
+		{
+			$source_path = rtrim( $source_path, '/' );
+			$dest_path = rtrim( $dest_path, '/' );
+			$this->add_result("Checking file push...",3);
+			if( ! ( $this->validate_copy( $source_path, $dest_path, $this->options->get_dont_syncs() ) ) )
+				SitePushErrors::add_error( "Files do not appear to have copied properly. Please make sure that the destination files and directories have the correct file permissions.", 'error' );
+			else
+				$this->add_result("Files pushed OK",3);
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Copy files using linux rsync
+	 *
+	 * @param string $source_path
+	 * @param string $dest_path
+	 * @param string $backup_file path to backup file - for undo logging
+	 * @param string $dir name of directory backed up - for undo logging
+	 *
+	 * @return bool TRUE if sync done, FALSE otherwise
+	 */
+	private function linux_rsync( $source_path, $dest_path, $backup_file='', $dir='' )
+	{
+		//for rsync we need trailing slashes on directories
+		$source_path = $this->trailing_slashit( $source_path );
+		$dest_path = $this->trailing_slashit( $dest_path );
+
+		//check that rsync is present
+		if( ! @shell_exec("{$this->options->rsync_path} --version") )
+		{
+			SitePushErrors::add_error( 'rsync not found, not configured properly or PHP safe mode is preventing it from being run', 'error' );
+			return FALSE;
+		}
+
+		//rsync option parameters
+		$rsync_options = "-avz --delete";
+
+		//add the excludes to the options
+		foreach( $this->options->get_dont_syncs() as $exclude )
+		{
+			$exclude = trim($exclude);
+			$rsync_options .= " --exclude='{$exclude}'";
+		}
+
+		//create the command
+		$command = "{$this->options->rsync_path} {$rsync_options} '{$source_path}' '{$dest_path}'";
+
+		//write file which will undo the push
+		if( $this->source_backup_path && $this->save_undo && $dir && $backup_file )
+		{
+			$undo_dir = "{$this->dest}-{$this->timestamp}-undo_files";
+			$undo['type'] = 'linux_rsync';
+			$undo['original'] = $command;
+			$undo['undo'][] = "cd '{$this->dest_backup_path}'; mkdir '{$undo_dir}'; cd '{$undo_dir}'; tar -zpxf '{$backup_file}'"; //prep
+			$undo['undo'][] = "'{$this->options->rsync_path}' {$rsync_options} '{$this->dest_backup_path}/{$undo_dir}/{$dir}/' '{$dest_path}'"; //sync
+			$this->write_undo_file( $undo );
+		}
+
+		//add push type to log
+		$this->add_result("Sync type: linux_rsync",2);
+
+		//run the command
+		return (bool) $this->my_exec($command, 3, '/rsync error: /');
+	}
+
+	/**
+	 * Copy files in an rsync like manner, but using PHP
+	 *
+	 * @param string $source_path
+	 * @param string $dest_path
+	 * @param string $backup_file path to backup file - for undo logging
+	 * @param string $dir name of directory backed up - for undo logging
+	 *
+	 * @return bool TRUE if sync done, FALSE otherwise
+	 */
+	private function php_rsync( $source_path, $dest_path, $backup_file='', $dir='' )
+	{
+		//make sure we don't have trailing slashes
+		$source_path = rtrim( $source_path, '/' );
+		$dest_path = rtrim( $dest_path, '/' );
+
+		//write file which will undo the push
+		if( $this->source_backup_path && $this->save_undo && $dir && $backup_file )
+		{
+			//$undo_dir = "{$this->dest}-{$this->timestamp}-undo_files";
+			$undo['type'] = 'php_rsync';
+			$undo['undo'][] = '#undo not yet implemented for php_rsync';
+			//$undo['original'] = $command;
+			//$undo['undo'][] = "cd '{$this->dest_backup_path}'; mkdir '{$undo_dir}'; cd '{$undo_dir}'; tar -zpxf '{$backup_file}'"; //prep
+			//$undo['undo'][] = "'{$this->options->rsync_path}' {$rsync_options} '{$this->dest_backup_path}/{$undo_dir}/{$dir}/' '{$dest_path}'"; //sync
+			$this->write_undo_file( $undo );
+		}
+
+		//add push type to log
+		$this->add_result("Sync type: php_rsync",2);
+
+		return $this->php_rsync_core( $source_path, $dest_path, $this->options->get_dont_syncs() );
+	}
+
+	/**
+	 * Copy files from source to dest, and delete any files in dest which are not present in source
+	 *
+	 * @param string $source_path
+	 * @param string $dest_path
+	 * @param array  $excludes files to exclude from sync
+	 *
+	 * @return bool TRUE if all files copied successfully
+	 */
+	private function php_rsync_core( $source_path, $dest_path, $excludes=array() )
+	{
+		$result = TRUE;
+
+		//copy all files, iterating through directories
+		foreach( scandir( $source_path ) as $file )
+		{
+			if( '.'==$file || '..'==$file || in_array( $file, $excludes ) ) continue;
+			$source_file_path = $source_path . '/' . $file;
+			$dest_file_path = $dest_path . '/' . $file;
+
+			if( is_dir( $source_file_path ) )
+			{
+				if( !file_exists( $dest_file_path) ) mkdir( $dest_file_path );
+				$this->php_rsync_core( $source_file_path, $dest_file_path );
+				continue;
+			}
+
+			if( file_exists( $dest_file_path ) && md5_file( $source_file_path ) ===  md5_file( $dest_file_path ) )
+			{
+				$this->add_result("php_rsyc: did not copy (files are the same)  {$source_file_path} -> {$dest_file_path}",5);
+				continue;
+			}
+
+			$this->add_result("php_rsync: {$source_file_path} -> {$dest_file_path}",4);
+			if( !copy( $source_file_path, $dest_file_path ) )
+			{
+				$result = FALSE;
+				$this->add_result("php_rsync: failed to copy {$source_file_path} -> {$dest_file_path}",3);
+			}
+		}
+
+		//iterate through dest directories to remove any files/dirs not present in source
+		foreach( scandir( $dest_path ) as $file )
+		{
+			if( '.'==$file || '..'==$file || in_array( $file, $excludes ) ) continue;
+			$source_file_path = $source_path . '/' . $file;
+			$dest_file_path = $dest_path . '/' . $file;
+
+			if( !file_exists($source_file_path) )
+			{
+				if( is_dir($dest_file_path) )
+				{
+					$it = new RecursiveDirectoryIterator( $dest_file_path );
+					$del_files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST );
+					foreach($del_files as $del_file)
+					{
+						if ($del_file->isDir())
+						{
+							$rp = $del_file->getRealPath();
+							rmdir($rp);
+							$this->add_result("php_rsync: removing empty directory {$rp}",4);
+						}
+						else
+						{
+							$rp = $del_file->getRealPath();
+							unlink($rp);
+							$this->add_result("php_rsync: deleting file {$rp}",5);
+						}
+					}
+
+					$this->add_result("php_rsync: removing empty directory {$dest_file_path}",4);
+					rmdir( $dest_file_path );
+				}
+				else
+				{
+					$this->add_result("php_rsync: deleting file {$dest_file_path}",5);
+					unlink( $dest_file_path );
+				}
+			}
+		}
+
+		return $result;
+	}
+
+	private function validate_copy( $source_path, $dest_path, $excludes=array() )
+	{
+		return TRUE;
+
+
+		foreach( scandir( $source_path ) as $file )
+		{
+			if( '.'==$file || '..'==$file || in_array( $file, $excludes ) ) continue;
+			$source_file_path = $source_path . '/' . $file;
+			$dest_file_path = $dest_path . '/' . $file;
+
+			if( is_dir( $source_file_path ) && $this->validate_copy( $source_file_path, $dest_file_path ) )
+				continue;
+			elseif( ! is_dir( $source_file_path ) && file_exists( $dest_file_path ) && md5_file($source_file_path ) ===  md5_file( $dest_file_path ) )
+				continue;
+
+			//file match failed
+			$this->add_result("sync_validate: file failed to copy {$source_file_path} -> {$dest_file_path}",3);
+			return FALSE;
+		}
+
+		//everything matched OK
 		return TRUE;
 	}
 
@@ -854,13 +1035,16 @@ class SitePushCore
 	/**
 	 * Wrapper for shell_exec etc which adds logging and does nothing if dry_run is set
 	 *
-	 * @param $command
-	 * @param int $log_level
-	 * @return bool|string
+	 * @param string $command
+	 * @param int    $log_level
+	 * @param string $error_regexp if result ever matches this regex, then function will return false to indicate an error
+	 *
+	 * @return bool|string FALSE if error, otherwise output from command
 	 */
-	private function my_exec($command,$log_level=3)
+	private function my_exec($command,$log_level=3,$error_regexp='')
 	{
 		$log_command = htmlspecialchars($command);
+		$error = FALSE;
 
 		if(!$this->dry_run)
 		{
@@ -868,9 +1052,8 @@ class SitePushCore
 			
 			if( $this->echo_output )
 			{
-				//return system($command . ' 2>&1' );
 				$result = '';
-				if(!$fh = popen($command, "r"))
+				if(!$fh = popen($command . ' 2>&1', "r"))
 				{
 					die ("Could not fork: $command");
 				}
@@ -879,13 +1062,19 @@ class SitePushCore
 					$output = fgetc($fh);
 					echo( $output );
 					$result .= $output;
+
+					if( $error_regexp )
+					{
+						if( preg_match( $error_regexp, $result ) ) $error = TRUE;
+					}
 				}
 				pclose($fh);
-				return $result;
+				return $error ? FALSE : $result;
 			}
 			else
 			{
-				return shell_exec($command . ' 2>&1' );
+				exec($command . ' 2>&1', $output, $result );
+				return $result ? FALSE : implode( "\n", $output );
 			}
 		}
 		else
@@ -923,7 +1112,7 @@ class SitePushCore
 	 * @param string $result
 	 * @param int $log_level log level for this result
 	 */
-	private function add_result( $result, $log_level=1 )
+	public function add_result( $result, $log_level=1 )
 	{
 		$this->results[] = array( 'level'=>$log_level, 'msg'=>trim($this->sanitize_cmd($result)) );
 		

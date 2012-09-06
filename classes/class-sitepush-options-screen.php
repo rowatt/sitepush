@@ -17,18 +17,18 @@ class SitePush_Options_Screen extends SitePush_Screen
 		<div class='wrap'>
 			<?php screen_icon( 'options-general' ); ?>
 			<h2>SitePush Options</h2>
-
 			<?php
 			//show errors/notices
 			//validation doesn't add errors if we haven't set anything yet, in which case nothing will show here
 			SitePushErrors::errors();
 
+			//show debug info if in debug mode
+			if( SITEPUSH_DEBUG )
+				echo "<p class='sitepush-debug-info'>{$this->options->get_server_info()}</p>";
+
 			if( $this->plugin->abort )
 				return FALSE;
-
 			?>
-			<p>You are using SitePush version <?php echo $this->options->get_plugin_version(); ?>
-
 			<form action='options.php' method='post'>
 			<?php
 				settings_fields('sitepush_options');
@@ -70,7 +70,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function section_rsync_text()
 	{
-		echo '<p class="description">Files are copied between sites using rsync. These options can normally be left as they are.</p>';
+		echo '<p class="description">If your server has rsync, files can be copied between sites using rsync. If not, files will be copied using PHP, but this will be slower.</p>';
 	}
 
 	function section_mysql_text()
@@ -105,6 +105,16 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	}
 
+	function section_db_custom_table_groups_text()
+	{
+		echo '<p class="description">Some plugins set up their own database tables. If you want to push those tables independently from others, you can define additional table groups here, which will then be listed on the main push screen.</p>';
+	}
+
+	function section_debug_text()
+	{
+		echo '<p class="description">To disable debug mode, make sure the constant SITEPUSH_DEBUG is set to FALSE, or not defined in your wp-config file.</p>';
+	}
+
 
 	/* -------------------------------------------------------------- */
 	/* Options page settings fields */
@@ -131,7 +141,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_fix_site_urls()
 	{
-		echo $this->input_checkbox('fix_site_urls', ' Convert site URLs to link to current site', 'Make sure that any URLs to any of your sites domains link to the current site. <br />For example http://dev.mysite.com/mypage would be converted to http://www.mysite.com/mypage when viewing www.mysite.com.<br />This helps to make sure that URLs work across different versions of your sites.<br />If a site has more than one domain defined, URLs will be converted to the first domain given for that site in your sites config file.');
+		echo $this->input_checkbox('fix_site_urls', ' Convert site URLs to link to current site', 'Make sure that any URLs to any of your sites domains link to the current site. <br />For example http://dev.example.com/mypage would be converted to http://www.example.com/mypage when viewing www.example.com.<br />This helps to make sure that URLs work across different versions of your sites.<br />If a site has more than one domain defined, URLs will be converted to the first domain given for that site in your sites config file.');
 	}
 
 	function field_timezone()
@@ -141,7 +151,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_debug_output_level()
 	{
-		echo $this->input_text('debug_output_level','How much debug output is shown. Enter a number from 0 (no debug output) to 3 (detailed output).<br />Debug output is only ever shown to people with SitePush admin capability.','small-text');
+		echo $this->input_text('debug_output_level','How much debug output is shown. Enter a number from 0 (no debug output) to 3 (detailed output), or more for even more verbose output.<br />Debug output is only ever shown to people with SitePush admin capability.','small-text');
 	}
 
 	function field_capability()
@@ -210,22 +220,41 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_text('backup_keep_time','SitePush backups will be deleted after they are this many days old. Backups will never be deleted if set to 0.','small-text');
 	}
 
+	function field_db_custom_table_groups()
+	{
+		$description = '
+			Enter table groups, one group per line, in the following format:<br />
+			<code>Field Label | table1, table2, table3</code><br />
+			Where:
+			<ul>
+			<li>Field Label is the label for the field on the main push screen. If the field should only show to users with the SitePush admin capability, precede the label with $$$, for example "$$$My Group of Tables"</li>
+			<li>After a pipe symbol (|) list all tables for the group, separated by commas. Do not include the table prefix (i.e. wp_ or any custom database prefix</li>
+			</ul>
+		';
+
+		echo $this->input_textarea(	array(
+		                                    'field' => 'db_custom_table_groups'
+		                                    , 'value' => $this->options->db_custom_table_groups
+		                                    , 'description' => $description
+		                                    , 'rows' => max( 3, 2+substr_count($this->options->db_custom_table_groups, "\n") )
+		                               ));
+	}
+
 	function field_rsync_path()
 	{
-		$rsync_help = 'Path to rsync on this server. ';
 		if( $this->options->rsync_path && file_exists($this->options->rsync_path) )
-			$rsync_help .= 'The current path appears to be OK.';
+			$rsync_help = 'Path to rsync binary on this server. The current path appears to be OK.';
 		elseif( $this->options->rsync_path && ! file_exists($this->options->rsync_path) )
-			$rsync_help .= '<b>rsync was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/rsync, or leave blank.';
+			$rsync_help = '<b>rsync was not found or not readable at this path!</b> Please make sure you enter the correct path to the rsync binary, e.g. /usr/bin/rsync, or leave blank.';
 		else
-			$rsync_help .= ' Please enter a path to rsync, e.g. /usr/bin/rsync, or leave blank.';
+			$rsync_help = 'If you have rsync installed on this server, enter a path to the rsync binary, e.g. /usr/bin/rsync. Leave blank if you do not want to use rsync.';
 
 		echo $this->input_text('rsync_path',$rsync_help,'large-text');
 	}
 
 	function field_dont_sync()
 	{
-		echo $this->input_text('dont_sync','Comma separated list of files or directories that will never be synced. You probably don\'t need or want to change this.','large-text');
+		echo $this->input_text('dont_sync','Comma separated list of files or directories that will never be synced. You probably don\'t need to change this.','large-text');
 	}
 
 	function field_mysql_path()
@@ -234,7 +263,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $this->options->mysql_path && file_exists($this->options->mysql_path) )
 			$help .= 'The current path appears to be OK.';
 		elseif( $this->options->mysql_path && ! file_exists($this->options->mysql_path) )
-			$help .= '<b>mysql was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysql, or leave blank.';
+			$help .= '<b>mysql was not found or not readable at this path!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysql, or leave blank.';
 		else
 			$help .= ' Please enter a path to mysql, e.g. /usr/bin/mysql, or leave blank.';
 
@@ -247,16 +276,26 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $this->options->mysqldump_path && file_exists($this->options->mysqldump_path) )
 			$help .= 'The current path appears to be OK.';
 		elseif( $this->options->mysqldump_path && ! file_exists($this->options->mysqldump_path) )
-			$help .= '<b>mysqldump was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysqldump, or leave blank.';
+			$help .= '<b>mysqldump was not found or not readable at this path!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysqldump, or leave blank.';
 		else
 			$help .= ' Please enter a path to mysqldump, e.g. /usr/bin/mysqldump, or leave blank.';
 
 		echo $this->input_text('mysqldump_path',$help,'large-text');
 	}
 
+	function field_debug_custom_code()
+	{
+		echo $this->input_textarea(	array(
+		                                      'field' => 'debug_custom_code'
+		                                    , 'value' => $this->options->debug_custom_code
+		                                    , 'description' => 'Enter any PHP code you wish to run when this options screen is loaded. Output will be shown at the top of the screen.'
+		                                    , 'rows' => max( 3, 2+substr_count($this->options->debug_custom_code, "\n") )
+		                               ));
+	}
+
 	/* --------------------------------------------------------------
-	/* ! Generate HTML fields
-	/* -------------------------------------------------------------- */
+		/* ! Generate HTML fields
+		/* -------------------------------------------------------------- */
 
 	/**
 	 * Generate a text field
@@ -337,9 +376,11 @@ class SitePush_Options_Screen extends SitePush_Screen
 	/**
 	 * Generate checkbox field
 	 *
-	 * @param $field
-	 * @param $description
+	 * @param string $field
+	 * @param string $description
+	 * @param string $help
 	 * @param string $class
+	 *
 	 * @return string HTML output
 	 */
 	function input_checkbox( $field, $description, $help='', $class='' )

@@ -46,7 +46,7 @@ class SitePushPlugin
 		add_action('admin_menu', array( &$this, 'register_options_menu_help') );
 		add_action('admin_head', array( &$this, 'add_plugin_js') );
 
-		add_action('admin_notices',array( &$this, 'show_warnings'));
+		add_action('admin_notices',array( &$this, 'show_admin_warnings'));
 
 		//uninstall
 		register_uninstall_hook(__FILE__, array( __CLASS__, 'uninstall') );
@@ -82,6 +82,14 @@ class SitePushPlugin
 			//content filters
 			add_filter('the_content', array( &$this, 'fix_site_urls') );
 		}
+
+		//check for debug mode
+		if( SITEPUSH_DEBUG)
+			SitePushErrors::add_error( "Warning: SitePush debug mode is enabled.", 'important' );
+
+		//check for SafeMode - SitePush may not work well when safemode is enabled
+		if( ini_get('safe_mode') )
+			SitePushErrors::add_error( "PHP safe mode is enabled. This may prevent SitePush from working properly.", 'options-notice' );
 
 		//constant to show if we show multisite features
 		//in future we may allow for not showing multisite features even if running in multisite mode
@@ -355,9 +363,7 @@ class SitePushPlugin
 	/* -------------------------------------------------------------- */
 	/* !HELP FUNCTIONS */
 	/* -------------------------------------------------------------- */
-	
-	//@todo add help
-	
+
 	/**
 	 * Help for options screen
 	 * Called by load-$page hook
@@ -467,6 +473,10 @@ class SitePushPlugin
 		if( SitePushErrors::count_errors('all-errors') )
 			return FALSE;
 
+		$start_micro_time = function_exists('microtime') ? microtime(TRUE) : 0;
+		$start_time = time();
+		$my_push->add_result( "Push started at " . date('r'), 1 );
+
 		//track if we have actually tried to push anything
 		$done_push = FALSE;
 		
@@ -553,10 +563,12 @@ class SitePushPlugin
 			if( $push_options['db_users'] ) $db_types[] = 'users';
 			if( $push_options['db_options'] ) $db_types[] = 'options';
 			if( $push_options['db_multisite_tables'] ) $db_types[] = 'multisite';
+			if( $push_options['db_custom_table_groups'] ) $db_types[] = $push_options['db_custom_table_groups'];
 		
 			if( $db_types ) $db_push = TRUE;
 		}
 
+		$restore_options = FALSE;
 		if( $db_push )
 		{
 			//save various options which we don't want overwritten if we are doing a pull
@@ -612,6 +624,20 @@ class SitePushPlugin
 		
 		//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
 		activate_plugin(SITEPUSH_BASENAME);
+
+		$my_push->add_result( "Push completed at " . date('r'), 1 );
+
+		$duration = time() - $start_time;
+		if( $duration >= 3600 )
+			$time_took = gmdate( 'H:i:s', $duration);
+		elseif( $duration >= 60 )
+			$time_took = gmdate( 'i:s', $duration);
+		elseif( $duration < 10 && $start_micro_time )
+			$time_took = microtime(TRUE) - $start_micro_time . " seconds";
+		else
+			$time_took = "{$duration} seconds";
+
+		$my_push->add_result( "Push took {$time_took}", 1 );
 
 		return SitePushErrors::is_error() ? FALSE : $done_push;
 	}
@@ -1094,22 +1120,29 @@ class SitePushPlugin
 			'sitepush_section_backup'
 		);	
 
+		/* Custom DB tables option fields */
+		add_settings_section(
+			'sitepush_section_db_custom_table_groups',
+			'Custom DB table groups',
+			array( $options_screen, 'section_db_custom_table_groups_text' ),
+			'sitepush_options'
+		);
+		add_settings_field(
+			'sitepush_field_db_custom_table_groups',
+			'Custom DB table groups',
+			array( $options_screen, 'field_db_custom_table_groups' ),
+			'sitepush_options',
+			'sitepush_section_db_custom_table_groups'
+		);
 
 		/* rsync options */
 		add_settings_section(
 			'sitepush_section_rsync',
-			'rsync options',
+			'Sync options',
 			array( $options_screen, 'section_rsync_text' ),
 			'sitepush_options'	
 		);
-		
-		add_settings_field(
-			'sitepush_field_rsync_path',
-			'Path to rsync',
-			array( $options_screen, 'field_rsync_path' ),
-			'sitepush_options',
-			'sitepush_section_rsync'
-		);	
+
 
 		add_settings_field(
 			'sitepush_field_dont_sync',
@@ -1118,6 +1151,14 @@ class SitePushPlugin
 			'sitepush_options',
 			'sitepush_section_rsync'
 		);
+
+		add_settings_field(
+			'sitepush_field_rsync_path',
+			'Path to rsync',
+			array( $options_screen, 'field_rsync_path' ),
+			'sitepush_options',
+			'sitepush_section_rsync'
+		);	
 
 		/* mysql options */
 		add_settings_section(
@@ -1142,6 +1183,24 @@ class SitePushPlugin
 			'sitepush_options',
 			'sitepush_section_mysql'
 		);
+
+		/* Debug stuff */
+		if( SITEPUSH_DEBUG )
+		{
+			add_settings_section(
+				'sitepush_section_debug',
+				'Debug',
+				array( $options_screen, 'section_debug_text' ),
+				'sitepush_options'
+			);
+			add_settings_field(
+				'sitepush_field_debug_custom_code',
+				'Custom debug code',
+				array( $options_screen, 'field_debug_custom_code' ),
+				'sitepush_options',
+				'sitepush_section_debug'
+			);
+		}
 	}
 	
 	/**
@@ -1150,15 +1209,18 @@ class SitePushPlugin
 	 *
 	 * @return void
 	 */
-	public function show_warnings()
+	public function show_admin_warnings()
 	{
 		//don't show warnings if user can't admin SitePush
 		if( ! current_user_can( $this->options->admin_capability ) ) return;
 
+		//make sure any important warnings are shown throughout WordPress admin
+		echo SitePushErrors::errors('important');
+
 		$error = $this->check_wp_config();
 
 		if( $error )
-		    echo "<div id='sitepush-error' class='error'><p>{$error}</p></div>";
+			echo SitePushErrors::get_error_html( $error, 'error' );
 	}
 
 	/**

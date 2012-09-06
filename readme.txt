@@ -4,7 +4,7 @@ Contributors: markauk
 Tags: migrate, migration, move, deployment, development, staging, production
 Requires at least: 3.3.1
 Tested up to: 3.4.1
-Stable tag: 0.3
+Stable tag: 0.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,7 +14,7 @@ Easily move content and code between WordPress sites. Pull your site's DB to a d
 
 == Description ==
 
-SitePush is a WordPress plugin which helps you to have multiple versions of your WordPress site, so you can edit, develop, test without any risk to your main, live site. It's great for developers, designers and editors... anyone who wants to be able to test changes to a site before it is visible to the world. For example:-
+SitePush is a WordPress plugin which allows you to have multiple versions of your WordPress site, so you can edit, develop, test without any risk to your main, live site. It's great for developers, designers and editors... anyone who wants to be able to test changes to a site before it is visible to the world. For example:-
 
 1. you can **easily move content between sites**. For example, make extensive edits on a private staging site, and then push changes all at once to your live site. Or, easily pull copy of your live database into your development site so you are developing against the latest content.
 2. **test new themes and plugins**, and only push them to your live site once they are configured and working as you want.
@@ -26,9 +26,15 @@ Although SitePush installation is a bit more involved than a typical plugin, onc
 
 = Support =
 
-SitePush is under active development and I will do my best to provide fixes to problems. The latest general releases are always available through the WordPress Plugins Directory. Development code is <a href="https://github.com/rowatt/sitepush">hosted on GitHub</a>, so you may find more frequent releases there.
+SitePush is under active development and I will do my best to provide fixes to problems. The latest general releases are always available through the WordPress Plugins Directory. Development code is <a href="https://github.com/rowatt/sitepush/tree/develop">hosted on GitHub</a>, so you may find more frequent releases there.
 
 For general questions, please post on the WordPress forums with the tag sitepush. For bug reports or if you wish to suggest patches or fixes, please go to the <a href="https://github.com/rowatt/sitepush">SitePush GitHub repository</a>.
+
+If you have any problems with SitePush, it would be helpful if you could add
+
+    define('SITEPUSH_DEBUG',TRUE);
+
+to your wp-config.php file, and include the output which will now be displayed at the top of the SitePush options screen.
 
 **Disclaimer** Although SitePush has been well tested and is used on production web sites, it moves files and database content between sites which could break things. Use of SitePush is at your own risk! Please make sure you have adequate backups and if you do find any problems please report them.
 
@@ -39,7 +45,6 @@ There are a number of areas which could be improved. Currently on the roadmap:-
 
 * improve push undo
 * add support for pushing between sites on different servers
-* add support for pushing custom tables without pushing the whole database
 
 Please let me know how you would like to see SitePush evolve.
 
@@ -65,7 +70,7 @@ It is currently well tested on:-
 * Linux (Centos 5)
 * MacOS X 10.7 (MAMP)
 
-and should work on most single user WordPress installs on Linux based systems.
+It may not work properly if your host has PHP safe mode enabled. I am currently investigating issues with SitePush on GoDaddy shared hosting - if you are using GoDaddy shared hosting and would like to use SitePush, please contact me.
 
 It is completely untested and will not work:-
 
@@ -77,7 +82,6 @@ It has experimental support for Multisite installs:-
 
 In addition to WordPress (3.3 or greater), PHP (5.2.4 or greater) and mySQL (5.0 or greater) your server must have the following installed:-
 
-* rsync (any version above 2.6.9, it may work on older versions)
 * mysql and mysqldump command line utilities (tested on mysql version 5.5, it should work on versions above 5.0)
 * tar (any version should be fine)
 
@@ -107,15 +111,15 @@ The sites config file contains information about all the sites you wish to push/
 
 	[live]
 	label = Live Site
-	domains[] = www.mysite.com
-	domains[] = www.mysite.co.uk
+	domains[] = live.example.com
+	domains[] = live.example.co.uk
 	web_path = /var/www/vhosts/mysite-live
 	db = live
 	live = yes
 
 	[dev]
 	label = Dev Site
-	domain = dev.mysite.com
+	domain = dev.example.com
 	web_path = /var/www/vhosts/mysite-dev
 	db = dev
 	live = no
@@ -125,7 +129,7 @@ Each section represents parameters for a web site, with the exception of *[all]*
 * **[sitename]** = a unique name for this site. It's only used internally (or as label if you don't supply the label parameter), and can be anything you like.
 * **web_path** = the full filesystem path to the web root for the site (not the root of the WordPress install if you have WordPress in a subdirectory).
 * **domain** = the domain this site is at. If the site uses more than one domain, use the domains[] parameter for each domain instead. Optional if domains[] parameters supplied.
-* **domains[]** (optional if domain parameter supplied) = if your site can be accessed via multiple domains (e.g. site.com, site.co.uk) then list each domain with the domains[] parameter. Make sure you include the *[]*.
+* **domains[]** (optional if domain parameter supplied) = if your site can be accessed via multiple domains (e.g. example.com, example.co.uk) then list each domain with the domains[] parameter. Make sure you include the *[]*.
 * **db** = the SitePush label of the database this site uses, as defined in your databases config file (see below).
 
 The following parameters are optional:-
@@ -179,23 +183,40 @@ The following parameters are optional:-
 
 = Domain map config file =
 
-If you are running a Multisite installation, you will also need to create a domain map file so that SitePush knows which domains apply to which sites. The file should have as many sections as you have SitePush sites defined in your sites config file, and each section should contain one entry for each blog in your multisite setup. For example:-
+If you are running a Multisite installation, you will also need to create a domain map file so that SitePush knows which domains apply to which sites. The file should have as many sections as you have SitePush sites defined in your sites config file, and each section should contain one entry for each blog in your multisite setup. If your multisite installation is set up as a subdomain install, then you should list the full domains for each site, for example:-
 
 	; <?php die('Forbidden'); ?> -*- conf -*-
 	; Do not remove the above line, it is all that prevents this file from being downloaded.
 
 	[live]
-	1 = www.mysite.com
-	2 = site2.mysite.com
-	3 = site3.mysite.com
+	1 = site1.example.com
+	2 = site2.example.com
+	3 = site3.example.com
 
 	[dev]
-	1 = dev1.mysite.com
-	2 = dev2.mysite.com
-	3 = dev3.mysite.com
+	1 = dev1.example.com
+	2 = dev2.example.com
+	3 = dev3.example.com
 
 * **[sitename]** = the name you have given this site. It should be exactly the same as *[sitename]* in your sites config file.
 * **blogid = domain** = define the primary domain for each blogid in your network. If you are using a sub-directory set up, then the domain would be the same for each blog, but you still need to enter it for each one.
+
+If, on the other hand, your installation is set up as a subdirectory install, then the domains in each section will be the same, for example:-
+
+	; <?php die('Forbidden'); ?> -*- conf -*-
+	; Do not remove the above line, it is all that prevents this file from being downloaded.
+
+	[live]
+	1 = live.example.com
+	2 = live.example.com
+	3 = live.example.com
+
+	[dev]
+	1 = dev.example.com
+	2 = dev.example.com
+	3 = dev.example.com
+
+** do not include the subdirectory path for each site **
 
 If you do not configure this correctly, you will not be able to access blogs where you have pushed multisite tables (or if you pushed the whole database) and may have problems accessing individual blogs where you pushed options for that blog. If this does happen, you will need to manually edit the wp_blogs, wp_site, wp_sitemeta and options tables, or restore from a backup.
 
@@ -270,11 +291,11 @@ Let's say you want to have three versions of your site - live, test, and dev.
 
 First make sure that you can set up domain aliases on your host - so that multiple domains point to the same files. For example, you might set up:-
 
-	www.mysite.com
-	test.mysite.com
-	dev.mysite.com
+	live.example.com
+	test.example.com
+	dev.example.com
 
-If your host allows wildcard domain setups, so for example anything.mysite.com would point to your files, that would also work
+If your host allows wildcard domain setups, so for example anything.example.com would point to your files, that would also work
 
 Set up a subdirectory for each site. Where they all sit on your server will depend on your hosting setup, but let's say they are at:-
 
@@ -319,22 +340,22 @@ The exact paths will depend on your setup.
 Next you need to make some changes to your wp-config.php file so that it will point to the correct site files and database depending on what domain name was used. The exact details will vary depending on your setup, but you will want something like this, which should be inserted immediately above the line `/* That's all, stop editing! Happy blogging. */`:-
 
 	switch ( $_SERVER['SERVER_NAME'] ) {
-		case 'test.mysite.com':
+		case 'test.example.com':
 			$site_dir='test';
 			define('DB_NAME', 'database_name_here');
 			define('DB_USER', 'username_here');
 			define('DB_PASSWORD', 'password_here');
 			break;
 
-		case 'dev.mysite.com':
+		case 'dev.example.com':
 			define('DB_NAME', 'database_name_here');
 			define('DB_USER', 'username_here');
 			define('DB_PASSWORD', 'password_here');
 			$site_dir='dev';
 			break;
 
-		case 'www.mysite.com':
-		case 'live.mysite.com':
+		case 'www.example.com':
+		case 'live.example.com':
 		default:
 			define('DB_NAME', 'database_name_here');
 			define('DB_USER', 'username_here');
@@ -355,9 +376,10 @@ You can now log into your live site, activate and configure SitePush. Once that 
 
 == Screenshots ==
 
-1. Main options screen.
-2. Push screen as seen by admins.
-3. Simplified push screen for non-admins.
+1. Push screen for non-admins. Site admin can configure what non-admins can push, so they can't push anything too dangerous.
+2. Push screen as seen by admins. Admins can push any set of files or DB tables.
+3. Push screen for a multisite installation as seen by admins. In this case, the admin has defined some custom table groups for Gravity Forms.
+4. Main options screen.
 
 
 
@@ -377,7 +399,7 @@ Support for Multisite is experimental. You can enable it by defining SITEPUSH_AL
 
 = How do I push custom tables created by another plugin? =
 
-Currently the only way to do this is to push the whole database. A future update is planned which will allow the selection of custom groups of tables when you push.
+You can add groups of custom tables to be pushed in the "Custom DB table groups" option on the main settings screen.
 
 = SitePush times out before pushes complete =
 
@@ -389,14 +411,21 @@ If you do have problems with timeouts, you can also try pushing things separatel
 
 == Changelog ==
 
-= 0.3 =
+= 0.4 (2012-09-06) =
+* SitePush no longer depends on rsync to push files. If you don't have rsync on your server, SitePush will copy files using PHP.
+* You can now define custom groups of database tables to push, allowing any custom tables created by plugins to be pushed without pushing the whole database.
+* Added debug mode which lists information about your environment at the top of the options screen. Add define('SITEPUSH_DEBUG',TRUE); to your wp-config.php file to enable debug mode.
+* Detect various problems with hosting setups and add more helpful error messages.
+* Various bug fixes.
 
+= 0.3 (2012-07-06) =
 * Initial public alpha release
-
 
 
 == Upgrade Notice ==
 
-= 0.3 =
+= 0.4 =
+SitePush no longer depends on rsync to push files, and allows you to define custom groups of DB tables to push. Many bugfixes and improved error reporting.
 
-* Initial public alpha release
+= 0.3 =
+Initial public alpha release

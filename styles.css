@@ -73,3 +73,7 @@ label.disabled {
 .contextual-help-tabs-wrap dd {
 	margin-left: 0;
 }
+
+.sitepush-debug-info {
+	font-family: monospace;
+}

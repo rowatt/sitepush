@@ -38,7 +38,20 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$push_options['clear_cache'] = SitePushPlugin::get_query_var('clear_cache') ? TRUE : FALSE;
 		$push_options['dry_run'] = SitePushPlugin::get_query_var('sitepush_dry_run') ? TRUE : FALSE;
 		$push_options['do_backup'] = SitePushPlugin::get_query_var('sitepush_push_backup') ? TRUE : FALSE;
-		
+
+		$db_custom_table_groups = SitePushPlugin::get_query_var('sitepush_db_custom_table_groups');
+		if( $db_custom_table_groups )
+		{
+			foreach( $db_custom_table_groups as $key=>$group )
+			{
+				$push_options['db_custom_table_groups'][] = $key;
+			}
+		}
+		else
+		{
+			$push_options['db_custom_table_groups'] = array();
+		}
+
 		$push_options['source'] = SitePushPlugin::get_query_var('sitepush_source') ? SitePushPlugin::get_query_var('sitepush_source') : '';
 		$push_options['dest'] = SitePushPlugin::get_query_var('sitepush_dest') ? SitePushPlugin::get_query_var('sitepush_dest') : '';
 
@@ -49,7 +62,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$this->user_last_source = empty($user_options['last_source']) ? '' : $user_options['last_source'];
 		$this->user_last_dest = empty($user_options['last_dest']) ? '' : $user_options['last_dest'];
 	
-		SitePushErrors::errors();
+		SitePushErrors::errors( 'all', 'sitepush' );
 
 		if( $push_options['dest'] )
 		{
@@ -191,19 +204,41 @@ class SitePush_Push_Screen extends SitePush_Screen
 							<?php if( $this->plugin->can_admin() || !$this->options->non_admin_exclude_comments ) echo $this->option_html('sitepush_push_db_comments','Comments','user');?>
 							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_db_users','Users &amp; user meta','admin_only');?>
 							<?php if( $this->plugin->can_admin() || !$this->options->non_admin_exclude_options ) echo $this->option_html('sitepush_push_db_options','WordPress options','user');?>
+							<?php
+								foreach( $this->options->db_custom_table_groups_array as $key=>$table_group )
+								{
+									//if label is preceded by $$$ then field only shows to admins
+									if( strpos( $table_group['label'], '$$$' )===0 )
+									{
+										$admin_only = TRUE;
+										$table_group['label'] = substr( $table_group['label'], 3 );
+									}
+									else
+									{
+										$admin_only = FALSE;
+									}
+
+									$checked = empty($_REQUEST[ 'sitepush_db_custom_table_groups' ][$key]) ? 'not_checked' : 'checked';
+									echo $this->option_html( array('sitepush_db_custom_table_groups',$key ), $table_group['label'], $admin_only );
+								}
+							?>
 						</td>
 					</tr>
-	
-					<tr>
-						<th scope="row">Files<?php echo $ms_message; ?></th>
-						<td>
-							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_theme', 'Current theme <i>('._deprecated_get_current_theme().')</i>','admin_only');?>
-							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_themes','All themes','admin_only');?>
-							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');?>
-							<?php if( !SITEPUSH_SHOW_MULTISITE && file_exists($this->options->current_site_conf['web_path'] . $this->options->current_site_conf['wpmu_plugin_dir']) ) echo $this->option_html('sitepush_push_mu_plugins','WordPress must-use plugins','admin_only');?>
-							<?php echo $this->option_html('sitepush_push_uploads','WordPress media uploads', 'user');?>
-						</td>
-					</tr>
+
+					<?php
+						$files_output = '';
+						if( !SITEPUSH_SHOW_MULTISITE ) $files_output .= $this->option_html('sitepush_push_theme', 'Current theme <i>('._deprecated_get_current_theme().')</i>','admin_only');
+						if( !SITEPUSH_SHOW_MULTISITE ) $files_output .= $this->option_html('sitepush_push_themes','All themes','admin_only');
+						if( !SITEPUSH_SHOW_MULTISITE ) $files_output .= $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');
+						if( !SITEPUSH_SHOW_MULTISITE && file_exists($this->options->current_site_conf['web_path'] . $this->options->current_site_conf['wpmu_plugin_dir']) ) $files_output .= $this->option_html('sitepush_push_mu_plugins','WordPress must-use plugins','admin_only');
+						if( 'ERROR' <> $this->options->current_site_conf['wp_uploads_dir'] )
+							$files_output .= $this->option_html('sitepush_push_uploads','WordPress media uploads', 'user');
+						elseif( $this->plugin->can_admin() )
+							$files_output .= "Uploads directory could not be determined, so uploaded media files cannot be pushed.<br />";
+
+						if( $files_output )
+							echo "<tr><th scope='row'>Files{$ms_message}</th><td>{$files_output}</td></tr>";
+					?>
 
 					<?php if( SITEPUSH_SHOW_MULTISITE && $this->plugin->can_admin() ) : ?>
 					<tr>
@@ -265,11 +300,23 @@ class SitePush_Push_Screen extends SitePush_Screen
 	}
 	
 	//output HTML for push option
-	private function option_html($option, $label, $admin_only='admin_only', $checked='not_checked' )
+	private function option_html($_option, $label, $admin_only='admin_only', $checked='not_checked' )
 	{
+		//if $_option is array, then we are dealing with a $_REQUEST array type option so configure accordingly
+		if( is_array( $_option) )
+		{
+			$option = "{$_option[0]}[{$_option[1]}]";
+			$request_empty = empty( $_REQUEST[ $_option[0] ][ $_option[1] ] );
+		}
+		else
+		{
+			$option = $_option;
+			$request_empty = empty($_REQUEST[ $option ]);
+		}
+
 		//set checked either to default, or to last run if we have just done a push
 		if( !empty($_REQUEST['sitepush-nonce']) )
-			$checked_html = empty($_REQUEST[ $option ]) ? '' : ' checked="checked"';
+			$checked_html = $request_empty ? '' : ' checked="checked"';
 		else
 			$checked_html = 'checked'==$checked ? ' checked="checked"' : '';
 	
