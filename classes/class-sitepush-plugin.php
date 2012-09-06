@@ -83,8 +83,13 @@ class SitePushPlugin
 			add_filter('the_content', array( &$this, 'fix_site_urls') );
 		}
 
+		//check for debug mode
 		if( SITEPUSH_DEBUG)
 			SitePushErrors::add_error( "Warning: SitePush debug mode is enabled.", 'important' );
+
+		//check for SafeMode - SitePush may not work well when safemode is enabled
+		if( ini_get('safe_mode') )
+			SitePushErrors::add_error( "PHP safe mode is enabled. This may prevent SitePush from working properly.", 'options-notice' );
 
 		//constant to show if we show multisite features
 		//in future we may allow for not showing multisite features even if running in multisite mode

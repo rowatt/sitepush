@@ -245,7 +245,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $this->options->rsync_path && file_exists($this->options->rsync_path) )
 			$rsync_help = 'Path to rsync binary on this server. The current path appears to be OK.';
 		elseif( $this->options->rsync_path && ! file_exists($this->options->rsync_path) )
-			$rsync_help = '<b>rsync was not found at this path!</b> Please make sure you enter the correct path to the rsync binary, e.g. /usr/bin/rsync, or leave blank.';
+			$rsync_help = '<b>rsync was not found or not readable at this path!</b> Please make sure you enter the correct path to the rsync binary, e.g. /usr/bin/rsync, or leave blank.';
 		else
 			$rsync_help = 'If you have rsync installed on this server, enter a path to the rsync binary, e.g. /usr/bin/rsync. Leave blank if you do not want to use rsync.';
 
@@ -263,7 +263,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $this->options->mysql_path && file_exists($this->options->mysql_path) )
 			$help .= 'The current path appears to be OK.';
 		elseif( $this->options->mysql_path && ! file_exists($this->options->mysql_path) )
-			$help .= '<b>mysql was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysql, or leave blank.';
+			$help .= '<b>mysql was not found or not readable at this path!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysql, or leave blank.';
 		else
 			$help .= ' Please enter a path to mysql, e.g. /usr/bin/mysql, or leave blank.';
 
@@ -276,7 +276,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $this->options->mysqldump_path && file_exists($this->options->mysqldump_path) )
 			$help .= 'The current path appears to be OK.';
 		elseif( $this->options->mysqldump_path && ! file_exists($this->options->mysqldump_path) )
-			$help .= '<b>mysqldump was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysqldump, or leave blank.';
+			$help .= '<b>mysqldump was not found or not readable at this path!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysqldump, or leave blank.';
 		else
 			$help .= ' Please enter a path to mysqldump, e.g. /usr/bin/mysqldump, or leave blank.';
 

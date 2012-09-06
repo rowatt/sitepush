@@ -147,15 +147,15 @@ class SitePushCore
 		//if we can't find rsync/mysql/mysqldump at defined path, try without any path
 		if( $this->options->rsync_path && !file_exists( $this->options->rsync_path ) )
 		{
-			$this->add_result("rsync not found at {$this->options->rsync_path}, using 'rsync' instead and hoping system path is set correctly",3);
-			$this->options->rsync_path = 'rsync';
+			$this->add_result("rsync not found or not readable at {$this->options->rsync_path}, using PHP instead",3);
+			$this->options->rsync_path = '';
 		}
 		if( !file_exists( $this->options->mysql_path ) )
 		{
 			if( !$this->options->mysql_path )
 				$this->add_result("mysql path not set, using 'mysql'",3);
 			else
-				$this->add_result("mysql not found at {$this->options->mysql_path}, using 'mysql' instead and hoping system path is set correctly",3);
+				$this->add_result("mysql not found or not readable at {$this->options->mysql_path}, using 'mysql' instead and hoping system path is set correctly",3);
 			$this->options->mysql_path = 'mysql';
 		}
 		if( !file_exists( $this->options->mysqldump_path ) )
@@ -163,7 +163,7 @@ class SitePushCore
 			if( !$this->options->mysqldump_path )
 				$this->add_result("mysqldump path not set, using 'mysqldump'",3);
 			else
-				$this->add_result("mysqldump not found at {$this->options->mysqldump_path}, using 'mysqldump' instead and hoping system path is set correctly",3);
+				$this->add_result("mysqldump not found or not readable at {$this->options->mysqldump_path}, using 'mysqldump' instead and hoping system path is set correctly",3);
 			$this->options->mysqldump_path = 'mysqldump';
 		}
 
