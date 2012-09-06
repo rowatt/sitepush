@@ -14,7 +14,7 @@ Easily move content and code between WordPress sites. Pull your site's DB to a d
 
 == Description ==
 
-SitePush is a WordPress plugin which helps you to have multiple versions of your WordPress site, so you can edit, develop, test without any risk to your main, live site. It's great for developers, designers and editors... anyone who wants to be able to test changes to a site before it is visible to the world. For example:-
+SitePush is a WordPress plugin which allows you to have multiple versions of your WordPress site, so you can edit, develop, test without any risk to your main, live site. It's great for developers, designers and editors... anyone who wants to be able to test changes to a site before it is visible to the world. For example:-
 
 1. you can **easily move content between sites**. For example, make extensive edits on a private staging site, and then push changes all at once to your live site. Or, easily pull copy of your live database into your development site so you are developing against the latest content.
 2. **test new themes and plugins**, and only push them to your live site once they are configured and working as you want.
@@ -26,9 +26,15 @@ Although SitePush installation is a bit more involved than a typical plugin, onc
 
 = Support =
 
-SitePush is under active development and I will do my best to provide fixes to problems. The latest general releases are always available through the WordPress Plugins Directory. Development code is <a href="https://github.com/rowatt/sitepush">hosted on GitHub</a>, so you may find more frequent releases there.
+SitePush is under active development and I will do my best to provide fixes to problems. The latest general releases are always available through the WordPress Plugins Directory. Development code is <a href="https://github.com/rowatt/sitepush/tree/develop">hosted on GitHub</a>, so you may find more frequent releases there.
 
 For general questions, please post on the WordPress forums with the tag sitepush. For bug reports or if you wish to suggest patches or fixes, please go to the <a href="https://github.com/rowatt/sitepush">SitePush GitHub repository</a>.
+
+If you have any problems with SitePush, it would be helpful if you could add
+
+    define('SITEPUSH_DEBUG',TRUE);
+
+to your wp-config.php file, and include the output which will now be displayed at the top of the SitePush options screen.
 
 **Disclaimer** Although SitePush has been well tested and is used on production web sites, it moves files and database content between sites which could break things. Use of SitePush is at your own risk! Please make sure you have adequate backups and if you do find any problems please report them.
 
@@ -39,7 +45,6 @@ There are a number of areas which could be improved. Currently on the roadmap:-
 
 * improve push undo
 * add support for pushing between sites on different servers
-* add support for pushing custom tables without pushing the whole database
 
 Please let me know how you would like to see SitePush evolve.
 
@@ -65,7 +70,7 @@ It is currently well tested on:-
 * Linux (Centos 5)
 * MacOS X 10.7 (MAMP)
 
-and should work on most single user WordPress installs on Linux based systems.
+It may not work properly if your host has PHP safe mode enabled. I am currently investigating issues with SitePush on GoDaddy shared hosting - if you are using GoDaddy shared hosting and would like to use SitePush, please contact me.
 
 It is completely untested and will not work:-
 
@@ -77,7 +82,6 @@ It has experimental support for Multisite installs:-
 
 In addition to WordPress (3.3 or greater), PHP (5.2.4 or greater) and mySQL (5.0 or greater) your server must have the following installed:-
 
-* rsync (any version above 2.6.9, it may work on older versions)
 * mysql and mysqldump command line utilities (tested on mysql version 5.5, it should work on versions above 5.0)
 * tar (any version should be fine)
 
@@ -374,7 +378,8 @@ You can now log into your live site, activate and configure SitePush. Once that 
 
 1. Push screen for non-admins. Site admin can configure what non-admins can push, so they can't push anything too dangerous.
 2. Push screen as seen by admins. Admins can push any set of files or DB tables.
-3. Main options screen.
+3. Push screen for a multisite installation as seen by admins. In this case, the admin has defined some custom table groups for Gravity Forms.
+4. Main options screen.
 
 
 
@@ -394,7 +399,7 @@ Support for Multisite is experimental. You can enable it by defining SITEPUSH_AL
 
 = How do I push custom tables created by another plugin? =
 
-Currently the only way to do this is to push the whole database. A future update is planned which will allow the selection of custom groups of tables when you push.
+You can add groups of custom tables to be pushed in the "Custom DB table groups" option on the main settings screen.
 
 = SitePush times out before pushes complete =
 
@@ -406,9 +411,11 @@ If you do have problems with timeouts, you can also try pushing things separatel
 
 == Changelog ==
 
-= 0.4 (2012-08-31) =
+= 0.4 (2012-09-06) =
 * SitePush no longer depends on rsync to push files. If you don't have rsync on your server, SitePush will copy files using PHP.
 * You can now define custom groups of database tables to push, allowing any custom tables created by plugins to be pushed without pushing the whole database.
+* Added debug mode which lists information about your environment at the top of the options screen. Add define('SITEPUSH_DEBUG',TRUE); to your wp-config.php file to enable debug mode.
+* Detect various problems with hosting setups and add more helpful error messages.
 * Various bug fixes.
 
 = 0.3 (2012-07-06) =
@@ -418,7 +425,7 @@ If you do have problems with timeouts, you can also try pushing things separatel
 == Upgrade Notice ==
 
 = 0.4 =
-SitePush no longer depends on rsync to push files, and allows you to define custom groups of DB tables to push.
+SitePush no longer depends on rsync to push files, and allows you to define custom groups of DB tables to push. Many bugfixes and improved error reporting.
 
 = 0.3 =
 Initial public alpha release

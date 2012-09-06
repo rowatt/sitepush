@@ -151,7 +151,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_debug_output_level()
 	{
-		echo $this->input_text('debug_output_level','How much debug output is shown. Enter a number from 0 (no debug output) to 3 (detailed output).<br />Debug output is only ever shown to people with SitePush admin capability.','small-text');
+		echo $this->input_text('debug_output_level','How much debug output is shown. Enter a number from 0 (no debug output) to 3 (detailed output), or more for even more verbose output.<br />Debug output is only ever shown to people with SitePush admin capability.','small-text');
 	}
 
 	function field_capability()
