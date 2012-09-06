@@ -54,7 +54,7 @@ class SitePushOptions
 	public $backup_keep_time;
 
 	public $rsync_path;
-	private $dont_sync; //see $this->get_dont_syncs method
+	public $dont_sync; //see $this->get_dont_syncs method
 	private $default_dont_sync = '.git,.svn,.htaccess,tmp,wp-config.php,.DS_Store';
 
 	public $mysql_path;
@@ -270,7 +270,7 @@ class SitePushOptions
 		//rsync options
 		if( !array_key_exists( 'rsync_path', $options ) )
 			$options['rsync_path'] = $this->guess_path( 'rsync' );
-		if( !array_key_exists('dont_sync', $options) )
+		if( empty($options['dont_sync']) )
 			$options['dont_sync'] = $this->default_dont_sync;
 
 		//mysql options
@@ -1016,17 +1016,17 @@ class SitePushOptions
 	/**
 	 * Gets dont_sync option, making sure it is an array
 	 *
-	 * @return mixed
+	 * @return array file names which should not be pushed
 	 */
 	public function get_dont_syncs()
 	{
 		if( ! is_array( $this->dont_sync) )
 		{
-			$this->dont_sync = explode( ',', $this->dont_sync );
-			$this->dont_sync = array_map( 'trim', $this->dont_sync );
+			$dont_sync = explode( ',', $this->dont_sync );
+			$dont_sync = array_map( 'trim', $dont_sync );
 		}
 
-		return $this->dont_sync;
+		return $dont_sync;
 	}
 
 	/**
