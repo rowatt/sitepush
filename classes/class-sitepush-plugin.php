@@ -46,7 +46,7 @@ class SitePushPlugin
 		add_action('admin_menu', array( &$this, 'register_options_menu_help') );
 		add_action('admin_head', array( &$this, 'add_plugin_js') );
 
-		add_action('admin_notices',array( &$this, 'show_warnings'));
+		add_action('admin_notices',array( &$this, 'show_admin_warnings'));
 
 		//uninstall
 		register_uninstall_hook(__FILE__, array( __CLASS__, 'uninstall') );
@@ -1186,15 +1186,18 @@ class SitePushPlugin
 	 *
 	 * @return void
 	 */
-	public function show_warnings()
+	public function show_admin_warnings()
 	{
 		//don't show warnings if user can't admin SitePush
 		if( ! current_user_can( $this->options->admin_capability ) ) return;
 
+		//make sure any important warnings are shown throughout WordPress admin
+		echo SitePushErrors::errors('important');
+
 		$error = $this->check_wp_config();
 
 		if( $error )
-		    echo "<div id='sitepush-error' class='error'><p>{$error}</p></div>";
+			echo SitePushErrors::get_error_html( $error, 'error' );
 	}
 
 	/**
