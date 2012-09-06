@@ -4,6 +4,7 @@
  * Holds and displays errors. An error can be of 4 types:-
  *   - fatal-error
  *   - error
+ *   - important (warning, always shown)
  *   - warning
  *   - notice
  *   - options (notice only shows on options screen)
@@ -54,6 +55,8 @@ class SitePushErrors
 	}
 
 	/**
+	 * Show any errors, warnings etc
+	 *
 	 * @static
 	 *
 	 * @param string $force_type only show errors of this type, or all errors if 'all' or NULL
@@ -63,6 +66,10 @@ class SitePushErrors
 	{
 		$show_wp_errors = self::$force_show_wp_errors || get_transient('sitepush_force_show_wp_errors');
 		delete_transient('sitepush_force_show_wp_errors');
+
+		//always show important warnings
+		if( !empty(self::$errors['important']) )
+			echo self::get_error_html( 'important' );
 
 		if( is_null($force_type) || 'all' == $force_type )
 		{
@@ -99,7 +106,7 @@ class SitePushErrors
 	private static function get_error_html( $type='error' )
 	{
 		$output = '';
-		$class = in_array( $type , array( 'fatal-error', 'error') ) ? 'error' : 'updated';
+		$class = in_array( $type , array( 'fatal-error', 'error', 'important') ) ? 'error' : 'updated';
 		foreach(  self::$errors[$type] as $error )
 		{
 			$output .= "<div class='{$class}'><p><strong>{$error}</strong></p></div>";
