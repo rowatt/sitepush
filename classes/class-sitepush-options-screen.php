@@ -18,17 +18,16 @@ class SitePush_Options_Screen extends SitePush_Screen
 			<?php screen_icon( 'options-general' ); ?>
 			<h2>SitePush Options</h2>
 			<?php
-			//show debug info if in debug mode
-			if( SITEPUSH_DEBUG )
-				echo "<p class='sitepush-debug-info'>{$this->options->get_server_info()}</p>";
-
 			//show errors/notices
 			//validation doesn't add errors if we haven't set anything yet, in which case nothing will show here
 			SitePushErrors::errors();
 
+			//show debug info if in debug mode
+			if( SITEPUSH_DEBUG )
+				echo "<p class='sitepush-debug-info'>{$this->options->get_server_info()}</p>";
+
 			if( $this->plugin->abort )
 				return FALSE;
-
 			?>
 			<form action='options.php' method='post'>
 			<?php
@@ -377,9 +376,11 @@ class SitePush_Options_Screen extends SitePush_Screen
 	/**
 	 * Generate checkbox field
 	 *
-	 * @param $field
-	 * @param $description
+	 * @param string $field
+	 * @param string $description
+	 * @param string $help
 	 * @param string $class
+	 *
 	 * @return string HTML output
 	 */
 	function input_checkbox( $field, $description, $help='', $class='' )
