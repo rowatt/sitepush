@@ -17,9 +17,11 @@ class SitePush_Options_Screen extends SitePush_Screen
 		<div class='wrap'>
 			<?php screen_icon( 'options-general' ); ?>
 			<h2>SitePush Options</h2>
-			<p>If you are having any problems with SitePush, please include the following information in any support requests:</p>
-			<p class='sitepush-debug-info'><?php echo $this->options->get_server_info(); ?></p>
-				<?php
+			<?php
+			//show debug info if in debug mode
+			if( SITEPUSH_DEBUG )
+				echo "<p class='sitepush-debug-info'>{$this->options->get_server_info()}</p>";
+
 			//show errors/notices
 			//validation doesn't add errors if we haven't set anything yet, in which case nothing will show here
 			SitePushErrors::errors();
@@ -108,6 +110,12 @@ class SitePush_Options_Screen extends SitePush_Screen
 	{
 		echo '<p class="description">Some plugins set up their own database tables. If you want to push those tables independently from others, you can define additional table groups here, which will then be listed on the main push screen.</p>';
 	}
+
+	function section_debug_text()
+	{
+		echo '<p class="description">To disable debug mode, make sure the constant SITEPUSH_DEBUG is set to FALSE, or not defined in your wp-config file.</p>';
+	}
+
 
 	/* -------------------------------------------------------------- */
 	/* Options page settings fields */
@@ -276,9 +284,19 @@ class SitePush_Options_Screen extends SitePush_Screen
 		echo $this->input_text('mysqldump_path',$help,'large-text');
 	}
 
+	function field_debug_custom_code()
+	{
+		echo $this->input_textarea(	array(
+		                                      'field' => 'debug_custom_code'
+		                                    , 'value' => $this->options->debug_custom_code
+		                                    , 'description' => 'Enter any PHP code you wish to run when this options screen is loaded. Output will be shown at the top of the screen.'
+		                                    , 'rows' => max( 3, 2+substr_count($this->options->debug_custom_code, "\n") )
+		                               ));
+	}
+
 	/* --------------------------------------------------------------
-	/* ! Generate HTML fields
-	/* -------------------------------------------------------------- */
+		/* ! Generate HTML fields
+		/* -------------------------------------------------------------- */
 
 	/**
 	 * Generate a text field

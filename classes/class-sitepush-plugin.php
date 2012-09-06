@@ -83,6 +83,9 @@ class SitePushPlugin
 			add_filter('the_content', array( &$this, 'fix_site_urls') );
 		}
 
+		if( SITEPUSH_DEBUG)
+			SitePushErrors::add_error( "Warning: SitePush debug mode is enabled.", 'important' );
+
 		//constant to show if we show multisite features
 		//in future we may allow for not showing multisite features even if running in multisite mode
 		define( 'SITEPUSH_SHOW_MULTISITE', is_multisite() );
@@ -1157,6 +1160,24 @@ class SitePushPlugin
 			'sitepush_options',
 			'sitepush_section_mysql'
 		);
+
+		/* Debug stuff */
+		if( SITEPUSH_DEBUG )
+		{
+			add_settings_section(
+				'sitepush_section_debug',
+				'Debug',
+				array( $options_screen, 'section_debug_text' ),
+				'sitepush_options'
+			);
+			add_settings_field(
+				'sitepush_field_debug_custom_code',
+				'Custom debug code',
+				array( $options_screen, 'field_debug_custom_code' ),
+				'sitepush_options',
+				'sitepush_section_debug'
+			);
+		}
 	}
 	
 	/**

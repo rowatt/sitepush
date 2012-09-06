@@ -53,6 +53,10 @@ define( 'SITEPUSH_PLUGIN_DIR_URL', plugins_url( '', SITEPUSH__FILE ) );
 define( 'SITEPUSH_PLUGIN_DIR', dirname(SITEPUSH__FILE) );
 define( 'SITEPUSH_BASENAME', plugin_basename(SITEPUSH__FILE) );
 
+//define as TRUE in wp-config to turn on debug mode
+if( !defined('SITEPUSH_DEBUG') )
+	define( 'SITEPUSH_DEBUG', FALSE );
+
 /* --------------------------------------------------------------
 /* ! Wrappers for deprecated WP functions
 /* -------------------------------------------------------------- */

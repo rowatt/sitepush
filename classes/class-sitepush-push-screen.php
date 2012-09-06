@@ -39,7 +39,6 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$push_options['dry_run'] = SitePushPlugin::get_query_var('sitepush_dry_run') ? TRUE : FALSE;
 		$push_options['do_backup'] = SitePushPlugin::get_query_var('sitepush_push_backup') ? TRUE : FALSE;
 
-		//$push_options['db_custom_table_groups'] =
 		$db_custom_table_groups = SitePushPlugin::get_query_var('sitepush_db_custom_table_groups');
 		if( $db_custom_table_groups )
 		{

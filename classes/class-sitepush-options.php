@@ -65,6 +65,9 @@ class SitePushOptions
 	//Internal options - can only be changed here
 	public $mask_passwords = TRUE; //mask passwords from results log
 
+	//debug related properties
+	public $debug_custom_code;
+
 	/**
 	 * Singleton instantiator
 	 * @static
@@ -1022,6 +1025,8 @@ class SitePushOptions
 		$output = "SitePush version: {$this->get_plugin_version()}<br />";
 		$output .= "SitePush options: " . ($this->OK ? 'OK' : 'not OK' ) . "<br />";
 		$output .= "WordPress version: " . get_bloginfo('version') . "<br />";
+		$output .= "WordPress multisite: " . ( is_multisite() ? 'Yes' : 'No' ) . "<br />";
+		$output .= "Site: " . get_bloginfo('name') . "<br />";
 		$output .= "PHP version: " . phpversion() . "<br />";
 		$output .= "PHP safe mode: " . ( ini_get('safe_mode') ? "on" : "off" ) . "<br />" ;
 		$output .= "Server: " . php_uname() . "<br />";
@@ -1050,6 +1055,13 @@ class SitePushOptions
 			$output .= "wp-config: " . $info . "<br />";
 		else
 			$output .= "wp-config: could not get file info<br />";
+
+		if( SITEPUSH_DEBUG && ! empty( $this->debug_custom_code ) )
+		{
+			$result = $this->run_custom_code();
+			$output .= "custom code return value: " . $result['return'] . "<br />";
+			$output .= "custom code output follows: <br /><pre>" . $result['output'] . "</pre><br />";
+		}
 
 		return $output;
 	}
@@ -1086,6 +1098,38 @@ class SitePushOptions
 		}
 
 		return "{$perms} {$owner}({$uid}) {$group}({$gid})";
+	}
+
+	/**
+	 * Allows custom PHP code to be run for debug purposes
+	 *
+	 * Code will only be run if SITEPUSH_DEBUG mode is TRUE, and there is code present
+	 * in the custom code debug field of the options screen
+	 *
+	 * @return array result and output of code, or empty array if nothing run
+	 */
+	public function run_custom_code()
+	{
+		if( !SITEPUSH_DEBUG || empty( $this->debug_custom_code) ) return array();
+
+		//capture any output from the code
+		ob_start();
+
+		$result =  eval( $this->debug_custom_code );
+
+		//make sure we see certain results:
+		if( FALSE===$result )
+			$result = 'FALSE';
+		elseif( TRUE===$result )
+			$result = 'TRUE';
+		elseif( is_null($result) )
+			$result = 'NULL';
+
+		//get any output and clear the output buffer
+		$output = ob_get_contents();
+		ob_end_clean();
+
+		return array( 'output'=>$output, 'return'=>$result );
 	}
 
 }
