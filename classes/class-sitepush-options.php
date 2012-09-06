@@ -1022,18 +1022,32 @@ class SitePushOptions
 	 */
 	public function get_server_info()
 	{
+		$safe_mode = ini_get('safe_mode');
+
+		//SitePush info
 		$output = "SitePush version: {$this->get_plugin_version()}<br />";
 		$output .= "SitePush options: " . ($this->OK ? 'OK' : 'not OK' ) . "<br />";
+
+		//WordPress info
 		$output .= "WordPress version: " . get_bloginfo('version') . "<br />";
 		$output .= "WordPress multisite: " . ( is_multisite() ? 'Yes' : 'No' ) . "<br />";
 		$output .= "Site: " . get_bloginfo('name') . "<br />";
+
+		//PHP & server info
 		$output .= "PHP version: " . phpversion() . "<br />";
-		$output .= "PHP safe mode: " . ( ini_get('safe_mode') ? "on" : "off" ) . "<br />" ;
+		$output .= "PHP safe mode: " . ( $safe_mode ? "on" : "off" ) . "<br />" ;
+		if( !$safe_mode )
+		{
+			$output .= "Server user: " . shell_exec('whoami') . "<br />";
+			$output .= "Server groups: " . shell_exec('id') . "<br />";
+		}
 		$output .= "Server: " . php_uname() . "<br />";
 
+		//more WordPress info
 		$output .= "SitePush dir: " . SITEPUSH_PLUGIN_DIR . "</br />";
 		$output .= "WordPress abspath: " . ABSPATH . "</br />";
 
+		//check presence and permissions of config files
 		$files = array( 'sites_conf', 'dbs_conf', 'domain_map_conf' );
 		foreach( $files as $file )
 		{
@@ -1044,6 +1058,7 @@ class SitePushOptions
 				$output .= "{$file}: {$info}{$readable}{$parseable}<br />";
 		}
 
+		//check presence and permissions of wp-config
 		if( file_exists( ABSPATH . 'wp-config.php' ) )
 			$info = $this->get_file_info( ABSPATH . 'wp-config.php' );
 		elseif ( file_exists( dirname(ABSPATH) . '/wp-config.php' ) && ! file_exists( dirname(ABSPATH) . '/wp-settings.php' ) )
@@ -1056,11 +1071,15 @@ class SitePushOptions
 		else
 			$output .= "wp-config: could not get file info<br />";
 
+		//config for this site
+		$output .= "SitePush config for this site follows: <pre>" . print_r($this->current_site_conf,TRUE) . "</pre><br />";
+
+		//custom code output
 		if( SITEPUSH_DEBUG && ! empty( $this->debug_custom_code ) )
 		{
 			$result = $this->run_custom_code();
-			$output .= "custom code return value: " . $result['return'] . "<br />";
-			$output .= "custom code output follows: <br /><pre>" . $result['output'] . "</pre><br />";
+			$output .= "Custom code return value: " . $result['return'] . "<br />";
+			$output .= "Custom code output follows: <pre>" . $result['output'] . "</pre><br />";
 		}
 
 		return $output;
