@@ -83,8 +83,13 @@ class SitePushPlugin
 			add_filter('the_content', array( &$this, 'fix_site_urls') );
 		}
 
+		//check for debug mode
 		if( SITEPUSH_DEBUG)
 			SitePushErrors::add_error( "Warning: SitePush debug mode is enabled.", 'important' );
+
+		//check for SafeMode - SitePush may not work well when safemode is enabled
+		if( ini_get('safe_mode') )
+			SitePushErrors::add_error( "PHP safe mode is enabled. This may prevent SitePush from working properly.", 'options-notice' );
 
 		//constant to show if we show multisite features
 		//in future we may allow for not showing multisite features even if running in multisite mode
@@ -468,6 +473,10 @@ class SitePushPlugin
 		if( SitePushErrors::count_errors('all-errors') )
 			return FALSE;
 
+		$start_micro_time = function_exists('microtime') ? microtime(TRUE) : 0;
+		$start_time = time();
+		$my_push->add_result( "Push started at " . date('r'), 1 );
+
 		//track if we have actually tried to push anything
 		$done_push = FALSE;
 		
@@ -615,6 +624,20 @@ class SitePushPlugin
 		
 		//make sure sitepush is still activated and save our options to DB so if we have pulled DB from elsewhere we don't overwrite sitepush options
 		activate_plugin(SITEPUSH_BASENAME);
+
+		$my_push->add_result( "Push completed at " . date('r'), 1 );
+
+		$duration = time() - $start_time;
+		if( $duration >= 3600 )
+			$time_took = gmdate( 'H:i:s', $duration);
+		elseif( $duration >= 60 )
+			$time_took = gmdate( 'i:s', $duration);
+		elseif( $duration < 10 && $start_micro_time )
+			$time_took = microtime(TRUE) - $start_micro_time . " seconds";
+		else
+			$time_took = "{$duration} seconds";
+
+		$my_push->add_result( "Push took {$time_took}", 1 );
 
 		return SitePushErrors::is_error() ? FALSE : $done_push;
 	}

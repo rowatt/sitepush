@@ -141,7 +141,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_fix_site_urls()
 	{
-		echo $this->input_checkbox('fix_site_urls', ' Convert site URLs to link to current site', 'Make sure that any URLs to any of your sites domains link to the current site. <br />For example http://dev.mysite.com/mypage would be converted to http://www.mysite.com/mypage when viewing www.mysite.com.<br />This helps to make sure that URLs work across different versions of your sites.<br />If a site has more than one domain defined, URLs will be converted to the first domain given for that site in your sites config file.');
+		echo $this->input_checkbox('fix_site_urls', ' Convert site URLs to link to current site', 'Make sure that any URLs to any of your sites domains link to the current site. <br />For example http://dev.example.com/mypage would be converted to http://www.example.com/mypage when viewing www.example.com.<br />This helps to make sure that URLs work across different versions of your sites.<br />If a site has more than one domain defined, URLs will be converted to the first domain given for that site in your sites config file.');
 	}
 
 	function field_timezone()
@@ -151,7 +151,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_debug_output_level()
 	{
-		echo $this->input_text('debug_output_level','How much debug output is shown. Enter a number from 0 (no debug output) to 3 (detailed output).<br />Debug output is only ever shown to people with SitePush admin capability.','small-text');
+		echo $this->input_text('debug_output_level','How much debug output is shown. Enter a number from 0 (no debug output) to 3 (detailed output), or more for even more verbose output.<br />Debug output is only ever shown to people with SitePush admin capability.','small-text');
 	}
 
 	function field_capability()
@@ -245,7 +245,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $this->options->rsync_path && file_exists($this->options->rsync_path) )
 			$rsync_help = 'Path to rsync binary on this server. The current path appears to be OK.';
 		elseif( $this->options->rsync_path && ! file_exists($this->options->rsync_path) )
-			$rsync_help = '<b>rsync was not found at this path!</b> Please make sure you enter the correct path to the rsync binary, e.g. /usr/bin/rsync, or leave blank.';
+			$rsync_help = '<b>rsync was not found or not readable at this path!</b> Please make sure you enter the correct path to the rsync binary, e.g. /usr/bin/rsync, or leave blank.';
 		else
 			$rsync_help = 'If you have rsync installed on this server, enter a path to the rsync binary, e.g. /usr/bin/rsync. Leave blank if you do not want to use rsync.';
 
@@ -263,7 +263,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $this->options->mysql_path && file_exists($this->options->mysql_path) )
 			$help .= 'The current path appears to be OK.';
 		elseif( $this->options->mysql_path && ! file_exists($this->options->mysql_path) )
-			$help .= '<b>mysql was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysql, or leave blank.';
+			$help .= '<b>mysql was not found or not readable at this path!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysql, or leave blank.';
 		else
 			$help .= ' Please enter a path to mysql, e.g. /usr/bin/mysql, or leave blank.';
 
@@ -276,7 +276,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $this->options->mysqldump_path && file_exists($this->options->mysqldump_path) )
 			$help .= 'The current path appears to be OK.';
 		elseif( $this->options->mysqldump_path && ! file_exists($this->options->mysqldump_path) )
-			$help .= '<b>mysqldump was not found!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysqldump, or leave blank.';
+			$help .= '<b>mysqldump was not found or not readable at this path!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysqldump, or leave blank.';
 		else
 			$help .= ' Please enter a path to mysqldump, e.g. /usr/bin/mysqldump, or leave blank.';
 
