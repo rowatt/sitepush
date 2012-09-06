@@ -39,7 +39,6 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$push_options['dry_run'] = SitePushPlugin::get_query_var('sitepush_dry_run') ? TRUE : FALSE;
 		$push_options['do_backup'] = SitePushPlugin::get_query_var('sitepush_push_backup') ? TRUE : FALSE;
 
-		//$push_options['db_custom_table_groups'] =
 		$db_custom_table_groups = SitePushPlugin::get_query_var('sitepush_db_custom_table_groups');
 		if( $db_custom_table_groups )
 		{
@@ -63,7 +62,7 @@ class SitePush_Push_Screen extends SitePush_Screen
 		$this->user_last_source = empty($user_options['last_source']) ? '' : $user_options['last_source'];
 		$this->user_last_dest = empty($user_options['last_dest']) ? '' : $user_options['last_dest'];
 	
-		SitePushErrors::errors();
+		SitePushErrors::errors( 'all', 'sitepush' );
 
 		if( $push_options['dest'] )
 		{
@@ -225,17 +224,21 @@ class SitePush_Push_Screen extends SitePush_Screen
 							?>
 						</td>
 					</tr>
-	
-					<tr>
-						<th scope="row">Files<?php echo $ms_message; ?></th>
-						<td>
-							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_theme', 'Current theme <i>('._deprecated_get_current_theme().')</i>','admin_only');?>
-							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_themes','All themes','admin_only');?>
-							<?php if( !SITEPUSH_SHOW_MULTISITE ) echo $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');?>
-							<?php if( !SITEPUSH_SHOW_MULTISITE && file_exists($this->options->current_site_conf['web_path'] . $this->options->current_site_conf['wpmu_plugin_dir']) ) echo $this->option_html('sitepush_push_mu_plugins','WordPress must-use plugins','admin_only');?>
-							<?php echo $this->option_html('sitepush_push_uploads','WordPress media uploads', 'user');?>
-						</td>
-					</tr>
+
+					<?php
+						$files_output = '';
+						if( !SITEPUSH_SHOW_MULTISITE ) $files_output .= $this->option_html('sitepush_push_theme', 'Current theme <i>('._deprecated_get_current_theme().')</i>','admin_only');
+						if( !SITEPUSH_SHOW_MULTISITE ) $files_output .= $this->option_html('sitepush_push_themes','All themes','admin_only');
+						if( !SITEPUSH_SHOW_MULTISITE ) $files_output .= $this->option_html('sitepush_push_plugins','WordPress plugins','admin_only');
+						if( !SITEPUSH_SHOW_MULTISITE && file_exists($this->options->current_site_conf['web_path'] . $this->options->current_site_conf['wpmu_plugin_dir']) ) $files_output .= $this->option_html('sitepush_push_mu_plugins','WordPress must-use plugins','admin_only');
+						if( 'ERROR' <> $this->options->current_site_conf['wp_uploads_dir'] )
+							$files_output .= $this->option_html('sitepush_push_uploads','WordPress media uploads', 'user');
+						elseif( $this->plugin->can_admin() )
+							$files_output .= "Uploads directory could not be determined, so uploaded media files cannot be pushed.<br />";
+
+						if( $files_output )
+							echo "<tr><th scope='row'>Files{$ms_message}</th><td>{$files_output}</td></tr>";
+					?>
 
 					<?php if( SITEPUSH_SHOW_MULTISITE && $this->plugin->can_admin() ) : ?>
 					<tr>

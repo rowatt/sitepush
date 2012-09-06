@@ -48,6 +48,8 @@ class SitePushOptions
 
 	public $plugins;
 
+	public $db_custom_table_groups_array = array();
+
 	public $backup_path;
 	public $backup_keep_time;
 
@@ -62,6 +64,9 @@ class SitePushOptions
 
 	//Internal options - can only be changed here
 	public $mask_passwords = TRUE; //mask passwords from results log
+
+	//debug related properties
+	public $debug_custom_code;
 
 	/**
 	 * Singleton instantiator
@@ -254,7 +259,7 @@ class SitePushOptions
 				$fields = explode( '|',$table_group );
 
 				$tables = explode( ',', $fields[1] );
-				array_walk( $tables, array( __CLASS__, 'trim_array' ) );
+				$tables = array_map( 'trim', $tables );
 
 				$this->db_custom_table_groups_array[] = array(
 					'label' => $fields[0],
@@ -361,21 +366,40 @@ class SitePushOptions
 			$valid = FALSE;
 		}
 
-		if( empty( $options['sites_conf'] ) || !file_exists( $options['sites_conf'] ) )
+		if( empty( $options['sites_conf'] ) || !file_exists( $options['sites_conf'] ) || @parse_ini_file( $options['sites_conf'] )===FALSE )
 		{
-			if( $update_check ) SitePushErrors::add_error( 'Path not valid - sites config file not found.', 'error', 'sites_conf' );
+			if( $update_check )
+			{
+				if( file_exists( $options['sites_conf'] ) )
+					SitePushErrors::add_error( 'Sites config file present, but it cannot be read.', 'error', 'sites_conf' );
+				else
+					SitePushErrors::add_error( 'Path not valid - sites config file not found.', 'error', 'sites_conf' );
+
+			}
 			$valid = FALSE;
 		}
 
-		if( empty( $options['dbs_conf'] ) ||  !file_exists( $options['dbs_conf'] ) )
+		if( empty( $options['dbs_conf'] ) ||  !file_exists( $options['dbs_conf'] ) || @parse_ini_file( $options['dbs_conf'] )===FALSE )
 		{
-			if( $update_check ) SitePushErrors::add_error( 'Path not valid - DB config file not found.', 'error', 'dbs_conf' );
+			if( $update_check )
+			{
+				if( file_exists( $options['dbs_conf'] ) )
+					SitePushErrors::add_error( 'DB config file present, but it cannot be read.', 'error', 'dbs_conf' );
+				else
+					SitePushErrors::add_error( 'Path not valid - DB config file not found.', 'error', 'dbs_conf' );
+			}
 			$valid = FALSE;
 		}
 
-		if( is_multisite() && empty( $options['domain_map_conf'] ) || !file_exists( $options['sites_conf'] ) )
+		if( is_multisite() && ( empty( $options['domain_map_conf'] ) || !file_exists( $options['domain_map_conf'] ) || @parse_ini_file( $options['domain_map_conf'] )===FALSE ) )
 		{
-			if( $update_check ) SitePushErrors::add_error( 'Path not valid - domain map config file not found.', 'error', 'sites_conf' );
+			if( $update_check )
+			{
+				if( file_exists( $options['domain_map_conf'] ) )
+					SitePushErrors::add_error( 'Domain map config file present, but it cannot be read.', 'error', 'sites_conf' );
+				else
+					SitePushErrors::add_error( 'Path not valid - domain map config file not found.', 'error', 'sites_conf' );
+			}
 			$valid = FALSE;
 		}
 
@@ -487,28 +511,35 @@ class SitePushOptions
 		//check wp_content dir
 		$current_content_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_content_dir'];
 		if( WP_CONTENT_DIR <> $current_content_dir )
-			SitePushErrors::add_error( "Warning - currently configured WordPress content directory (".WP_CONTENT_DIR.") is different from the configured uploads directory in your sites config file ($current_content_dir)", 'warning' );
+			SitePushErrors::add_error( "Currently configured WordPress content directory (".WP_CONTENT_DIR.") is different from the configured uploads directory in your sites config file ($current_content_dir)", 'warning' );
 
 		//check uploads dir
 		$uld = wp_upload_dir();
-		$current_uld = $this->current_site_conf['web_path'].$this->current_site_conf['wp_uploads_dir'];
-		if( $uld['basedir'] <> $current_uld )
-			SitePushErrors::add_error( "Warning - currently configured WordPress uploads directory ({$uld['basedir']}) is different from the configured uploads directory in your sites config file ($current_uld)", 'warning' );
+		if( $uld['error'] )
+		{
+			SitePushErrors::add_error( "Could not get path of upload directory. SitePush should still work, but won't be able to push files in your uploads directory. WordPress returned the following error:<br />{$uld['error']}", 'warning' );
+		}
+		else
+		{
+			$current_uld = $this->current_site_conf['web_path'].$this->current_site_conf['wp_uploads_dir'];
+			if( $uld['basedir'] <> $current_uld )
+				SitePushErrors::add_error( "Currently configured WordPress uploads directory ({$uld['basedir']}) is different from the configured uploads directory in your sites config file ($current_uld)", 'warning', 'options' );
+		}
 
 		//check plugins dir
 		$current_plugins_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_plugin_dir'];
 		if( WP_PLUGIN_DIR <> $current_plugins_dir )
-			SitePushErrors::add_error( "Warning - currently configured WordPress plugins directory (".WP_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_plugins_dir)", 'warning' );
+			SitePushErrors::add_error( "Currently configured WordPress plugins directory (".WP_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_plugins_dir)", 'warning' );
 
 		//check mu-plugins dir
 		$current_muplugins_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wpmu_plugin_dir'];
 		if( WPMU_PLUGIN_DIR <> $current_muplugins_dir )
-			SitePushErrors::add_error( "Warning - currently configured WordPress must-use plugins directory (".WPMU_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_muplugins_dir)", 'warning' );
+			SitePushErrors::add_error( "Currently configured WordPress must-use plugins directory (".WPMU_PLUGIN_DIR.") is different from the configured plugins directory in your sites config file ($current_muplugins_dir)", 'warning' );
 
 		//check themes dir
 		$current_themes_dir = $this->current_site_conf['web_path'].$this->current_site_conf['wp_themes_dir'];
 		if( WP_CONTENT_DIR . '/themes' <> $current_themes_dir )
-			SitePushErrors::add_error( "Warning - currently configured WordPress themes directory (".WP_CONTENT_DIR."/themes) is different from the configured themes directory in your sites config file ($current_themes_dir)", 'warning' );
+			SitePushErrors::add_error( "Currently configured WordPress themes directory (".WP_CONTENT_DIR."/themes) is different from the configured themes directory in your sites config file ($current_themes_dir)", 'warning' );
 
 		return ! SitePushErrors::is_error();
 	}
@@ -564,14 +595,19 @@ class SitePushOptions
 	{
 		if( !$conf_file ) return array();
 
-		if( !file_exists($conf_file) )
+		//config file should exist because settings can't be saved unless file is found
+		//however sometimes the file is there but can't be read, so we try to read it
+		//without throwing an error, and then check if parse_ini_file was successful
+
+		//get site info from the sites.conf file
+		$configs = @parse_ini_file($conf_file,TRUE);
+
+		if( FALSE===$configs )
 		{
 			SitePushErrors::add_error( "{$type} config file not found at {$conf_file}" );
 			return array();
 		}
-		//get site info from the sites.conf file
-		$configs = parse_ini_file($conf_file,TRUE);
-		
+
 		//check if conf file has 'all' section and if so merge that config with config for each other section	
 		if( !empty( $configs['all'] ) )
 		{
@@ -650,7 +686,14 @@ class SitePushOptions
 		if( empty($options['wp_uploads_dir']) )
 		{
 			$uld = wp_upload_dir();
-			$options['wp_uploads_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', $uld['basedir'] );
+			if( $uld['error'] )
+			{
+				$options['wp_uploads_dir'] = 'ERROR';
+			}
+			else
+			{
+				$options['wp_uploads_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', $uld['basedir'] );
+			}
 		}
 		if( empty($options['wp_themes_dir']) ) $options['wp_themes_dir'] = $options['wp_dir'] . '/' . str_replace( ABSPATH, '', get_theme_root() );
 
@@ -987,13 +1030,139 @@ class SitePushOptions
 	}
 
 	/**
-	 * Trim elements of an array
+	 * Get information about the server/environment we are running in to help with debug
 	 *
-	 * @param $value
+	 * @return string
 	 */
-	private function trim_array(&$value)
+	public function get_server_info()
 	{
-		$value = trim($value);
+		$safe_mode = ini_get('safe_mode');
+
+		//SitePush info
+		$output = "SitePush version: {$this->get_plugin_version()}<br />";
+		$output .= "SitePush options: " . ($this->OK ? 'OK' : 'not OK' ) . "<br />";
+
+		//WordPress info
+		$output .= "WordPress version: " . get_bloginfo('version') . "<br />";
+		$output .= "WordPress multisite: " . ( is_multisite() ? 'Yes' : 'No' ) . "<br />";
+		$output .= "Site: " . get_bloginfo('name') . "<br />";
+
+		//PHP & server info
+		$output .= "PHP version: " . phpversion() . "<br />";
+		$output .= "PHP safe mode: " . ( $safe_mode ? "on" : "off" ) . "<br />" ;
+		if( !$safe_mode )
+		{
+			$output .= "Server user: " . shell_exec('whoami') . "<br />";
+			$output .= "Server groups: " . shell_exec('id') . "<br />";
+		}
+		$output .= "Server: " . php_uname() . "<br />";
+
+		//more WordPress info
+		$output .= "SitePush dir: " . SITEPUSH_PLUGIN_DIR . "</br />";
+		$output .= "WordPress abspath: " . ABSPATH . "</br />";
+
+		//check presence and permissions of config files
+		$files = array( 'sites_conf', 'dbs_conf', 'domain_map_conf' );
+		foreach( $files as $file )
+		{
+			$info = $this->get_file_info( $this->$file );
+			$readable = is_readable( $this->$file ) ? ' (readable' : ' (file not readable';
+			$parseable = @parse_ini_file( $this->$file ) ? '/parseable)' : '/file not parseable)';
+			if( $info )
+				$output .= "{$file}: {$info}{$readable}{$parseable}<br />";
+		}
+
+		//check presence and permissions of wp-config
+		if( file_exists( ABSPATH . 'wp-config.php' ) )
+			$info = $this->get_file_info( ABSPATH . 'wp-config.php' );
+		elseif ( file_exists( dirname(ABSPATH) . '/wp-config.php' ) && ! file_exists( dirname(ABSPATH) . '/wp-settings.php' ) )
+			$info = $this->get_file_info( dirname(ABSPATH) . '/wp-config.php' );
+		else
+			$info = '';
+
+		if( $info )
+			$output .= "wp-config: " . $info . "<br />";
+		else
+			$output .= "wp-config: could not get file info<br />";
+
+		//config for this site
+		$output .= "SitePush config for this site follows: <pre>" . print_r($this->current_site_conf,TRUE) . "</pre><br />";
+
+		//custom code output
+		if( SITEPUSH_DEBUG && ! empty( $this->debug_custom_code ) )
+		{
+			$result = $this->run_custom_code();
+			$output .= "Custom code return value: " . $result['return'] . "<br />";
+			$output .= "Custom code output follows: <pre>" . $result['output'] . "</pre><br />";
+		}
+
+		return $output;
+	}
+
+	/**
+	 * Get info about a file
+	 *
+	 * @param string $file
+	 *
+	 * @return string
+	 */
+	public function get_file_info( $file='' )
+	{
+		if( !$file ) return '';
+
+		if( !file_exists($file) )
+			return 'file not found';
+
+		$perms = substr(sprintf('%o', fileperms($file)), -4);
+		$uid = fileowner($file);
+		$gid = filegroup($file);
+
+		if( function_exists('posix_getpwuid') && function_exists('posix_getgrgid') )
+		{
+			$owner = posix_getpwuid($uid);
+			$owner = $owner['name'];
+			$group = posix_getgrgid($gid);
+			$group = $group['name'];
+		}
+		else
+		{
+			$owner = '???';
+			$group = '???';
+		}
+
+		return "{$perms} {$owner}({$uid}) {$group}({$gid})";
+	}
+
+	/**
+	 * Allows custom PHP code to be run for debug purposes
+	 *
+	 * Code will only be run if SITEPUSH_DEBUG mode is TRUE, and there is code present
+	 * in the custom code debug field of the options screen
+	 *
+	 * @return array result and output of code, or empty array if nothing run
+	 */
+	public function run_custom_code()
+	{
+		if( !SITEPUSH_DEBUG || empty( $this->debug_custom_code) ) return array();
+
+		//capture any output from the code
+		ob_start();
+
+		$result =  eval( $this->debug_custom_code );
+
+		//make sure we see certain results:
+		if( FALSE===$result )
+			$result = 'FALSE';
+		elseif( TRUE===$result )
+			$result = 'TRUE';
+		elseif( is_null($result) )
+			$result = 'NULL';
+
+		//get any output and clear the output buffer
+		$output = ob_get_contents();
+		ob_end_clean();
+
+		return array( 'output'=>$output, 'return'=>$result );
 	}
 
 }

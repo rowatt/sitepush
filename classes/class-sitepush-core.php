@@ -228,10 +228,10 @@ class SitePushCore
 		//last minute error checking
 		if( $db_source['name'] == $db_dest['name'] )
 			SitePushErrors::add_error( 'Database not pushed. Source and destination databases cannot be the same.', 'fatal-error' );
-		if( ! shell_exec("{$this->options->mysql_path} --version") )
-			SitePushErrors::add_error( 'mysql not found or not configured properly.' );
-		if( ! shell_exec("{$this->options->mysqldump_path} --version") )
-			SitePushErrors::add_error( 'mysqldump not found or not configured properly.' );
+		if( ! @shell_exec("{$this->options->mysql_path} --version") )
+			SitePushErrors::add_error( 'mysql not found, not configured properly or PHP safe mode is preventing it from being run.' );
+		if( ! @shell_exec("{$this->options->mysqldump_path} --version") )
+			SitePushErrors::add_error( 'mysqldump not found, not configured properly or PHP safe mode is preventing it from being run.' );
 		if( SitePushErrors::is_error() ) return FALSE;
 
 		//work out which table(s) to push
@@ -768,9 +768,9 @@ class SitePushCore
 		$dest_path = $this->trailing_slashit( $dest_path );
 
 		//check that rsync is present
-		if( !shell_exec("{$this->options->rsync_path} --version") )
+		if( ! @shell_exec("{$this->options->rsync_path} --version") )
 		{
-			SitePushErrors::add_error( 'rsync not found or not configured properly.', 'error' );
+			SitePushErrors::add_error( 'rsync not found, not configured properly or PHP safe mode is preventing it from being run', 'error' );
 			return FALSE;
 		}
 
@@ -866,7 +866,11 @@ class SitePushCore
 				continue;
 			}
 
-			if( file_exists( $dest_file_path ) && md5_file( $source_file_path ) ===  md5_file( $dest_file_path ) ) continue;
+			if( file_exists( $dest_file_path ) && md5_file( $source_file_path ) ===  md5_file( $dest_file_path ) )
+			{
+				$this->add_result("php_rsyc: did not copy (files are the same)  {$source_file_path} -> {$dest_file_path}",5);
+				continue;
+			}
 
 			$this->add_result("php_rsync: {$source_file_path} -> {$dest_file_path}",4);
 			if( !copy( $source_file_path, $dest_file_path ) )
@@ -892,16 +896,25 @@ class SitePushCore
 					foreach($del_files as $del_file)
 					{
 						if ($del_file->isDir())
-							rmdir($del_file->getRealPath());
+						{
+							$rp = $del_file->getRealPath();
+							rmdir($rp);
+							$this->add_result("php_rsync: removing empty directory {$rp}",4);
+						}
 						else
-							unlink($del_file->getRealPath());
+						{
+							$rp = $del_file->getRealPath();
+							unlink($rp);
+							$this->add_result("php_rsync: deleting file {$rp}",5);
+						}
 					}
 
-					$this->add_result("php_rsync: deleting {$dest_file_path}",4);
+					$this->add_result("php_rsync: removing empty directory {$dest_file_path}",4);
 					rmdir( $dest_file_path );
 				}
 				else
 				{
+					$this->add_result("php_rsync: deleting file {$dest_file_path}",5);
 					unlink( $dest_file_path );
 				}
 			}

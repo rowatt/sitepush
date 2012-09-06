@@ -46,7 +46,7 @@ class SitePushPlugin
 		add_action('admin_menu', array( &$this, 'register_options_menu_help') );
 		add_action('admin_head', array( &$this, 'add_plugin_js') );
 
-		add_action('admin_notices',array( &$this, 'show_warnings'));
+		add_action('admin_notices',array( &$this, 'show_admin_warnings'));
 
 		//uninstall
 		register_uninstall_hook(__FILE__, array( __CLASS__, 'uninstall') );
@@ -82,6 +82,9 @@ class SitePushPlugin
 			//content filters
 			add_filter('the_content', array( &$this, 'fix_site_urls') );
 		}
+
+		if( SITEPUSH_DEBUG)
+			SitePushErrors::add_error( "Warning: SitePush debug mode is enabled.", 'important' );
 
 		//constant to show if we show multisite features
 		//in future we may allow for not showing multisite features even if running in multisite mode
@@ -1157,6 +1160,24 @@ class SitePushPlugin
 			'sitepush_options',
 			'sitepush_section_mysql'
 		);
+
+		/* Debug stuff */
+		if( SITEPUSH_DEBUG )
+		{
+			add_settings_section(
+				'sitepush_section_debug',
+				'Debug',
+				array( $options_screen, 'section_debug_text' ),
+				'sitepush_options'
+			);
+			add_settings_field(
+				'sitepush_field_debug_custom_code',
+				'Custom debug code',
+				array( $options_screen, 'field_debug_custom_code' ),
+				'sitepush_options',
+				'sitepush_section_debug'
+			);
+		}
 	}
 	
 	/**
@@ -1165,15 +1186,18 @@ class SitePushPlugin
 	 *
 	 * @return void
 	 */
-	public function show_warnings()
+	public function show_admin_warnings()
 	{
 		//don't show warnings if user can't admin SitePush
 		if( ! current_user_can( $this->options->admin_capability ) ) return;
 
+		//make sure any important warnings are shown throughout WordPress admin
+		echo SitePushErrors::errors('important');
+
 		$error = $this->check_wp_config();
 
 		if( $error )
-		    echo "<div id='sitepush-error' class='error'><p>{$error}</p></div>";
+			echo SitePushErrors::get_error_html( $error, 'error' );
 	}
 
 	/**
