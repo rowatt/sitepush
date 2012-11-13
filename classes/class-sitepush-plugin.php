@@ -348,7 +348,8 @@ class SitePushPlugin
 	 */
 	function fix_site_urls( $content='' )
 	{
-		if( !$this->options->fix_site_urls ) return $content;
+
+		if( !$this->options->fix_site_urls || is_admin() ) return $content;
 		
 		foreach( $this->options->all_domains as $domain )
 		{
