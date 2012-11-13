@@ -411,6 +411,10 @@ If you do have problems with timeouts, you can also try pushing things separatel
 
 == Changelog ==
 
+= 0.4.1 (2012-11-13) =
+* bugfixes relating to URL replacement when pushing multisite installs
+* improvements to URL replacement, SitePush now replaces URLs in widgets, nav_menus and any URL passed through clean_url()
+
 = 0.4 (2012-09-06) =
 * SitePush no longer depends on rsync to push files. If you don't have rsync on your server, SitePush will copy files using PHP.
 * You can now define custom groups of database tables to push, allowing any custom tables created by plugins to be pushed without pushing the whole database.
@@ -423,6 +427,9 @@ If you do have problems with timeouts, you can also try pushing things separatel
 
 
 == Upgrade Notice ==
+
+= 0.4.1 =
+Bugfixes and improvements to URL replacement.
 
 = 0.4 =
 SitePush no longer depends on rsync to push files, and allows you to define custom groups of DB tables to push. Many bugfixes and improved error reporting.
