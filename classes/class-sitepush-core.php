@@ -635,6 +635,7 @@ class SitePushCore
 		$spdb->set_prefix( $table_prefix );
 
 		$sitepush_replace_urls = $sitepush_domain_map[ $this->dest ];
+		$sitepush_replace_urls = array_unique($sitepush_replace_urls); //remove any duplicates
 		unset( $sitepush_domain_map[ $this->dest ] );
 		$sitepush_search_sites = array_keys( $sitepush_domain_map );
 
