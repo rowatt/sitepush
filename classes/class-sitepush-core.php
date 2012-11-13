@@ -638,7 +638,7 @@ class SitePushCore
 		unset( $sitepush_domain_map[ $this->dest ] );
 		$sitepush_search_sites = array_keys( $sitepush_domain_map );
 
-		$blogs = $spdb->get_results( $spdb->prepare("SELECT blog_id FROM $spdb->blogs"), ARRAY_A );
+		$blogs = $spdb->get_results( "SELECT blog_id FROM {$spdb->blogs}", ARRAY_A );
 
 		//cycle through each domain for this site
 		foreach( $sitepush_replace_urls as $site_id=>$sitepush_replace_url )
