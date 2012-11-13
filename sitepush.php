@@ -3,7 +3,7 @@
 Plugin Name: SitePush
 Plugin URI: http://rowatt.com/sitepush
 Description: Easily move code and content between versions of a site
-Version: 0.4
+Version: 0.4.1
 Author: Mark Rowatt Anderson
 Author URI: http://rowatt.com
 License: GPL2
@@ -44,7 +44,7 @@ if( is_admin() )
 //if basename using __FILE__ has more than one '/' we probably
 //have symlinks, in which case we have to assume that plugin is at
 //sitepush/sitepush.php - so don't change dir if using symlinks!
-if( substr_count(plugin_basename(__FILE__), '/') <= 1 )
+if( substr_count(plugin_basename(__FILE__), DIRECTORY_SEPARATOR) <= 1 )
 	define('SITEPUSH__FILE', __FILE__);
 else
 	define('SITEPUSH__FILE', WP_PLUGIN_DIR . '/' . 'sitepush/sitepush.php' );

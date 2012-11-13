@@ -79,8 +79,26 @@ class SitePushPlugin
 			//override plugin activate/deactivate for plugins we are managing
 			add_filter( 'plugin_action_links', array( &$this, 'plugin_admin_override'), 10, 2 );
 
-			//content filters
-			add_filter('the_content', array( &$this, 'fix_site_urls') );
+			/*
+			 * Content filters - these filters try to catch any instances of URLs for a different site from the one being used,
+			 * for example, dev.example.com if you are viewing live.example.com. However, themes, plugins, widgets etc which output HTML
+			 * without running it through a filter are hard to catch, so this may not convert all URLs properly.
+			 */
+			if( $this->options->fix_site_urls )
+			{
+				//main post content
+				add_filter('the_content', array( &$this, 'fix_site_urls') );
+
+ 				//nav menus
+				add_filter('wp_nav_menu', array( &$this, 'fix_site_urls') );
+
+				//text widget
+				add_filter('widget_text', array( &$this, 'fix_site_urls') );
+
+				//catch all - any other URLs which have been run through esc_url or esc_url_raw
+				//includes header image
+				add_filter('clean_url', array( &$this, 'fix_site_urls') );
+			}
 		}
 
 		//check for debug mode
@@ -348,7 +366,8 @@ class SitePushPlugin
 	 */
 	function fix_site_urls( $content='' )
 	{
-		if( !$this->options->fix_site_urls ) return $content;
+
+		if( !$this->options->fix_site_urls || is_admin() ) return $content;
 		
 		foreach( $this->options->all_domains as $domain )
 		{
