@@ -750,11 +750,14 @@ class SitePushOptions
 			$current_site = $default;
 		
 		if( !$current_site )
+		{
 			SitePushErrors::add_error( "This site ({$_SERVER['SERVER_NAME']}) is not recognised and you have not set a default in your sites config. Please make sure the domain or domains[] parameters are set to {$_SERVER['SERVER_NAME']} for one site, or that one site is set as the default site." );
-
-		$this->current_site = $current_site;
-
-		$this->current_site_conf = $this->sites[ $current_site ];
+		}
+		else
+		{
+			$this->current_site = $current_site;
+			$this->current_site_conf = $this->sites[ $current_site ];
+		}
 
 		return (bool) $current_site;
 	}
