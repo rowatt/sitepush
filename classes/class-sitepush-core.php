@@ -226,7 +226,7 @@ class SitePushCore
 		$db_dest = $this->options->get_db_params( $this->dest );
 
 		//last minute error checking
-		if( $db_source['name'] == $db_dest['name'] )
+		if( $db_source['name'] == $db_dest['name'] && gethostbyname($db_source['host']) == gethostbyname($db_dest['host']) )
 			SitePushErrors::add_error( 'Database not pushed. Source and destination databases cannot be the same.', 'fatal-error' );
 		if( ! @shell_exec("{$this->options->mysql_path} --version") )
 			SitePushErrors::add_error( 'mysql not found, not configured properly or PHP safe mode is preventing it from being run.' );
