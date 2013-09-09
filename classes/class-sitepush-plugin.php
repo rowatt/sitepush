@@ -192,6 +192,9 @@ class SitePushPlugin
 	 */
 	public function register_options_menu_help()
 	{
+		//don't show SitePush in wp-admin if SITEPUSH_HIDE is TRUE
+		if( defined('SITEPUSH_HIDE') && SITEPUSH_HIDE ) return;
+
 		//instantiate menu classes
 		$push_screen = new SitePush_Push_Screen( $this );
 		$options_screen = new SitePush_Options_Screen( $this );
