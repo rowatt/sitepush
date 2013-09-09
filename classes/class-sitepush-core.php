@@ -322,6 +322,7 @@ class SitePushCore
 				$cache_path = $this->trailing_slashit($this->dest_params['web_path']) . ltrim($this->trailing_slashit($cache),'/');
 				if( file_exists($cache_path) )
 				{
+					//@todo will not work on Windows, use PHP instead, but will need to recurse all files to delete
 					$command = $this->make_remote("rm -rf {$cache_path}*");
 					$this->add_result( "Clearing file cache ({$cache}) on {$this->dest_params['label']}", 1 );
 					$result = $this->my_exec($command);
@@ -415,6 +416,7 @@ class SitePushCore
 			$backup_file = "{$this->dest_backup_path}/{$this->dest}-{$this->timestamp}-file-{$backup_name}.tgz";
 
 			//create the backup command
+			//@todo will not work on Windows, replace with PHP ZipArchive class
 			$command = $this->make_remote("cd '{$path}'; cd ..; tar -czf '{$backup_file}' '{$dir}'; chmod 400 '{$backup_file}'");
 			
 			//run the backup command
