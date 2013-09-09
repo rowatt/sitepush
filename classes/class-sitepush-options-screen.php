@@ -65,7 +65,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function section_cache_text()
 	{
-		echo '<p class="description">If the destination site uses <a href="http://wordpress.org/extend/plugins/w3-total-cache/" target="_blank">W3 Total Cache</a> or <a href="http://wordpress.org/extend/plugins/wp-super-cache/" target="_blank">WP Super Cache</a>, SitePush can can clear the cache immediately after a push.<br />To enable this, you must set the cache secret key below, and also set the cache parameter to <i>yes</i> in your sites config file for at least one site.</p>';
+		echo '<p class="description">If the destination site uses <a href="http://wordpress.org/extend/plugins/w3-total-cache/" target="_blank">W3 Total Cache</a> or <a href="http://wordpress.org/extend/plugins/wp-super-cache/" target="_blank">WP Super Cache</a>, SitePush can can clear the cache immediately after a push.<br />To enable this, you must set the cache secret key below, and also set the cache parameter to <i>yes</i> in your sites config file for at least one site.<br /><b>Note</b> - SitePush must be installed and activated on the destination site for this to work.</p>';
 	}
 
 	function section_rsync_text()
@@ -87,7 +87,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 	{
 		$others = '';
 
-		echo '<p class="description">SitePush can force certain plugins to be on or off on different versions of the site. This is useful, for example to ensure that a cache plugin is only active on your live site, or to ensure that a Google Analytics plugin is never turned on for a development site.</p>';
+		echo '<p class="description">SitePush can force certain plugins to be on or off on different versions of the site. This is useful, for example to ensure that a cache plugin is only active on your live site, or to ensure that a Google Analytics plugin is never turned on for a development site.<b>Note</b> - SitePush must be installed and activated on a site to enable it to activate or deactivate plugins for that site.</p>';
 
 		foreach( $this->get_other_plugins() as $plugin )
 		{
@@ -141,7 +141,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_fix_site_urls()
 	{
-		echo $this->input_checkbox('fix_site_urls', ' Convert site URLs to link to current site', 'Make sure that any URLs to any of your sites domains link to the current site. <br />For example http://dev.example.com/mypage would be converted to http://www.example.com/mypage when viewing www.example.com.<br />This helps to make sure that URLs work across different versions of your sites.<br />If a site has more than one domain defined, URLs will be converted to the first domain given for that site in your sites config file.');
+		echo $this->input_checkbox('fix_site_urls', ' Convert site URLs to link to current site', 'Make sure that any URLs to any of your sites domains link to the current site.<br /><b>Note</b> - this does not make any changes to links in your database, and SitePush must be installed and active on any site you wish URLs to be fixed on.<br />For example http://dev.example.com/mypage would be converted to http://www.example.com/mypage when viewing www.example.com.<br />This helps to make sure that URLs work across different versions of your sites.<br />If a site has more than one domain defined, URLs will be converted to the first domain given for that site in your sites config file.');
 	}
 
 	function field_timezone()
@@ -169,7 +169,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_only_admins_login_to_live()
 	{
-		echo $this->input_checkbox('only_admins_login_to_live', ' Only admins can login to live sites', 'Prevent login to any site labelled as <i>live</i> (in site config file) by any user who does not have the SitePush admin capability.');
+		echo $this->input_checkbox('only_admins_login_to_live', ' Only admins can login to live sites', 'Prevent login to any site labelled as <i>live</i> (in site config file) by any user who does not have the SitePush admin capability. <b>Note</b> - SitePush must be installed and activated on the live site for this to work.');
 	}
 
 	function field_non_admin_exclude_comments()
@@ -270,7 +270,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $this->options->rsync_path && file_exists($this->options->rsync_path) )
 			$rsync_help = 'Path to rsync binary on this server. The current path appears to be OK.';
 		elseif( $this->options->rsync_path && ! file_exists($this->options->rsync_path) )
-			$rsync_help = '<b>rsync was not found or not readable at this path!</b> Please make sure you enter the correct path to the rsync binary, e.g. /usr/bin/rsync, or leave blank.';
+			$rsync_help = '<b>rsync was not found or not readable at this path!</b> Please make sure you enter the correct path to the rsync binary/executable, e.g. /usr/bin/rsync, or leave blank.';
 		else
 			$rsync_help = 'If you have rsync installed on this server, enter a path to the rsync binary, e.g. /usr/bin/rsync. Leave blank if you do not want to use rsync.';
 
@@ -288,7 +288,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $this->options->mysql_path && file_exists($this->options->mysql_path) )
 			$help .= 'The current path appears to be OK.';
 		elseif( $this->options->mysql_path && ! file_exists($this->options->mysql_path) )
-			$help .= '<b>mysql was not found or not readable at this path!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysql, or leave blank.';
+			$help .= '<b>mysql was not found or not readable at this path!</b> Please make sure you enter the correct path to the mysql binary/executable, e.g. /usr/bin/mysql, or leave blank.';
 		else
 			$help .= ' Please enter a path to mysql, e.g. /usr/bin/mysql, or leave blank.';
 
@@ -301,7 +301,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 		if( $this->options->mysqldump_path && file_exists($this->options->mysqldump_path) )
 			$help .= 'The current path appears to be OK.';
 		elseif( $this->options->mysqldump_path && ! file_exists($this->options->mysqldump_path) )
-			$help .= '<b>mysqldump was not found or not readable at this path!</b> Please make sure you enter the correct path, e.g. /usr/bin/mysqldump, or leave blank.';
+			$help .= '<b>mysqldump was not found or not readable at this path!</b> Please make sure you enter the correct path to the mysqldump binary/executable, e.g. /usr/bin/mysqldump, or leave blank.';
 		else
 			$help .= ' Please enter a path to mysqldump, e.g. /usr/bin/mysqldump, or leave blank.';
 
