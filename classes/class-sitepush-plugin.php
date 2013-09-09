@@ -516,7 +516,8 @@ class SitePushPlugin
 		$push_files = FALSE;
 		$results = array(); //should be empty at end if everything worked as expected
 		$db_types = array();
-		
+
+		$this->do_action( 'push_begin', $my_push, $push_options );
 
 	/* -------------------------------------------------------------- */
 	/* !Push WordPress Files */
@@ -561,7 +562,9 @@ class SitePushPlugin
 		//do the push
 		if( $push_files )
 		{
+			$this->do_action( 'pre_push_files', $my_push, $push_options );
 			$results[] = $my_push->push_files();
+			$this->do_action( 'post_push_files', $my_push, $push_options );
 			$done_push = TRUE;
 		}
 
@@ -605,7 +608,9 @@ class SitePushPlugin
 			}
 
 			//push DB
+			$this->do_action( 'pre_push_db', $my_push, $push_options );
 			$results[] = $my_push->push_db( $db_types );
+			$this->do_action( 'post_push_db', $my_push, $push_options );
 			$done_push = TRUE;
 		}
 
@@ -613,9 +618,15 @@ class SitePushPlugin
 	/* !Clear Cache */
 	/* -------------------------------------------------------------- */
 		if( $push_options['clear_cache'] && $this->options->cache_key )
+		{
+			$this->do_action( 'pre_clear_cache', $my_push, $push_options );
 			$my_push->clear_cache();
+			$this->do_action( 'post_clear_cache', $my_push, $push_options );
+		}
 		elseif( $push_options['clear_cache'] && ! $this->options->cache_key )
+		{
 			SitePushErrors::add_error( "Could not clear the destination cache because the cache secret key is not set.", 'warning' );
+		}
 
 	/* -------------------------------------------------------------- */
 	/* !Other things to do */
@@ -657,6 +668,8 @@ class SitePushPlugin
 			$time_took = "{$duration} seconds";
 
 		$my_push->add_result( "Push took {$time_took}", 1 );
+
+		$this->do_action( 'push_complete', $my_push, $push_options );
 
 		return SitePushErrors::is_error() ? FALSE : $done_push;
 	}
@@ -1316,6 +1329,23 @@ class SitePushPlugin
 
 		//not allowed to login, so throw error and block login
 		return new WP_Error('login_blocked', __('You cannot login to this site. Please contact the site admin for more information.'));
+	}
+
+	/**
+	 * Add an action hook for this plugin.
+	 *
+	 * All hooks are prefixed 'sitepush_' and make the following vars available:-
+	 *      - $this->options SitePushOptions the main options object containing all configured options for SitePush
+	 *      - $my_push
+	 *      - $push_options
+	 *
+	 * @param $tag string name of action
+	 * @param $my_push SitePushCore current instance of SitePushCore object
+	 * @param $push_options array containing options for current push
+	 */
+	private function do_action( $tag, $my_push, $push_options )
+	{
+		do_action( 'sitepush_' . $tag , $this->options, $my_push, $push_options );
 	}
 }
 
