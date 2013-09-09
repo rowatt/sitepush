@@ -222,10 +222,16 @@ class SitePushCore
 	 */
 	public function push_db( $table_groups=array() )
 	{
-		$db_source = $this->options->get_db_params( $this->source );
-		$db_dest = $this->options->get_db_params( $this->dest );
+		$db_source = $this->options->get_db_params_for_site( $this->source );
+		$db_dest = $this->options->get_db_params_for_site( $this->dest );
 
 		//last minute error checking
+		if( !$db_source )
+			SitePushErrors::add_error( 'Database not pushed. DB config for source site is empty.', 'fatal-error' );
+		if( !$db_dest )
+			SitePushErrors::add_error( 'Database not pushed. DB config for destination site is empty.', 'fatal-error' );
+		if( SitePushErrors::is_error() ) return FALSE;
+
 		if( $db_source['name'] == $db_dest['name'] && gethostbyname($db_source['host']) == gethostbyname($db_dest['host']) )
 			SitePushErrors::add_error( 'Database not pushed. Source and destination databases cannot be the same.', 'fatal-error' );
 		if( ! @shell_exec("{$this->options->mysql_path} --version") )
@@ -626,7 +632,7 @@ class SitePushCore
 		}
 
 		//create a new WPDB object for the database we are pushing to
-		$db_dest = $this->options->get_db_params( $this->dest );
+		$db_dest = $this->options->get_db_params_for_site( $this->dest );
 		$dest_host = empty($db_dest['host']) ? DB_HOST : $db_dest['host'];
 		$spdb = new wpdb( $db_dest['user'], $db_dest['pw'], $db_dest['name'], $dest_host );
 
@@ -1096,8 +1102,8 @@ class SitePushCore
 	{
 		if( !$this->hide_passwords ) return $command;
 
-		$db_source = $this->options->get_db_params( $this->source );
-		$db_dest = $this->options->get_db_params( $this->dest );
+		$db_source = $this->options->get_db_params_for_site( $this->source );
+		$db_dest = $this->options->get_db_params_for_site( $this->dest );
 
 		if( !$db_source || !$db_dest ) return $command;
 

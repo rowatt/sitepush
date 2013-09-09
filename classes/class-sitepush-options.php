@@ -947,12 +947,12 @@ class SitePushOptions
 	 * @param string $site
 	 * @return array DB config for site
 	 */	
-	private function get_db_params_for_site( $site )
+	public function get_db_params_for_site( $site )
 	{
 		if( !array_key_exists($site, $this->sites) )
-			SitePushErrors::add_error( 'Tried to get DB params for site {$site}, but site does not exist.', 'fatal-error' );
-		
-		return $this->dbs[ $this->sites[$site]['db'] ];
+			trigger_error("Tried to get DB params for site {$site}, but site does not exist.", E_USER_WARNING);
+
+		return $this->get_db_params( $this->sites[$site]['db'] );
 	}
 
 	/**
@@ -961,7 +961,7 @@ class SitePushOptions
 	 * @param string $db name of database settings
 	 * @return array
 	 */
-	public function get_db_params( $db )
+	private function get_db_params( $db )
 	{
 		if( array_key_exists($db,$this->dbs) )
 		{
@@ -970,6 +970,7 @@ class SitePushOptions
 		}
 		else
 		{
+			trigger_error("Tried to get database params for non existent config ({$db})", E_USER_WARNING);
 			$result = array();
 		}
 
