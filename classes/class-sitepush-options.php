@@ -421,6 +421,11 @@ class SitePushOptions
 			$valid = FALSE;
 		}
 
+		if( !$this->validate_plugin_deactivates( $options ) )
+		{
+			if( $update_check ) SitePushErrors::add_error( 'You cannot have SitePush try to deactivate itself. Please remove SitePush from the Deactivate Plugins options.', 'error', 'plugin_deactivates' );
+			$valid = FALSE;
+		}
 		if( !$this->validate_db_custom_table_groups( $options ) )
 		{
 			if( $update_check ) SitePushErrors::add_error( 'Custom database table groups is not in the correct format.', 'error', 'backup_path' );
@@ -479,6 +484,27 @@ class SitePushOptions
 		}
 
 		return $valid && !SitePushErrors::is_error();
+	}
+
+	/**
+	 * Make sure we aren't trying to have SitePush deactivate SitePush
+	 *
+	 * @param array $options
+	 *
+	 * @return bool
+	 */
+	private function validate_plugin_deactivates( $options=array() )
+	{
+		//nothing set, which is OK
+		if( empty($options['plugins']['deactivate']) )
+			return TRUE;
+
+		foreach( $options['plugins']['deactivate'] as $plugin )
+		{
+			if( strpos( $plugin, 'sitepush.php' ) !== FALSE ) return FALSE;
+		}
+
+		return TRUE;
 	}
 
 	private function validate_db_custom_table_groups( $options=array() )
