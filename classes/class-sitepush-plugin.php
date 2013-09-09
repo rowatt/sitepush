@@ -1075,6 +1075,14 @@ class SitePushPlugin
 			'sitepush_section_capabilities'
 		);
 
+		add_settings_field(
+			'sitepush_field_hide_push_options',
+			'Restrict push options',
+			array( $options_screen, 'field_hide_push_options' ),
+			'sitepush_options',
+			'sitepush_section_capabilities'
+		);
+
 		/* Cache option fields */
 		add_settings_section(
 			'sitepush_section_cache',

@@ -48,6 +48,7 @@ class SitePushOptions
 
 	public $plugins;
 
+	public $hide_push_options_array = array();
 	public $db_custom_table_groups_array = array();
 
 	public $backup_path;
@@ -243,6 +244,11 @@ class SitePushOptions
 		//Backup Options
 		if( !array_key_exists( 'backup_path', $options ) ) $options['backup_path'] = '';
 		if( !array_key_exists( 'backup_keep_time', $options ) || ''==$options['backup_keep_time'] ) $options['backup_keep_time'] = 10;
+
+		//Hide Push Options
+		if( !array_key_exists( 'hide_push_options', $options ) ) $options['hide_push_options'] = '';
+		if( $options['hide_push_options'] )
+			$this->hide_push_options_array = array_map( 'trim', explode( ',', $options['hide_push_options'] ) );
 
 		//Custom DB tables options
 		if( !array_key_exists( 'db_custom_table_groups', $options ) ) $options['db_custom_table_groups'] = '';
