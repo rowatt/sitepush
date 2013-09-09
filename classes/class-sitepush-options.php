@@ -48,6 +48,7 @@ class SitePushOptions
 
 	public $plugins;
 
+	public $hide_push_options_array = array();
 	public $db_custom_table_groups_array = array();
 
 	public $backup_path;
@@ -244,6 +245,11 @@ class SitePushOptions
 		if( !array_key_exists( 'backup_path', $options ) ) $options['backup_path'] = '';
 		if( !array_key_exists( 'backup_keep_time', $options ) || ''==$options['backup_keep_time'] ) $options['backup_keep_time'] = 10;
 
+		//Hide Push Options
+		if( !array_key_exists( 'hide_push_options', $options ) ) $options['hide_push_options'] = '';
+		if( $options['hide_push_options'] )
+			$this->hide_push_options_array = array_map( 'trim', explode( ',', $options['hide_push_options'] ) );
+
 		//Custom DB tables options
 		if( !array_key_exists( 'db_custom_table_groups', $options ) ) $options['db_custom_table_groups'] = '';
 		if( $options['db_custom_table_groups'] )
@@ -415,6 +421,11 @@ class SitePushOptions
 			$valid = FALSE;
 		}
 
+		if( !$this->validate_plugin_deactivates( $options ) )
+		{
+			if( $update_check ) SitePushErrors::add_error( 'You cannot have SitePush try to deactivate itself. Please remove SitePush from the Deactivate Plugins options.', 'error', 'plugin_deactivates' );
+			$valid = FALSE;
+		}
 		if( !$this->validate_db_custom_table_groups( $options ) )
 		{
 			if( $update_check ) SitePushErrors::add_error( 'Custom database table groups is not in the correct format.', 'error', 'backup_path' );
@@ -473,6 +484,27 @@ class SitePushOptions
 		}
 
 		return $valid && !SitePushErrors::is_error();
+	}
+
+	/**
+	 * Make sure we aren't trying to have SitePush deactivate SitePush
+	 *
+	 * @param array $options
+	 *
+	 * @return bool
+	 */
+	private function validate_plugin_deactivates( $options=array() )
+	{
+		//nothing set, which is OK
+		if( empty($options['plugins']['deactivate']) )
+			return TRUE;
+
+		foreach( $options['plugins']['deactivate'] as $plugin )
+		{
+			if( strpos( $plugin, 'sitepush.php' ) !== FALSE ) return FALSE;
+		}
+
+		return TRUE;
 	}
 
 	private function validate_db_custom_table_groups( $options=array() )
@@ -750,11 +782,14 @@ class SitePushOptions
 			$current_site = $default;
 		
 		if( !$current_site )
+		{
 			SitePushErrors::add_error( "This site ({$_SERVER['SERVER_NAME']}) is not recognised and you have not set a default in your sites config. Please make sure the domain or domains[] parameters are set to {$_SERVER['SERVER_NAME']} for one site, or that one site is set as the default site." );
-
-		$this->current_site = $current_site;
-
-		$this->current_site_conf = $this->sites[ $current_site ];
+		}
+		else
+		{
+			$this->current_site = $current_site;
+			$this->current_site_conf = $this->sites[ $current_site ];
+		}
 
 		return (bool) $current_site;
 	}
@@ -944,12 +979,12 @@ class SitePushOptions
 	 * @param string $site
 	 * @return array DB config for site
 	 */	
-	private function get_db_params_for_site( $site )
+	public function get_db_params_for_site( $site )
 	{
 		if( !array_key_exists($site, $this->sites) )
-			SitePushErrors::add_error( 'Tried to get DB params for site {$site}, but site does not exist.', 'fatal-error' );
-		
-		return $this->dbs[ $this->sites[$site]['db'] ];
+			trigger_error("Tried to get DB params for site {$site}, but site does not exist.", E_USER_WARNING);
+
+		return $this->get_db_params( $this->sites[$site]['db'] );
 	}
 
 	/**
@@ -958,7 +993,7 @@ class SitePushOptions
 	 * @param string $db name of database settings
 	 * @return array
 	 */
-	public function get_db_params( $db )
+	private function get_db_params( $db )
 	{
 		if( array_key_exists($db,$this->dbs) )
 		{
@@ -967,6 +1002,7 @@ class SitePushOptions
 		}
 		else
 		{
+			trigger_error("Tried to get database params for non existent config ({$db})", E_USER_WARNING);
 			$result = array();
 		}
 

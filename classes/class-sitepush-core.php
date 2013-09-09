@@ -222,10 +222,16 @@ class SitePushCore
 	 */
 	public function push_db( $table_groups=array() )
 	{
-		$db_source = $this->options->get_db_params( $this->source );
-		$db_dest = $this->options->get_db_params( $this->dest );
+		$db_source = $this->options->get_db_params_for_site( $this->source );
+		$db_dest = $this->options->get_db_params_for_site( $this->dest );
 
 		//last minute error checking
+		if( !$db_source )
+			SitePushErrors::add_error( 'Database not pushed. DB config for source site is empty.', 'fatal-error' );
+		if( !$db_dest )
+			SitePushErrors::add_error( 'Database not pushed. DB config for destination site is empty.', 'fatal-error' );
+		if( SitePushErrors::is_error() ) return FALSE;
+
 		if( $db_source['name'] == $db_dest['name'] && gethostbyname($db_source['host']) == gethostbyname($db_dest['host']) )
 			SitePushErrors::add_error( 'Database not pushed. Source and destination databases cannot be the same.', 'fatal-error' );
 		if( ! @shell_exec("{$this->options->mysql_path} --version") )
@@ -316,6 +322,7 @@ class SitePushCore
 				$cache_path = $this->trailing_slashit($this->dest_params['web_path']) . ltrim($this->trailing_slashit($cache),'/');
 				if( file_exists($cache_path) )
 				{
+					//@todo will not work on Windows, use PHP instead, but will need to recurse all files to delete
 					$command = $this->make_remote("rm -rf {$cache_path}*");
 					$this->add_result( "Clearing file cache ({$cache}) on {$this->dest_params['label']}", 1 );
 					$result = $this->my_exec($command);
@@ -409,6 +416,7 @@ class SitePushCore
 			$backup_file = "{$this->dest_backup_path}/{$this->dest}-{$this->timestamp}-file-{$backup_name}.tgz";
 
 			//create the backup command
+			//@todo will not work on Windows, replace with PHP ZipArchive class
 			$command = $this->make_remote("cd '{$path}'; cd ..; tar -czf '{$backup_file}' '{$dir}'; chmod 400 '{$backup_file}'");
 			
 			//run the backup command
@@ -626,7 +634,7 @@ class SitePushCore
 		}
 
 		//create a new WPDB object for the database we are pushing to
-		$db_dest = $this->options->get_db_params( $this->dest );
+		$db_dest = $this->options->get_db_params_for_site( $this->dest );
 		$dest_host = empty($db_dest['host']) ? DB_HOST : $db_dest['host'];
 		$spdb = new wpdb( $db_dest['user'], $db_dest['pw'], $db_dest['name'], $dest_host );
 
@@ -1096,8 +1104,8 @@ class SitePushCore
 	{
 		if( !$this->hide_passwords ) return $command;
 
-		$db_source = $this->options->get_db_params( $this->source );
-		$db_dest = $this->options->get_db_params( $this->dest );
+		$db_source = $this->options->get_db_params_for_site( $this->source );
+		$db_dest = $this->options->get_db_params_for_site( $this->dest );
 
 		if( !$db_source || !$db_dest ) return $command;
 

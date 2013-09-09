@@ -218,7 +218,6 @@ class SitePush_Push_Screen extends SitePush_Screen
 										$admin_only = FALSE;
 									}
 
-									$checked = empty($_REQUEST[ 'sitepush_db_custom_table_groups' ][$key]) ? 'not_checked' : 'checked';
 									echo $this->option_html( array('sitepush_db_custom_table_groups',$key ), $table_group['label'], $admin_only );
 								}
 							?>
@@ -314,16 +313,19 @@ class SitePush_Push_Screen extends SitePush_Screen
 			$request_empty = empty($_REQUEST[ $option ]);
 		}
 
+		if( in_array( str_replace( 'sitepush_', '', $option ), $this->options->hide_push_options_array ) )
+			return '';
+
+		if( 'admin_only'==$admin_only && ! $this->plugin->can_admin() )
+			return '';
+
 		//set checked either to default, or to last run if we have just done a push
 		if( !empty($_REQUEST['sitepush-nonce']) )
 			$checked_html = $request_empty ? '' : ' checked="checked"';
 		else
 			$checked_html = 'checked'==$checked ? ' checked="checked"' : '';
 	
-		if( 'admin_only'==$admin_only && ! $this->plugin->can_admin() )
-			return '';
-		else
-			return "<label title='{$option}'><input type='checkbox' name='{$option}' value='{$option}'{$checked_html} /> {$label}</label><br />\n";
+		return "<label title='{$option}'><input type='checkbox' name='{$option}' value='{$option}'{$checked_html} /> {$label}</label><br />\n";
 	}
 
 }
