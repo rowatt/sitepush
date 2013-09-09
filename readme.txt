@@ -4,7 +4,7 @@ Contributors: markauk
 Tags: migrate, migration, move, deployment, development, staging, production
 Requires at least: 3.3.1
 Tested up to: 3.6
-Stable tag: 0.4.1
+Stable tag: 0.4.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -458,6 +458,14 @@ If you do have problems with timeouts, you can also try pushing things separatel
 
 == Changelog ==
 
+= 0.4.2 (2013-09-09) =
+* Allow pushing between two databases with same name if the databases are on different hosts. (props wethanet)
+* Fix bug preventing push if database configs have different names from site configs.
+* Add admin option to hide specific push options for all users. Useful for preventing accidental pushing of, say, comments tables if you never want them pushed.
+* Add action hooks so you can run custom code before and after pushing. Note that these hooks only run from the site you are pushing from. See classes/class-sitepush-plugin.php for more info.
+* Don't allow SitePush to be added to the list of plugins to deactivate.
+* Fix PHP Notice.
+
 = 0.4.1 (2012-11-13) =
 * Bugfixes relating to URL replacement when pushing multisite installs.
 * Improvements to URL replacement, SitePush now replaces URLs in widgets, nav_menus and any URL passed through clean_url().
@@ -474,6 +482,9 @@ If you do have problems with timeouts, you can also try pushing things separatel
 
 
 == Upgrade Notice ==
+
+= 0.4.2 =
+Add option to allow hiding of push options, add action hooks for developers, bugfixes and documentation updates.
 
 = 0.4.1 =
 Bugfixes and improvements to URL replacement.
