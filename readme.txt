@@ -3,7 +3,7 @@
 Contributors: markauk
 Tags: migrate, migration, move, deployment, development, staging, production
 Requires at least: 3.3.1
-Tested up to: 3.5
+Tested up to: 3.6
 Stable tag: 0.4.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -22,6 +22,8 @@ SitePush is a WordPress plugin which allows you to have multiple versions of you
 4. easily make small (and big!) code changes on your development site, **test and easily push new code to a live site**. Great for dealing with clients who want "just one more thing".
 
 Although SitePush installation is a bit more involved than a typical plugin, once set up it runs with minimal effort and can be easily used by non-tech authors & editors. Site admins can easily configure SitePush so that non-admins can only push content (i.e. posts/pages, comments and uploads) and to a restricted set of sites.
+
+**Please read the *Installation* instructions before you install SitePush - it's not a normal download and activate type of plugin installation**
 
 
 = Support =
@@ -63,19 +65,27 @@ Details for each step are covered in the sections below.
 
 = Requirements =
 
-SitePush is currently in active development. It has been extensively tested on single site installations on a limited range of servers, but has not been tested on many different setups. Because it uses shell commands to do some of its stuff, there is more chance of things going wrong than with most plugins.
+SitePush uses shell commands to do some of its stuff, so there is more chance of things going wrong than with most plugins. Please check that your set up meets these requirements, and even if it does, please test your setup thoroughly before pushing to a live site.
 
-It is currently well tested on:-
+SitePush is currently well tested on:-
 
-* Linux (Centos 5)
-* MacOS X 10.7 (MAMP)
+* Linux
+* MacOS X (MAMP)
 
-It may not work properly if your host has PHP safe mode enabled. I am currently investigating issues with SitePush on GoDaddy shared hosting - if you are using GoDaddy shared hosting and would like to use SitePush, please contact me.
+SitePush should work on Windows systems, but with the following caveats:-
 
-It is completely untested and will not work:-
+* backup of files will not work
+* clearing of arbitrary cache files will not work (caches[] option in sites config)
+* it is not as well tested on Windows systems
 
-* where you wish to push between sites on different servers. Currently, SitePush must have filesystem access to all sites it pushes to.
-* on Windows based systems (if you would like SitePush to work on Windows and are able to help, please let me know).
+If you would like to help make SitePush work better on Windows systems please let me know.
+
+
+**SitePush will not work in whole or in part**:-
+
+* if your host has PHP safe mode enabled
+* if your host does not allow PHP to execute shell commands
+* to push files between sites on different servers. Currently, SitePush must have filesystem access to all sites it pushes files to. Your databases can, however, be on different servers as long as they are accessible by the site your are pushing from.
 
 It has experimental support for Multisite installs:-
 * it will not run if you have WP_ALLOW_MULTISITE or MULTISITE defined as TRUE in your wp-config file unless you also define SITEPUSH_ALLOW_MULTISITE to TRUE in your wp-config file.
@@ -83,7 +93,7 @@ It has experimental support for Multisite installs:-
 In addition to WordPress (3.3 or greater), PHP (5.2.4 or greater) and mySQL (5.0 or greater) your server must have the following installed:-
 
 * mysql and mysqldump command line utilities (tested on mysql version 5.5, it should work on versions above 5.0)
-* tar (any version should be fine)
+* tar (any version should be fine, required for file backups)
 
 = Setup different versions of your site =
 
@@ -94,6 +104,12 @@ For full details of how to do this, see the instructions for each method in the 
 = Download and install SitePush plugin =
 
 Download and install SitePush on one version of your site as per normal.
+
+= Update wp-config.php =
+
+In most cases you will need to update the wp-config.php file for each site you are pushing to. Because you are likely running different versions of sites at different URLs, you need to tell WordPress to override the `WordPress Address` and `Site Address` options.
+
+To do this, add definitions for the `WP_HOME` and `WP_SITEURL` constants in your wp-config.php file. For more information about this please see the [WordPress codex](http://codex.wordpress.org/Editing_wp-config.php#WordPress_address_.28URL.29).
 
 = Sites config file =
 In addition to configuring SitePush's settings page, you will also need to create and some settings files as described in this and the following sections. If at all possible upload these files outside of your web root so they are not accessible from a web browser. If that is not possible, make sure the file names end in '.php' and that you include the first line from the sample files.
@@ -385,9 +401,40 @@ You can now log into your live site, activate and configure SitePush. Once that 
 
 == Frequently Asked Questions ==
 
-= Will SitePush work on Windows systems? =
+= Can I push between sites running different versions of WordPress? =
 
-No. But if you would like to help me make it work on Windows please contact me.
+Pushing files between sites running different versions of WordPress should not be a problem.
+
+Pushing databases between sites running different versions of WordPress is not recommended. However, as long as there are no structural changes to the database which would cause backward compatibility problems, then it should work fine. The first time you go to wp-admin after a push, WordPress will probably tell you it needs to update the database.
+
+= SitePush complains that it can't find mysql/mysqldump/rsync =
+
+Make sure you enter the complete absolute path to the actual file binary/executable, not just the directory it is in. For example:-
+
+* `C:/wamp/bin/mysql/mysql5.6.12/bin/mysql.exe`
+* `/Applications/MAMP/Library/bin/mysql`
+* `/usr/bin/mysql`
+
+Note - these paths are just examples, they may be different on your system.
+
+= Does SitePush have to be running on sites I push to? =
+
+SitePush should normally be installed and running on all sites you are pushing to and from.
+
+SitePush can push files and database tables to a site even if that site is not running SitePush, however, some important aspects of SitePush require that it is running on sites you push to. If SitePush is not running on a site, the following will not work:-
+
+* fix site urls
+* preventing login to live sites
+* clearing cache after a push
+* activating/deactivating plugins
+
+If you don't want SitePush to show in wp-admin for a particular site, define `SITEPUSH_HIDE` to true in the wp-config.php file for that site.
+
+= SitePush isn't updating my database after a push =
+
+This is by design - SitePush avoids making any changes to the database unless absolutely necessary. Currently the only changes made are on multisite installs where the database needs to be updated to ensure each site has the correct URL.
+
+Note that the *Fix site URLs* option does not actually make any changes to the database - if activated it replaces incorrect URLs as they are output to the screen.
 
 = Can I use SitePush to move my site to a new server, or to backup my installation? =
 
@@ -412,8 +459,8 @@ If you do have problems with timeouts, you can also try pushing things separatel
 == Changelog ==
 
 = 0.4.1 (2012-11-13) =
-* bugfixes relating to URL replacement when pushing multisite installs
-* improvements to URL replacement, SitePush now replaces URLs in widgets, nav_menus and any URL passed through clean_url()
+* Bugfixes relating to URL replacement when pushing multisite installs.
+* Improvements to URL replacement, SitePush now replaces URLs in widgets, nav_menus and any URL passed through clean_url().
 
 = 0.4 (2012-09-06) =
 * SitePush no longer depends on rsync to push files. If you don't have rsync on your server, SitePush will copy files using PHP.
@@ -423,7 +470,7 @@ If you do have problems with timeouts, you can also try pushing things separatel
 * Various bug fixes.
 
 = 0.3 (2012-07-06) =
-* Initial public alpha release
+* Initial public alpha release.
 
 
 == Upgrade Notice ==
@@ -435,4 +482,4 @@ Bugfixes and improvements to URL replacement.
 SitePush no longer depends on rsync to push files, and allows you to define custom groups of DB tables to push. Many bugfixes and improved error reporting.
 
 = 0.3 =
-Initial public alpha release
+Initial public alpha release.
