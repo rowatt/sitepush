@@ -245,6 +245,9 @@ class SitePushOptions
 		if( !array_key_exists( 'db_custom_table_groups', $options ) ) $options['db_custom_table_groups'] = '';
 		if( $options['db_custom_table_groups'] )
 		{
+			//make sure the options array is emptied before we begin
+			$this->db_custom_table_groups_array = array();
+
 			//set $db_custom_table_groups_array from db_custom_table_groups option
 			$db_custom_table_groups = explode( "\n", $options['db_custom_table_groups'] );
 			foreach( $db_custom_table_groups as $table_group )
