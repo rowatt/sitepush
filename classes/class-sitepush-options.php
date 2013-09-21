@@ -25,10 +25,8 @@ class SitePushOptions
 	private $keep_options = array( 'accept', 'last_update' );
 	//parameters which get initialised and get whitespace trimmed
 	private $trim_params = array('sites_conf', 'dbs_conf', 'domain_map_conf', 'timezone', 'debug_output_level', 'capability', 'admin_capability', 'cache_key', 'plugin_activates', 'plugin_deactivates', 'backup_path', 'backup_keep_time', 'rsync_path', 'dont_sync', 'mysql_path', 'mysqldump_path');
-	//parameters which just get initialised
-	private $no_trim_params = array('accept', 'fix_site_urls', 'only_admins_login_to_live', 'non_admin_exclude_comments', 'non_admin_exclude_options');
+	//any site parameter here will always be present. If not present in config, it will be initialised to ''
 	private $site_params = array( 'label', 'name', 'web_path', 'db', 'live', 'default', 'cache', 'caches', 'domain', 'domains', 'wp_dir' );
-	private $all_params; //set in __construct
 
 	//options - these come from WordPress option sitepush_options
 	public $accept;
@@ -86,8 +84,6 @@ class SitePushOptions
 
 	private function __construct()
 	{
-		$this->all_params = array_merge( $this->trim_params, $this->no_trim_params );
-
 		$options = get_option( 'sitepush_options' );
 
 		//make sure all options set & initialise WP options if necessary
@@ -145,21 +141,16 @@ class SitePushOptions
 			$options = (array) $options;
 	
 		//microtime ensures that options are written and don't use cached value
-		$update_options['last_update'] = microtime(TRUE);
+		$update['last_update'] = microtime(TRUE);
 		
-		foreach( $this->all_params as $param )
-		{
-			$update_options[ $param ] = empty($options[ $param ]) ? NULL : $options[ $param ];
-		}
-
 		if( !empty($options['plugins']['activate']) )
-			$update_option['plugin_activates'] = implode( "\n", $options['plugins']['activate'] );
+			$options['plugin_activates'] = implode( "\n", $options['plugins']['activate'] );
 		if( !empty($options['plugins']['deactivate']) )
-			$update_option['plugin_deactivates'] = implode( "\n", $options['plugins']['deactivate'] );
+			$options['plugin_deactivates'] = implode( "\n", $options['plugins']['deactivate'] );
 
 		unset( $options['plugins'] );
 
-		update_option( 'sitepush_options', $update_options );
+		update_option( 'sitepush_options', $options );
 	}
 
 
