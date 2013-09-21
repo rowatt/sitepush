@@ -222,17 +222,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 
 	function field_hide_push_options()
 	{
-		$description = '
-			Enter table groups, one group per line, in the following format:<br />
-			<code>Field Label | table1, table2, table3</code><br />
-			Where:
-			<ul>
-			<li>Field Label is the label for the field on the main push screen. If the field should only show to users with the SitePush admin capability, precede the label with $$$, for example "$$$My Group of Tables"</li>
-			<li>After a pipe symbol (|) list all tables for the group, separated by commas. Do not include the table prefix (i.e. wp_ or any custom database prefix</li>
-			</ul>
-		';
-
-		echo $this->input_text('hide_push_options','To prevent specific push options from being shown to any user or admin enter a comma separated list of options to hide. Valid values are
+		$description = 'To prevent specific push options from being shown to any user or admin enter a comma separated list of options to hide. Valid values are
 <code>push_db_all_tables</code>,
 <code>push_db_post_content</code>,
 <code>push_db_comments</code>,
@@ -241,8 +231,9 @@ class SitePush_Options_Screen extends SitePush_Screen
 <code>push_theme</code>,
 <code>push_themes</code>,
 <code>push_plugins</code>,
-<code>push_uploads</code>
-.','large-text');
+<code>push_uploads</code>.';
+
+		echo $this->input_text('hide_push_options',$description,'large-text');
 	}
 
 	function field_db_custom_table_groups()
@@ -253,7 +244,7 @@ class SitePush_Options_Screen extends SitePush_Screen
 			Where:
 			<ul>
 			<li>Field Label is the label for the field on the main push screen. If the field should only show to users with the SitePush admin capability, precede the label with $$$, for example "$$$My Group of Tables"</li>
-			<li>After a pipe symbol (|) list all tables for the group, separated by commas. Do not include the table prefix (i.e. wp_ or any custom database prefix</li>
+			<li>After a pipe symbol (|) list all tables for the group, separated by commas. Do not include the table prefix (i.e. wp_ or any custom database prefix)</li>
 			</ul>
 		';
 
